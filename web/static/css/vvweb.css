@@ -11,3 +11,7 @@ ol li::before {
   color: black;
   font-weight: bold;
 }
+
+.required {
+  color: red;
+}
