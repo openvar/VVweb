@@ -44,11 +44,10 @@
           <li class="nav-item dropdown {% if 'service' in request.resolver_match.route %}active {% endif %}">
             <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">Services</a>
               <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-                <a class="dropdown-item" href="#">Action</a>
-                <a class="dropdown-item" href="#">Another action</a>
-                <a class="dropdown-item" href="#">Something else here</a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="#">Separated link</a>
+                <a class="dropdown-item" href="{% url 'validate' %}">Validator</a>
+                <a class="dropdown-item" href="#">Batch Validator</a>
+                <a class="dropdown-item" href="#">Genes to Transcripts</a>
+                <a class="dropdown-item" href="#">VCF to HGVS</a>
               </div>
           </li>
           <li class="nav-item dropdown {% if 'help' in request.resolver_match.route %}active {% endif %}">

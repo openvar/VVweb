@@ -23,4 +23,5 @@ urlpatterns = [
     path('about/', views.about, name='about'),
     path('contact/', views.contact, name='contact'),
     path('help/nomenclature/', views.nomenclature, name='nomenclature'),
+    path('service/validate/', views.validate, name='validate'),
 ]

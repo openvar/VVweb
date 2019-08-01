@@ -15,3 +15,9 @@ def mul(x, y):
 @shared_task
 def xsum(numbers):
     return sum(numbers)
+
+
+@shared_task
+def validate(variant, genome, validator):
+    output = validator.validate(variant, genome, 'all')
+    return output.format_as_dict()

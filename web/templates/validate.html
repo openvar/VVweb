@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Header -->
+  <header class="bg-primary py-2 mb-5">
+    <div class="container h-25">
+      <div class="row h-25 align-items-center">
+        <div class="col-lg-12">
+          <h1 class="display-4 text-white mt-5 mb-2">Validator</h1>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    {% if output %}
+    <div class="row">
+        <div class="col-md-12 mb-5">
+            {{ output }}
+        </div>
+    </div>
+    {% endif %}
+    <div class="row">
+      <div class="col-md-12 mb-5">
+          <h2>Input Variant Description</h2>
+          <h5>Enter variant description in the <a href="http://varnomen.hgvs.org/" target="_blank">HGVS</a> format or in VCF format as shown below:</h5>
+          <ul>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">NM_000088.3:c.589G>T</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">NC_000017.10:g.48275363C>A</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">NG_007400.1:g.8638G>T</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">LRG_1:g.8638G>T</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">LRG_1t1:c.589G>T</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh38">17-50198002-C-A</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh38">chr17:50198002C>A</a></li>
+          </ul>
+          <form method="post">
+            {% csrf_token %}
+              <div class="form-group">
+                  <label for="variant_id">Variant Description:</label>
+                  <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required>
+              </div>
+              <div class="form-group" id="genomeselect">
+                  <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="genomebuild" id="grch38" value="GRCh38">
+                      <label class="form-check-label" for="grch37">GRCh38 (hg38, build38)</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="genomebuild" id="grch37" value="GRCh37">
+                      <label class="form-check-label" for="grch37">GRCh37 (hg19, build19)</label>
+                  </div>
+              </div>
+              <button id="validate-btn" type="submit" class="btn btn-primary">Submit</button>
+          </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}

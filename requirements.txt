@@ -3,3 +3,4 @@ Django>=2.2.3
 sqlparse>=0.3.0
 django-celery-results>=1.1.2
 django-widget-tweaks>=1.4.5
+VariantValidator>=1.0.0

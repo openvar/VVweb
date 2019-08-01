@@ -12,3 +12,4 @@ dependencies:
   - pip:
     - django-celery-results
     - django-widget-tweaks
+    - variantValidator>=1.0.0
