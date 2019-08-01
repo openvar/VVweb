@@ -1,15 +1,7 @@
 
-ol {
-  list-style: none;
-  counter-reset: my-awesome-counter;
-}
-ol li {
-  counter-increment: my-awesome-counter;
-}
-ol li::before {
-  content: counter(my-awesome-counter) ". ";
-  color: black;
-  font-weight: bold;
+dd {
+  display: block;
+  margin-left: 20px;
 }
 
 .required {

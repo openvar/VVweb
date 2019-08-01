@@ -41,10 +41,49 @@
           <li class="nav-item {% if request.resolver_match.url_name == 'about' %}active {% endif %}">
             <a class="nav-link" href="{% url 'about' %}">About</a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">Services</a>
+          <li class="nav-item dropdown {% if 'service' in request.resolver_match.route %}active {% endif %}">
+            <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">Services</a>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="#">Action</a>
+                <a class="dropdown-item" href="#">Another action</a>
+                <a class="dropdown-item" href="#">Something else here</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#">Separated link</a>
+              </div>
           </li>
-          <li class="nav-item">
+          <li class="nav-item dropdown {% if 'help' in request.resolver_match.route %}active {% endif %}">
+            <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">Help</a>
+              <div class="dropdown-menu dropleft" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="{% url 'nomenclature' %}">Nomenclature</a>
+                <a class="dropdown-item" href="#">VariantValidator</a>
+                <a class="dropdown-item" href="#">FAQs</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item dropdown-toggle" id="helpSubDropdown" data-toggle="dropdown" href="#" aria-haspopup="true" aria-expanded="false">External Links</a>
+                  <div class="dropdown-menu" aria-labelledby="helpSubDropdown">
+                      <h6 class="dropdown-header">HGVS and UTA</h6>
+                      <a class="dropdown-item" href="https://github.com/biocommons/hgvs" target="_blank">HGVS library</a>
+                      <a class="dropdown-item" href="https://github.com/biocommons/uta/" target="_blank">Universal Transcript Archive</a>
+                      <div class="dropdown-divider"></div>
+                      <h6 class="dropdown-header">HGVS Nomenclature</h6>
+                      <a class="dropdown-item" href="http://varnomen.hgvs.org/" role="button" target="_blank">HGVS/varnomen</a>
+                      <div class="dropdown-divider"></div>
+                      <h6 class="dropdown-header">Variant Databases</h6>
+                      <a class="dropdown-item" href="http://grenada.lumc.nl/LSDB_list/lsdbs" target="_blank">Locus Specific Database list</a>
+                      <a class="dropdown-item" href="https://www.ncbi.nlm.nih.gov/clinvar/" target="_blank">ClinVar</a>
+            		  <a class="dropdown-item" href="https://cancer.sanger.ac.uk/cosmic" target="_blank">COSMIC</a>
+                      <div class="dropdown-divider"></div>
+                      <h6 class="dropdown-header">Reference Sequence Portals</h6>
+                      <a class="dropdown-item" href="https://www.ncbi.nlm.nih.gov/refseq/" target="_blank">NCBI RefSeq</a>
+                      <a class="dropdown-item" href="http://www.lrg-sequence.org/" target="_blank">Locus Reference Genomic</a>
+                      <a class="dropdown-item" href="http://www.ensembl.org/index.html" target="_blank">ENSEMBL</a>
+                      <a class="dropdown-item" href="https://genome.ucsc.edu/cgi-bin/hgGateway" target="_blank">UCSC Genome Browser</a>
+                      <div class="dropdown-divider"></div>
+                      <h6 class="dropdown-header">Similar Sites</h6>
+                      <a class="dropdown-item" href="https://mutalyzer.nl/" target="_blank">Mutalyzer</a>
+                  </div>
+              </div>
+          </li>
+          <li class="nav-item {% if request.resolver_match.url_name == 'contact' %}active {% endif %}">
             <a class="nav-link" href="{% url 'contact' %}">Contact</a>
           </li>
         </ul>

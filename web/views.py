@@ -24,3 +24,7 @@ def contact(request):
     return render(request, 'contact.html', {
         'form': form,
     })
+
+
+def nomenclature(request):
+    return render(request, 'nomenclature.html')
