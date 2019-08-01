@@ -1,0 +1,14 @@
+name: vvweb
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - celery
+  - django
+  - pip
+  - python=3.6
+  - sqlite=3.28
+  - sqlparse=0.3
+  - pip:
+    - django-celery-results
+    - django-widget-tweaks
