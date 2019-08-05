@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.conf import settings
 from . import forms
 from . import tasks
 from . import services
@@ -74,5 +75,6 @@ def validate(request):
         print(output)
 
     return render(request, 'validate.html', {
-        'output': output
+        'output': output,
+        'varsome_token': getattr(settings, 'VARSOME_TOKEN'),
     })

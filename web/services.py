@@ -52,6 +52,8 @@ def process_result(val, validator):
                 vcfdict['alt']
             )
             v['primary_assembly_loci'][genome]['vcfstr'] = vcfstr
+            v['primary_assembly_loci'][genome]['vcfstr_alt'] = "%s-%s-%s-%s" % (
+                vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt'])
             v['primary_assembly_loci'][genome]['ac'] = \
                 v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
         each.append(v)

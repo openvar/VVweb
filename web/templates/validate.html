@@ -77,17 +77,17 @@
                                         </tr>
                                         <tr>
                                             <td>Transcript (:c.)</td>
-                                            <td><a href="#">{{ each.hgvs_transcript_variant }}</a></td>
+                                            <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_transcript_variant }}</a></td>
                                             <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.tx_ac }}" target="_blank">{{ each.tx_ac }}</a></td>
                                         </tr>
                                         <tr>
                                             <td>RefSeq Gene (:g.)</td>
-                                            <td><a href="#">{{ each.hgvs_refseqgene_variant }}</a></td>
+                                            <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_refseqgene_variant }}</a></td>
                                             <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.gene_ac }}" target="_blank">{{ each.gene_ac }}</a></td>
                                         </tr>
                                         <tr>
                                             <td>Protein (:p.)</td>
-                                            <td><a href="#">{{ each.hgvs_predicted_protein_consequence.tlr }}</a></td>
+                                            <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_predicted_protein_consequence.tlr }}</a></td>
                                             <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
                                         </tr>
                                     </table>
@@ -100,12 +100,12 @@
                                             <th>Link to GenBank</th>
                                         </tr>
                                         <tr>
-                                            <td><a href="#">{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}</a></td>
+                                            <td><a class="variant-example" data-genome="GRCh38" href="#">{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}</a></td>
                                             <td>{{ each.primary_assembly_loci.grch38.vcfstr }}</td>
                                             <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.primary_assembly_loci.grch38.ac }}" target="_blank">{{ each.primary_assembly_loci.grch38.ac }}</a></td>
                                         </tr>
                                         <tr>
-                                            <td><a href="#">{{ each.primary_assembly_loci.grch37.hgvs_genomic_description }}</a></td>
+                                            <td><a class="variant-example" data-genome="GRCh37" href="#">{{ each.primary_assembly_loci.grch37.hgvs_genomic_description }}</a></td>
                                             <td>{{ each.primary_assembly_loci.grch37.vcfstr }}</td>
                                             <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.primary_assembly_loci.grch37.ac }}" target="_blank">{{ each.primary_assembly_loci.grch37.ac }}</a></td>
                                         </tr>
@@ -144,20 +144,16 @@
                                     </table>
 
                                     <h4>Aggregated data sources and clinical significance</h4>
-{##}
-{#                                    <variant-request refgenome="{{varsome_api[0]}}" query="{{varsome_api[1]}}"></variant-request>#}
-{#                                    <variant-details nearby="true" defaultexpanded="true"></variant-details>#}
-{#                                    <region-browser></region-browser>#}
-{#                                    <ncbi-clinvar defaultexpanded="true"></ncbi-clinvar>#}
-{#                                    <genes-results defaultexpanded="true" showghrgenes="false" showhpo="false" showcgd="true" showtranscripts="false" showgenestats="false" showexacgenes="true" showdbnsfpgenes="false" showcivic="false"></genes-results>#}
-{#                                    <!-- <refseq-transcripts></refseq-transcripts>#}
-{#                                    <ensembl-transcripts></ensembl-transcripts> -->#}
-{#                                    <!-- <gerp-results></gerp-results>#}
-{#                                    <broad-exac></broad-exac>#}
-{#                                    <thousand-genomes></thousand-genomes>#}
-{#                                    <kaviar-results></kaviar-results> -->#}
-{#                                    <!-- <dbnsfp-dbscsnv></dbnsfp-dbscsnv> -->#}
-{#                                    <dbnsfp-results defaultexpanded="true"></dbnsfp-results>#}
+                                    {% if output.genome == 'GRCh37' %}
+                                      <variant-request refgenome="hg19" query="{{ each.primary_assembly_loci.grch37.vcfstr_alt }}"></variant-request>
+                                    {% else %}
+                                      <variant-request refgenome="hg38" query="{{ each.primary_assembly_loci.grch38.vcfstr_alt }}"></variant-request>
+                                    {% endif %}
+                                    <variant-details nearby="true" defaultexpanded="true"></variant-details>
+                                    <region-browser></region-browser>
+                                    <ncbi-clinvar defaultexpanded="true"></ncbi-clinvar>
+                                    <genes-results defaultexpanded="true" showghrgenes="false" showhpo="false" showcgd="true" showtranscripts="false" showgenestats="false" showexacgenes="true" showdbnsfpgenes="false" showcivic="false"></genes-results>
+                                    <dbnsfp-results defaultexpanded="true"></dbnsfp-results>
                                 </div>
                             {% endfor %}
                         </div>
@@ -200,4 +196,14 @@
             </div>
         </div>
     </div>
+{% endblock %}
+
+{% block extrafooter %}
+	<script>
+		var varsomeConfig = {
+			api_url: 'https://api.varsome.com',
+			static_token: '{{ varsome_token | safe }}'
+		}
+	</script>
+	<script src="https://assets.varsome.com/static/components/components-bundle.js"></script>
 {% endblock %}
