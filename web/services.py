@@ -12,6 +12,7 @@ def process_result(val, validator):
     meta = val['metadata']
     input_str = ''
     each = []
+    genomes = {}
     counter = 0
     for k, v in val.items():
         if k == 'flag' or k == 'metadata':
@@ -51,9 +52,15 @@ def process_result(val, validator):
                 vcfdict['ref'],
                 vcfdict['alt']
             )
+            vcfstr_alt = "%s-%s-%s-%s" % (
+                vcfdict['chr'],
+                vcfdict['pos'],
+                vcfdict['ref'],
+                vcfdict['alt']
+            )
             v['primary_assembly_loci'][genome]['vcfstr'] = vcfstr
-            v['primary_assembly_loci'][genome]['vcfstr_alt'] = "%s-%s-%s-%s" % (
-                vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt'])
+            v['primary_assembly_loci'][genome]['vcfstr_alt'] = vcfstr_alt
+            genomes[genome] = vcfstr_alt
             v['primary_assembly_loci'][genome]['ac'] = \
                 v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
         each.append(v)
@@ -62,6 +69,7 @@ def process_result(val, validator):
         'flag': flag,
         'meta': meta,
         'inputted': input_str,
+        'genomes': genomes,
         'results': sorted(each, key=lambda i: i['tx_ac']),
     }
 

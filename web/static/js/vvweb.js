@@ -14,6 +14,14 @@ $(document).ready(function() {
         });
     });
 
+    $('#validate-btn .spinner-border').hide();
+
+    $('#validate-btn').on("click", function() {
+        console.log("Clicked validate button");
+        $('#validate-btn .spinner-border').show();
+        $('#validate-btn-text').text('Loading...');
+    });
+
     $('#myTab a').on('click', function (e) {
       e.preventDefault();
       console.log('clicked on a tab!');
@@ -47,6 +55,6 @@ $(document).ready(function() {
                 $('#results').hide();
             }
         })
-    })
+    });
 
 });
