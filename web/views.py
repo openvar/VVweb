@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from . import forms
 from . import tasks
+from . import services
 import VariantValidator
 import vvhgvs
 from configparser import ConfigParser
@@ -51,6 +52,13 @@ def nomenclature(request):
 
 
 def validate(request):
+    """
+    View will validate input and process output. If multiple transcripts are found, each will be presented with their
+    own tab. Choice and filtering of results will occur server side after everything returned. Might take a while for
+    some sequences so will need loading spinner.
+    :param request:
+    :return:
+    """
 
     output = False
 
@@ -60,9 +68,9 @@ def validate(request):
         variant = request.POST.get('variant')
         genome = request.POST.get('genomebuild')
 
-        print(variant, genome)
-
         output = tasks.validate(variant, genome, mything)
+        output = services.process_result(output, mything)
+        output['genome'] = genome
         print(output)
 
     return render(request, 'validate.html', {

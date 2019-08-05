@@ -18,6 +18,12 @@ def xsum(numbers):
 
 
 @shared_task
-def validate(variant, genome, validator):
-    output = validator.validate(variant, genome, 'all')
+def validate(variant, genome, validator, transcripts='all'):
+    output = validator.validate(variant, genome, transcripts)
     return output.format_as_dict()
+
+
+@shared_task
+def gene2transcripts(variant, validator):
+    output = validator.gene2transcripts(variant)
+    return output
