@@ -78,3 +78,23 @@ def validate(request):
         'output': output,
         'varsome_token': getattr(settings, 'VARSOME_TOKEN'),
     })
+
+
+def batch_validate(request):
+    """
+    View will take input and run validator via Celery. Results will be emailed to user.
+    :param request:
+    :return:
+    """
+
+    form = forms.BatchValidateForm()
+
+    if request.method == 'POST':
+        print("Form submitted")
+        form = forms.BatchValidateForm(request.POST)
+        if form.is_valid():
+            print(form.cleaned_data)
+
+    return render(request, 'batch_validate.html', {
+        'form': form,
+    })

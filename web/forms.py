@@ -14,3 +14,19 @@ class ContactForm(forms.ModelForm):
                 attrs={'placeholder': 'Enter query here'}),
         }
         fields = ('name', 'email', 'variant', 'question')
+
+
+class BatchValidateForm(forms.Form):
+    input_variants = forms.CharField(widget=forms.Textarea(
+        attrs={'placeholder': 'Variant descriptions must be separated by new lines, spaces or tabs.'}),
+                                     label='Input Variant Descriptions'
+                                     )
+    gene_symbols = forms.CharField(widget=forms.Textarea(
+        attrs={'rows': '3', 'placeholder': 'One gene symbol per line'}),
+                                   required=False,
+                                   label='Limit search, optionally, to specific genes (use HGNC gene symbols)')
+    email_address = forms.EmailField(widget=forms.EmailInput(
+        attrs={'placeholder': 'A validation report will be sent via email.'}))
+    genome = forms.ChoiceField(choices=(('grch38', 'GRCh38'), ('grch37', 'GRCh37')),
+                               widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+                               label='Select genome build')
