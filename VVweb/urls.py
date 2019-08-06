@@ -23,6 +23,7 @@ urlpatterns = [
     path('about/', views.about, name='about'),
     path('contact/', views.contact, name='contact'),
     path('help/nomenclature/', views.nomenclature, name='nomenclature'),
+    path('help/instructions/', views.instructions, name='batch_instructions'),
     path('service/validate/', views.validate, name='validate'),
     path('service/validate/batch/', views.batch_validate, name='batch_validate'),
     path('download/<str:job_id>/', views.download_batch_res, name='batch_download'),

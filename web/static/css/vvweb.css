@@ -7,3 +7,23 @@ dd {
 .required {
   color: red;
 }
+
+pre {
+  position: relative;
+  padding: 20px 15px;
+  overflow-x: auto;
+  background: #f7f7f7;
+  white-space: pre;
+  font-size: 14px;
+  color: #666666;
+  border-left: 3px solid #7b7b7b;
+}
+
+pre code {
+  padding: 0;
+}
+
+code {
+  background: #f7f7f7;
+  padding: 2px;
+}

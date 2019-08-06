@@ -55,6 +55,10 @@ def nomenclature(request):
     return render(request, 'nomenclature.html')
 
 
+def instructions(request):
+    return render(request, 'batch_instructions.html')
+
+
 def validate(request):
     """
     View will validate input and process output. If multiple transcripts are found, each will be presented with their
