@@ -1,0 +1,13 @@
+Batch Validation Report for job id: {{job_id}}
+
+Download your batch validation report by clicking the link below:
+
+http://{{ domain }}{% url 'batch_download' job_id %}
+
+Clicking this link will prompt you to choose a location on your computer to where your data will be downloaded, in the format of a tab delimited .txt file.
+This file can be copied and pasted into a spreadsheet package e.g. Microsoft Excel or OpenOffice Calc.
+Un-retrieved data will be deleted automatically after 7 days.
+
+Regards,
+
+VariantValidator Admin

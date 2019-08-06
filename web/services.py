@@ -1,3 +1,7 @@
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.contrib.sites.models import Site
+
 
 def process_result(val, validator):
     """
@@ -74,3 +78,12 @@ def process_result(val, validator):
     }
 
     return alloutputs
+
+
+def send_result_email(email, job_id):
+    subject = "Batch Validation Report"
+    current_site = Site.objects.get_current()
+    message = render_to_string('email/report.txt', {'job_id': job_id, 'domain': current_site.domain})
+    html_msg = render_to_string('email/report.html', {'job_id': job_id, 'domain': current_site.domain})
+
+    send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)

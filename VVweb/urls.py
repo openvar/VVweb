@@ -25,4 +25,5 @@ urlpatterns = [
     path('help/nomenclature/', views.nomenclature, name='nomenclature'),
     path('service/validate/', views.validate, name='validate'),
     path('service/validate/batch/', views.batch_validate, name='batch_validate'),
+    path('download/<str:job_id>/', views.download_batch_res, name='batch_download'),
 ]

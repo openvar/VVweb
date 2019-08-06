@@ -1,12 +1,14 @@
 from django.shortcuts import render, redirect
 from django.conf import settings
 from django.contrib import messages
+from django.http import FileResponse, HttpResponse
 from . import forms
 from . import tasks
 from . import services
 import VariantValidator
 import vvhgvs
 from configparser import ConfigParser
+from celery.result import AsyncResult
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 mything = VariantValidator.Validator()
@@ -102,7 +104,8 @@ def batch_validate(request):
             gene_str = form.cleaned_data['gene_symbols']
             print(gene_str)
 
-            tasks.batch_validate.delay(input_str, form.cleaned_data['genome'], transcripts=gene_str)
+            tasks.batch_validate.delay(input_str, form.cleaned_data['genome'], form.cleaned_data['email_address'],
+                                       transcripts=gene_str)
             messages.success(request, "Batch validation successfully submitted - results will be emailed to you")
             return redirect('batch_validate')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
@@ -110,3 +113,27 @@ def batch_validate(request):
     return render(request, 'batch_validate.html', {
         'form': form,
     })
+
+
+def download_batch_res(request, job_id):
+    """
+    Request will download job results
+    :param request:
+    :param job_id:
+    :return:
+    """
+    job = AsyncResult(job_id)
+
+    buffer = str()
+    buffer += '# Job ID:%s\n' % job_id
+    for row in job.result:
+        if isinstance(row, list):
+            buffer += '\t'.join(row)
+        else:
+            buffer += row
+        buffer += '\n'
+    print(buffer)
+
+    response = HttpResponse(buffer, content_type='text/plain')
+    response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
+    return response
