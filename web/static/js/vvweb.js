@@ -57,4 +57,14 @@ $(document).ready(function() {
         })
     });
 
+    // Going to find and deal with select genome errors
+
+    $('.errorlist').each(function(){
+        var neices = $(this).parent().siblings().find('.form-check-input');
+        neices.each(function(){
+            $(this).addClass('is-invalid');
+        });
+        console.log(neices);
+    })
+
 });

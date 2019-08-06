@@ -30,3 +30,15 @@ class BatchValidateForm(forms.Form):
     genome = forms.ChoiceField(choices=(('grch38', 'GRCh38'), ('grch37', 'GRCh37')),
                                widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
                                label='Select genome build')
+
+    def clean_input_variants(self):
+        vars = self.cleaned_data['input_variants'].split()
+        if len(vars) == 0:
+            raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
+
+        var_str = '|'.join(vars)
+        return var_str
+
+    def clean_gene_symbols(self):
+        symbols = self.cleaned_data['gene_symbols'].split()
+        return '|'.join(symbols)

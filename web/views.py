@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.conf import settings
+from django.contrib import messages
 from . import forms
 from . import tasks
 from . import services
@@ -56,7 +57,7 @@ def validate(request):
     """
     View will validate input and process output. If multiple transcripts are found, each will be presented with their
     own tab. Choice and filtering of results will occur server side after everything returned. Might take a while for
-    some sequences so will need loading spinner.
+    some sequences so will need loading spinner/timeout.
     :param request:
     :return:
     """
@@ -69,7 +70,7 @@ def validate(request):
         variant = request.POST.get('variant')
         genome = request.POST.get('genomebuild')
 
-        output = tasks.validate(variant, genome, mything)
+        output = tasks.validate(variant, genome, validator=mything)
         output = services.process_result(output, mything)
         output['genome'] = genome
         print(output)
@@ -94,6 +95,17 @@ def batch_validate(request):
         form = forms.BatchValidateForm(request.POST)
         if form.is_valid():
             print(form.cleaned_data)
+
+            input_str = form.cleaned_data['input_variants']
+            print(input_str)
+
+            gene_str = form.cleaned_data['gene_symbols']
+            print(gene_str)
+
+            tasks.batch_validate.delay(input_str, form.cleaned_data['genome'], transcripts=gene_str)
+            messages.success(request, "Batch validation successfully submitted - results will be emailed to you")
+            return redirect('batch_validate')
+        messages.warning(request, "Form contains errors (see below). Please resubmit")
 
     return render(request, 'batch_validate.html', {
         'form': form,
