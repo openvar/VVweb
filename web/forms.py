@@ -27,12 +27,12 @@ class BatchValidateForm(forms.Form):
                                    label='Limit search, optionally, to specific genes (use HGNC gene symbols)')
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
-    genome = forms.ChoiceField(choices=(('grch38', 'GRCh38'), ('grch37', 'GRCh37')),
+    genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
                                widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
                                label='Select genome build')
 
     def clean_input_variants(self):
-        vars = self.cleaned_data['input_variants'].split()
+        vars = self.cleaned_data['input_variants'].strip().split()
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
 
@@ -40,5 +40,5 @@ class BatchValidateForm(forms.Form):
         return var_str
 
     def clean_gene_symbols(self):
-        symbols = self.cleaned_data['gene_symbols'].split()
+        symbols = self.cleaned_data['gene_symbols'].strip().split()
         return '|'.join(symbols)

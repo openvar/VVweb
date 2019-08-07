@@ -13,17 +13,31 @@ def validate(variant, genome, transcripts='all', validator=None):
 
 
 @shared_task
-def gene2transcripts(variant, validator=None):
+def gene2transcripts(symbol, validator=None):
     if validator is None:
         validator = VariantValidator.Validator()
-    output = validator.gene2transcripts(variant)
+    output = validator.gene2transcripts(symbol)
     return output
 
 
 @shared_task
-def batch_validate(variant, genome, email, transcripts='all', validator=None):
+def batch_validate(variant, genome, email, gene_symbols, validator=None):
     if validator is None:
         validator = VariantValidator.Validator()
+
+    transcripts = []
+    for sym in gene_symbols.split('|'):
+        if sym:
+            returned_trans = gene2transcripts(sym, validator=validator)
+            print(returned_trans)
+            for trans in returned_trans['transcripts']:
+                transcripts.append(trans['reference'])
+    if transcripts:
+        transcripts = '|'.join(transcripts)
+    else:
+        transcripts = 'all'
+
+    print("Transcripts: %s" % transcripts)
     output = validator.validate(variant, genome, transcripts)
     res = output.format_as_table()
 

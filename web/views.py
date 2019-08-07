@@ -97,19 +97,16 @@ def batch_validate(request):
     form = forms.BatchValidateForm()
 
     if request.method == 'POST':
-        print("Form submitted")
         form = forms.BatchValidateForm(request.POST)
         if form.is_valid():
             print(form.cleaned_data)
 
-            input_str = form.cleaned_data['input_variants']
-            print(input_str)
-
-            gene_str = form.cleaned_data['gene_symbols']
-            print(gene_str)
-
-            tasks.batch_validate.delay(input_str, form.cleaned_data['genome'], form.cleaned_data['email_address'],
-                                       transcripts=gene_str)
+            tasks.batch_validate.delay(
+                form.cleaned_data['input_variants'],
+                form.cleaned_data['genome'],
+                form.cleaned_data['email_address'],
+                form.cleaned_data['gene_symbols']
+            )
             messages.success(request, "Batch validation successfully submitted - results will be emailed to you")
             return redirect('batch_validate')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
