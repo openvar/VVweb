@@ -59,6 +59,28 @@ def instructions(request):
     return render(request, 'batch_instructions.html')
 
 
+def genes_to_transcripts(request):
+
+    output = False
+
+    if request.method == "POST":
+        print("Submitted")
+        symbol = request.POST.get('symbol')
+
+        output = tasks.gene2transcripts(symbol, mything)
+        print(output)
+        if 'transcripts' in output.keys():
+            for trans in output['transcripts']:
+                if trans['reference'].startswith('LRG'):
+                    trans['url'] = 'http://ftp.ebi.ac.uk/pub/databases/lrgex/' + trans['reference'].split('t')[0] + '.xml'
+                else:
+                    trans['url'] = 'https://www.ncbi.nlm.nih.gov/nuccore/' + trans['reference']
+
+    return render(request, 'genes_to_transcripts.html', {
+        'output': output
+    })
+
+
 def validate(request):
     """
     View will validate input and process output. If multiple transcripts are found, each will be presented with their
