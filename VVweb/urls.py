@@ -29,5 +29,6 @@ urlpatterns = [
     path('service/validate/', views.validate, name='validate'),
     path('service/validate/batch/', views.batch_validate, name='batch_validate'),
     path('service/gene2trans/', views.genes_to_transcripts, name='genes2trans'),
+    path('service/vcf2hgvs/', views.vcf2hgvs, name='vcf2hgvs'),
     path('download/<str:job_id>/', views.download_batch_res, name='batch_download'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,6 +1,8 @@
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
+from django.conf import settings
+from VariantValidator.modules.seq_data import to_accession
 
 
 def process_result(val, validator):
@@ -87,3 +89,77 @@ def send_result_email(email, job_id):
     html_msg = render_to_string('email/report.html', {'job_id': job_id, 'domain': current_site.domain})
 
     send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
+
+
+def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
+    if cause != 'invalid' and cause != 'max_limit':
+        raise TypeError("send_vcf_email expects string 'invalid' or 'max_limit'. %s is not accepted" % cause)
+
+    base_template = 'vcf_%s' % cause
+
+    subject = "VCF2HGVS Conversion Rejected"
+    current_site = Site.objects.get_current()
+    message = render_to_string('email/%s.txt' % base_template,
+                               {'domain': current_site.domain,
+                                'job_id': job_id,
+                                'genome': genome,
+                                'per': per,
+                                'max': settings.MAX_VCF})
+    html_msg = render_to_string('email/%s.html' % base_template,
+                                {'domain': current_site.domain,
+                                 'job_id': job_id,
+                                 'genome': genome,
+                                 'per': per,
+                                 'max': settings.MAX_VCF})
+
+    send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
+
+
+def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
+    """
+    Taken directly from original function in batch validator and tweaked to work with new VV version
+    :param chromosome:
+    :param pos:
+    :param ref:
+    :param alt:
+    :param primary_assembly:
+    :param validator:
+    :return:
+    """
+    chromosome = chromosome.upper()
+    # Remove chr from UCSC refs
+    if chromosome.startswith('CHR'):
+        chromosome = chromosome[3:]
+
+    validation = {'pseudo_vcf': '',
+                  'supported': '',
+                  'valid': ''
+                  }
+
+    # Is there a supported chromosome?
+    rs_chr = to_accession(chromosome, primary_assembly)
+    print(rs_chr)
+    if rs_chr is None:
+        validation['supported'] = 'false'
+        validation['pseudo_vcf'] = 'false'
+        validation['valid'] = 'pass'
+    else:
+        validation['supported'] = 'true'
+        # Now check the reference sequence - fetch the specified bases and check whether they match the stated ref
+        if ref == 'ins':
+            validation['valid'] = 'ambiguous'
+        else:
+            start = int(pos)
+            end = int(pos) + len(ref) - 1
+            mock_hgvs_g = str(rs_chr) + ':g.' + str(start) + '_' + str(end) + 'del'
+            get_ref = validator.hgvs2ref(mock_hgvs_g)
+            test = get_ref['sequence']
+            if ref == test:
+                validation['valid'] = 'true'
+            else:
+                validation['valid'] = 'false'
+        # Assemble Pseudo VCF
+        validation['pseudo_vcf'] = '%s-%s-%s-%s' % (chromosome, pos, ref, alt)
+
+    # Return the result
+    return validation

@@ -134,6 +134,10 @@ CELERY_CACHE_BACKEND = 'django-cache'
 if DEBUG is True:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+
+# For VCF to HGVS conversion
+MAX_VCF = 50000
+
 try:
     from .local_settings import *
 except ImportError:

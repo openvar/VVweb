@@ -1,0 +1,11 @@
+VCF to HGVS job_id: {{ job_id }}
+
+VCF2HGVS was unable to recover sufficient supported data from your uploaded file.
+The likelihood that the VCF file was derived from genome build {{ genome }} is {{ per }}%.
+The cut-off for analysis is 90%.
+
+If you have any queries, please contact admin at http://{{ domain }}{% url 'contact' %}
+
+Regards,
+
+VariantValidator Admin

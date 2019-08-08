@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.conf import settings
 from django.contrib import messages
 from django.http import FileResponse, HttpResponse
+from django.core.serializers import serialize
 from . import forms
 from . import tasks
 from . import services
@@ -115,9 +116,6 @@ def batch_validate(request):
     :param request:
     :return:
     """
-
-    form = forms.BatchValidateForm()
-
     if request.method == 'POST':
         form = forms.BatchValidateForm(request.POST)
         if form.is_valid():
@@ -132,9 +130,59 @@ def batch_validate(request):
             messages.success(request, "Batch validation successfully submitted - results will be emailed to you")
             return redirect('batch_validate')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
+    else:
+        form = forms.BatchValidateForm()
 
     return render(request, 'batch_validate.html', {
         'form': form,
+    })
+
+
+def vcf2hgvs(request):
+    """
+    View will take uploaded vcf file and convert to HGVS via celery. Results will be emailed to user.
+    :param request:
+    :return:
+    """
+
+    if request.method == 'POST':
+        form = forms.VCF2HGVSForm(request.POST, request.FILES)
+        if form.is_valid():
+            print(form.cleaned_data)
+            print(form.cleaned_data['vcf_file'])
+            # json_version = serialize('json', [form.cleaned_data['vcf_file']])
+            # print(json_version)
+
+            if request.FILES['vcf_file'].multiple_chunks():
+                messages.info(request, 'Large file detected, multiple jobs will be submitted')
+                jobs = []
+                for chunk in request.FILES['vcf_file'].chunks():
+                    res = tasks.vcf2hgvs.delay(
+                        chunk,
+                        form.cleaned_data['genome'],
+                        form.cleaned_data['gene_symbols'],
+                        form.cleaned_data['email_address']
+                    )
+                    jobs.append(str(res))
+                res = ', '.join(jobs)
+            else:
+                res = tasks.vcf2hgvs.delay(
+                    request.FILES['vcf_file'].read(),
+                    form.cleaned_data['genome'],
+                    form.cleaned_data['gene_symbols'],
+                    form.cleaned_data['email_address']
+                )
+            print(res)
+            messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % res)
+            return redirect('vcf2hgvs')
+        messages.warning(request, "Form contains errors (see below). Please resubmit")
+
+    else:
+        form = forms.VCF2HGVSForm()
+
+    return render(request, 'vcf_to_hgvs.html', {
+        'form': form,
+        'max': settings.MAX_VCF,
     })
 
 
