@@ -122,6 +122,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
                     if ratio_valid < 90:
                         print("EMAIL")
                         print("Not enough are valid!!")
+                        error_log.append("Only %s percent valid after processing 100 VCFs" % ratio_valid)
                         services.send_vcf_email(email=email, job_id=jobid, genome=genome, per=ratio_valid)
                         batch_submit = False
                         break
@@ -129,6 +130,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
                 # Limit jobs in batch list
                 elif vcf_validated > settings.MAX_VCF:
                     print("FOUND TOO MANY")
+                    error_log.append("Exceeded max %s validated VCFs" % settings.MAX_VCF)
                     services.send_vcf_email(email, jobid, cause='max_limit')
                     batch_submit = False
                     break
@@ -165,6 +167,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
 
         ratio_valid = ratio_valid * 100
         if ratio_valid < 90:
+            error_log.append("Only %s percent valid after processing whole file" % ratio_valid)
             print("EMAIL")
             print("Not enough valid")
             services.send_vcf_email(email, jobid, genome=genome, per=ratio_valid)
@@ -179,9 +182,9 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
         return 'Success - %s (of %s) variants submitted to BatchValidator' % (len(batch_list), total_vcf_calls)
 
     # Alert admin to errors
-    if error_log:
-        error_log = '\n'.join(error_log)
-        print(error_log)
+    # if error_log:
+    #     error_log = '\n'.join(error_log)
+    print(error_log)
         # create message
         # fromaddr = "vcf2hgvs@%s" % hostname
         # toaddr = "variantvalidator@gmail.com"
@@ -202,3 +205,5 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
         # text = msg.as_string()
         # server.sendmail(fromaddr, toaddr, text)
         # server.quit()
+
+    return {'errors': error_log}
