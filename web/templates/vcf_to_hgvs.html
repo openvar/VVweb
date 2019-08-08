@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
+{% load humanize %}
 
 {% block content %}
 
@@ -42,7 +43,7 @@
                     If gene(s) and transcript(s) are specified, only VCF calls which map within the boundaries of
                     specified transcript(s) will be retained.<br>
                     Results will be returned by the batch validator tool via email.<br>
-                    VCF calls will be returned in the format chrX-12345-REF-ALT. The tool will process a maximum of {{ max }} variants.
+                    VCF calls will be returned in the format chrX-12345-REF-ALT. The tool will process a maximum of {{ max|intcomma }} variants.
                 </p>
                 <form method="POST" novalidate enctype="multipart/form-data">
                     {% csrf_token %}

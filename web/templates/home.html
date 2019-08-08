@@ -30,7 +30,7 @@
           VariantValidator auto-corrects your mistakes if it can and helps you correct your own if it can't. We provide
           a range of tools to meet your needs including batch processing, a VCF file converter and API access.
         </p>
-        <a class="btn btn-primary btn-lg" href="#">Call to Action &raquo;</a>
+{#        <a class="btn btn-primary btn-lg" href="#">Call to Action &raquo;</a>#}
       </div>
 
       <div class="col-md-4 mb-5">
@@ -58,10 +58,10 @@
           <img class="card-img-top" src="http://placehold.it/300x200" alt="">
           <div class="card-body">
             <h4 class="card-title">Validator</h4>
-            <p class="card-text">Validate your variant descriptions using HGVS nomenclature</p>
+            <p class="card-text">Validate your variant descriptions using HGVS nomenclature.</p>
           </div>
           <div class="card-footer">
-            <a href="#" class="btn btn-primary">Find Out More!</a>
+            <a href="{% url 'validate' %}" class="btn btn-primary">Try It Out!</a>
           </div>
         </div>
       </div>
@@ -69,11 +69,11 @@
         <div class="card h-100">
           <img class="card-img-top" src="http://placehold.it/300x200" alt="">
           <div class="card-body">
-            <h4 class="card-title">HGVS to VCF</h4>
-            <p class="card-text">Convert VCF files</p>
+            <h4 class="card-title">VCF to HGVS</h4>
+            <p class="card-text">Convert VCF files to validated HGVS variants.</p>
           </div>
           <div class="card-footer">
-            <a href="#" class="btn btn-primary">Find Out More!</a>
+            <a href="{% url 'vcf2hgvs' %}" class="btn btn-primary">Try It Out!</a>
           </div>
         </div>
       </div>
@@ -82,10 +82,10 @@
           <img class="card-img-top" src="http://placehold.it/300x200" alt="">
           <div class="card-body">
             <h4 class="card-title">Gene to Transcript</h4>
-            <p class="card-text">Identify all transcripts from a gene symbol</p>
+            <p class="card-text">Identify all transcripts from a gene symbol.</p>
           </div>
           <div class="card-footer">
-            <a href="#" class="btn btn-primary">Find Out More!</a>
+            <a href="{% url 'genes2trans' %}" class="btn btn-primary">Try It Out!</a>
           </div>
         </div>
       </div>

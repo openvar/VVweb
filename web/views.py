@@ -1,23 +1,23 @@
 from django.shortcuts import render, redirect
 from django.conf import settings
 from django.contrib import messages
-from django.http import FileResponse, HttpResponse
-from django.core.serializers import serialize
+from django.http import HttpResponse
 from . import forms
 from . import tasks
 from . import services
 import VariantValidator
+from VariantValidator import settings as vvsettings
 import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
-mything = VariantValidator.Validator()
+validator = VariantValidator.Validator()
 
 
 def home(request):
     config = ConfigParser()
-    config.read(VariantValidator.settings.CONFIG_DIR)
+    config.read(vvsettings.CONFIG_DIR)
 
     versions = {
         'VariantValidator': VariantValidator.__version__,
@@ -25,7 +25,7 @@ def home(request):
         'uta': config['postgres']['version'],
         'seqrepo': config['seqrepo']['version'],
     }
-    print(mything)
+    print(validator)
 
     return render(request, 'home.html', {
         'versions': versions,
@@ -33,7 +33,7 @@ def home(request):
 
 
 def about(request):
-    print(mything)
+    print(validator)
     return render(request, 'about.html')
 
 
@@ -68,7 +68,7 @@ def genes_to_transcripts(request):
         print("Submitted")
         symbol = request.POST.get('symbol')
 
-        output = tasks.gene2transcripts(symbol, mything)
+        output = tasks.gene2transcripts(symbol, validator)
         print(output)
         if 'transcripts' in output.keys():
             for trans in output['transcripts']:
@@ -99,8 +99,8 @@ def validate(request):
         variant = request.POST.get('variant')
         genome = request.POST.get('genomebuild')
 
-        output = tasks.validate(variant, genome, validator=mything)
-        output = services.process_result(output, mything)
+        output = tasks.validate(variant, genome, validator=validator)
+        output = services.process_result(output, validator)
         output['genome'] = genome
         print(output)
 
@@ -121,13 +121,13 @@ def batch_validate(request):
         if form.is_valid():
             print(form.cleaned_data)
 
-            tasks.batch_validate.delay(
+            job = tasks.batch_validate.delay(
                 form.cleaned_data['input_variants'],
                 form.cleaned_data['genome'],
                 form.cleaned_data['email_address'],
                 form.cleaned_data['gene_symbols']
             )
-            messages.success(request, "Batch validation successfully submitted - results will be emailed to you")
+            messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % job)
             return redirect('batch_validate')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
     else:
