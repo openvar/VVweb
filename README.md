@@ -106,6 +106,7 @@ Once you've made a change, commit it into git by selecting the files you want to
 Commits should be atomic, i.e. "of or forming a single irreducible unit or component in a larger system". So as small as possible, but containing all changes
 related to that one thing. For example, if we wanted to change the name of the validator we'd make one commit that contains that change in all the relevant files. 
 If we spotted a typo at the same time, that would go in a separate commit as it's not part of the validator name change.
+This means that if we decide to undo the validator name change, we wouldn't also undo the typo fix.
 
 ```bash
 git add file1 file4
