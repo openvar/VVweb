@@ -23,21 +23,19 @@ conda activate vvweb
 
 # otherwise
 module load python/gcc/3.6.4  # only if on SPECTRE
-python -m venv vvweb
-source activate vvweb
+python -m venv env
+source env/bin/activate
 pip install -r requirements.txt
 ```
 
 This will likely fail as it won't be able to install VariantValidator>1.0 (hasn't been released yet), 
-you should therefore at this point go to the [VV git repo](https://github.com/openvar/variantValidator)
-and checkout the `develop_v1` branch. Install and configure that version of VariantValidator within your virtual environment.
+you should therefore at this point go to the [VV git repo](https://github.com/openvar/variantValidator). Install and configure that version of VariantValidator within your virtual environment.
 
 ```bash
 # Should look something like this
 cd ../
 git clone https://github.com/openvar/variantValidator
 cd variantValidator/
-git checkout develop_v1
 python setup.py install
 vv_configure.py  # will allow you to configure database connections etc 
 variant_validator.py -v "NM_000088.3:c.589G>T"  # Check it's working
