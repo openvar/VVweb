@@ -211,5 +211,7 @@
 			static_token: '{{ varsome_token | safe }}'
 		}
 	</script>
-	<script src="https://assets.varsome.com/static/components/components-bundle.js"></script>
+  {% if output %}
+	  <script src="https://assets.varsome.com/static/components/components-bundle.js"></script>
+  {% endif %}
 {% endblock %}
