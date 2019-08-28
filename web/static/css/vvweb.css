@@ -27,3 +27,14 @@ code {
   background: #f7f7f7;
   padding: 2px;
 }
+
+
+/*For cookielaw banner*/
+
+#CookielawBanner {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  z-index: 999999;
+  opacity: 0.95;
+}

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'web',
     'widget_tweaks',
     'django_celery_results',
+    'cookielaw',
 ]
 
 MIDDLEWARE = [
