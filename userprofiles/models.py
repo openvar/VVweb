@@ -13,8 +13,6 @@ class UserProfile(models.Model):
         null=True, blank=True, verbose_name=_('Phone'))
     gender = models.CharField(
         max_length=40, blank=True, verbose_name=_('Gender'), choices=GENDER)
-    avatar = models.ImageField(
-        upload_to='userprofiles2/avatars', blank=True, verbose_name=_('Avatar'))
     completion_level = models.PositiveSmallIntegerField(
         default=0, verbose_name=_('Profile completion percentage'))
     email_is_verified = models.BooleanField(

@@ -49,7 +49,6 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.twitter',
     'allauth.socialaccount.providers.google',
     'userprofiles',
-    'avatar',
 ]
 
 MIDDLEWARE = [
