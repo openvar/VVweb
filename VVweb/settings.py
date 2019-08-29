@@ -123,6 +123,8 @@ LOGIN_REDIRECT_URL = 'home'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
 
+ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
+
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
 

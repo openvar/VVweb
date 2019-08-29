@@ -6,17 +6,17 @@ from django.contrib.auth.models import User
 from .models import UserProfile
 
 
-class IdentiteForm(forms.ModelForm):
+class IdentityForm(forms.ModelForm):
     first_name = forms.CharField(max_length=256)
     last_name = forms.CharField(max_length=256)
 
     class Meta:
         model = UserProfile
-        fields = ('first_name', 'last_name', 'gender', 'phone',)
+        fields = ('first_name', 'last_name', 'institution', 'jobrole',)
         widgets = {'phone': forms.TextInput()}
 
     def __init__(self, *args, **kwargs):
-        super(IdentiteForm, self).__init__(*args, **kwargs)
+        super(IdentityForm, self).__init__(*args, **kwargs)
         try:
             self.fields['first_name'].initial = self.instance.user.first_name
             self.fields['last_name'].initial = self.instance.user.last_name
@@ -24,8 +24,8 @@ class IdentiteForm(forms.ModelForm):
             raise Http404
         self.fields['first_name'].required = True
         self.fields['last_name'].required = True
-        self.fields['gender'].required = True
-        self.fields['phone'].required = True
+        self.fields['institution'].required = True
+        self.fields['jobrole'].required = True
         return
 
 

@@ -3,16 +3,14 @@ from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
 
 
-GENDER = (('man', 'Man'), ('woman', 'Woman'))
-
-
 class UserProfile(models.Model):
     user = models.OneToOneField(User, null=True, related_name="profile",
                                 verbose_name=_('User'), on_delete=models.CASCADE)
-    phone = models.PositiveIntegerField(
-        null=True, blank=True, verbose_name=_('Phone'))
-    gender = models.CharField(
-        max_length=40, blank=True, verbose_name=_('Gender'), choices=GENDER)
+    institution = models.CharField(
+        max_length=150, null=True, blank=True, verbose_name=_('Institution'))
+    jobrole = models.CharField(
+        max_length=140, blank=True, verbose_name=_('Job Role/Interest'))
+
     completion_level = models.PositiveSmallIntegerField(
         default=0, verbose_name=_('Profile completion percentage'))
     email_is_verified = models.BooleanField(

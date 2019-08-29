@@ -4,7 +4,7 @@ from django.views.generic.edit import UpdateView
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import UserProfile
-from .forms import IdentiteForm
+from .forms import IdentityForm
 
 
 class ProfileHomeView(LoginRequiredMixin, TemplateView):
@@ -25,7 +25,7 @@ class ProfileHomeView(LoginRequiredMixin, TemplateView):
 
 class ProfileIdentite(LoginRequiredMixin, UpdateView):
     template_name = "userprofiles/identity_form.html"
-    form_class = IdentiteForm
+    form_class = IdentityForm
     user_check_failure_path = reverse_lazy("account_signup")
     success_url = reverse_lazy("profile-home")
 
@@ -40,8 +40,8 @@ class ProfileIdentite(LoginRequiredMixin, UpdateView):
         user.first_name = form.cleaned_data['first_name']
         user.last_name = form.cleaned_data['last_name']
         user.save()
-        profile.gender = form.cleaned_data['gender']
-        profile.phone = form.cleaned_data['phone']
+        profile.institution = form.cleaned_data['institution']
+        profile.jobrole = form.cleaned_data['jobrole']
         profile.personal_info_is_completed = True
         profile.completion_level = profile.get_completion_level()
         profile.save()
