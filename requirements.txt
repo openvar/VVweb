@@ -5,3 +5,4 @@ django-celery-results>=1.1.2
 django-widget-tweaks>=1.4.5
 VariantValidator>=1.0.0
 django-cookie-law
+django-allauth
