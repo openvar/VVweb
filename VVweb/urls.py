@@ -32,4 +32,6 @@ urlpatterns = [
     path('service/vcf2hgvs/', views.vcf2hgvs, name='vcf2hgvs'),
     path('download/<str:job_id>/', views.download_batch_res, name='batch_download'),
     path('accounts/', include('allauth.urls')),
+    path('profile/', include('userprofiles.urls')),
+    path('avatar/', include('avatar.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
