@@ -23,7 +23,7 @@ class ProfileHomeView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class ProfileIdentite(LoginRequiredMixin, UpdateView):
+class ProfileIdentity(LoginRequiredMixin, UpdateView):
     template_name = "userprofiles/identity_form.html"
     form_class = IdentityForm
     user_check_failure_path = reverse_lazy("account_signup")
@@ -34,7 +34,7 @@ class ProfileIdentite(LoginRequiredMixin, UpdateView):
         return queryset
 
     def form_valid(self, form, **kwargs):
-        super(ProfileIdentite, self).form_valid(form)
+        super(ProfileIdentity, self).form_valid(form)
         profile = form.save(commit=False)
         user = self.request.user
         user.first_name = form.cleaned_data['first_name']
