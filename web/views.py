@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, reverse
 from django.conf import settings
 from django.contrib import messages
 from django.http import HttpResponse
@@ -132,6 +132,14 @@ def batch_validate(request):
         messages.warning(request, "Form contains errors (see below). Please resubmit")
     else:
         form = forms.BatchValidateForm()
+        if not request.user.is_authenticated:
+            login_page = reverse('account_login')
+            here = reverse('batch_validate')
+            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> to submit Validator Batch jobs" % (login_page, here))
+            form.fields['input_variants'].disabled = True
+            form.fields['genome'].disabled = True
+            form.fields['email_address'].disabled = True
+            form.fields['gene_symbols'].disabled = True
 
     return render(request, 'batch_validate.html', {
         'form': form,
@@ -179,6 +187,14 @@ def vcf2hgvs(request):
 
     else:
         form = forms.VCF2HGVSForm()
+        if not request.user.is_authenticated:
+            login_page = reverse('account_login')
+            here = reverse('vcf2hgvs')
+            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> to submit VCF to HGVS jobs" % (login_page, here))
+            form.fields['vcf_file'].disabled = True
+            form.fields['genome'].disabled = True
+            form.fields['email_address'].disabled = True
+            form.fields['gene_symbols'].disabled = True
 
     return render(request, 'vcf_to_hgvs.html', {
         'form': form,
