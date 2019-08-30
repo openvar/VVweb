@@ -22,8 +22,8 @@ from web import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
-    path('about/', views.about, name='about'),
-    path('contact/', views.contact, name='contact'),
+    path('help/about/', views.about, name='about'),
+    path('help/contact/', views.contact, name='contact'),
     path('help/nomenclature/', views.nomenclature, name='nomenclature'),
     path('help/instructions/', views.instructions, name='batch_instructions'),
     path('service/validate/', views.validate, name='validate'),
