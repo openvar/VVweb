@@ -12,7 +12,7 @@ class IdentityForm(forms.ModelForm):
 
     class Meta:
         model = UserProfile
-        fields = ('first_name', 'last_name', 'institution', 'jobrole',)
+        fields = ('first_name', 'last_name', 'institution', 'country', 'jobrole',)
         widgets = {'phone': forms.TextInput()}
 
     def __init__(self, *args, **kwargs):
@@ -25,6 +25,7 @@ class IdentityForm(forms.ModelForm):
         self.fields['first_name'].required = True
         self.fields['last_name'].required = True
         self.fields['institution'].required = True
+        self.fields['country'].required = True
         self.fields['jobrole'].required = True
         return
 
