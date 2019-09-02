@@ -1,5 +1,8 @@
 from django import forms
 from . import models
+from allauth.account.forms import SignupForm, PasswordField
+from django.utils.translation import ugettext_lazy as _
+from captcha.fields import ReCaptchaField
 
 
 class ContactForm(forms.ModelForm):
@@ -59,3 +62,19 @@ class VCF2HGVSForm(forms.Form):
     def clean_gene_symbols(self):
         symbols = self.cleaned_data['gene_symbols'].strip().split()
         return '|'.join(symbols)
+
+
+class UpdatedSignUpForm(SignupForm):
+    password1 = PasswordField(label=_("Password"))
+    password2 = PasswordField(label=_("Password (again)"))
+    captcha = ReCaptchaField()
+
+    def save(self, request):
+        # Ensure you call the parent class's save.
+        # .save() returns a User object.
+        user = super(UpdatedSignUpForm, self).save(request)
+
+        # Add your own processing here.
+
+        # You must return the original result.
+        return user
