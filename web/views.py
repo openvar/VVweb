@@ -92,21 +92,50 @@ def validate(request):
     """
 
     output = False
+    locked = False
+    num = int(request.session.get('validations', 0))
 
     if request.method == 'POST':
-        print("Going to validate sequences")
 
-        variant = request.POST.get('variant')
-        genome = request.POST.get('genomebuild')
+        if request.user.is_authenticated or num < 5:
+            num += 1
+            if not request.user.is_authenticated:
+                request.session['validations'] = num
 
-        output = tasks.validate(variant, genome, validator=validator)
-        output = services.process_result(output, validator)
-        output['genome'] = genome
-        print(output)
+            print("Going to validate sequences")
+
+            variant = request.POST.get('variant')
+            genome = request.POST.get('genomebuild')
+
+            output = tasks.validate(variant, genome, validator=validator)
+            output = services.process_result(output, validator)
+            output['genome'] = genome
+            print(output)
+
+    if not request.user.is_authenticated:
+        login_page = reverse('account_login')
+        here = reverse('validate')
+        if num < 5:
+            if num == 4:
+                messages.warning(request,
+                                 "Warning: Only %s more submission allowed. "
+                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>." % (
+                                         5 - num, login_page, here))
+            else:
+                messages.warning(request,
+                                 "Warning: Only %s more submissions allowed. "
+                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>." % (
+                                     5 - num, login_page, here))
+        else:
+            messages.error(request,
+                           "Please <a href='%s?next=%s' class='alert-link'>login</a> to continue using this service" % (
+                               login_page, here))
+            locked = True
 
     return render(request, 'validate.html', {
         'output': output,
         'varsome_token': getattr(settings, 'VARSOME_TOKEN'),
+        'locked': locked,
     })
 
 

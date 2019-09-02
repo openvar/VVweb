@@ -2,7 +2,7 @@
 
 {% block content %}
     <!-- Header -->
-    <header class="bg-primary py-2 mb-5">
+    <header class="bg-primary py-2">
         <div class="container h-25">
             <div class="row h-25 align-items-center">
                 <div class="col-lg-12">
@@ -14,8 +14,18 @@
             </div>
         </div>
     </header>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} {% if 'error' in message.tags %} alert-danger {% endif %} alert-dismissible fade show" role="alert">
+                {{ message | safe }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
 
-    <div class="container">
+    <div class="container mt-5">
         {% if output %}
             {% if output.results|length > 1 %}
                 <div class="row">
@@ -182,19 +192,19 @@
                     {% csrf_token %}
                     <div class="form-group">
                         <label for="variant_id">Variant Description:</label>
-                        <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required>
+                        <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required {% if locked %} disabled {% endif %}>
                     </div>
                     <div class="form-group" id="genomeselect">
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="genomebuild" id="grch38" value="GRCh38">
+                            <input class="form-check-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if locked %} disabled {% endif %}>
                             <label class="form-check-label" for="grch37">GRCh38 (hg38, build38)</label>
                         </div>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="genomebuild" id="grch37" value="GRCh37">
+                            <input class="form-check-input" type="radio" name="genomebuild" id="grch37" value="GRCh37" {% if locked %} disabled {% endif %}>
                             <label class="form-check-label" for="grch37">GRCh37 (hg19, build19)</label>
                         </div>
                     </div>
-                    <button id="validate-btn" type="submit" class="btn btn-primary">
+                    <button id="validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                         <span id="validate-btn-text">Submit</span>
                     </button>
