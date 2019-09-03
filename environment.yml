@@ -1,6 +1,7 @@
 name: vvweb
 channels:
   - conda-forge
+  - bioconda
   - defaults
 dependencies:
   - celery
@@ -9,10 +10,11 @@ dependencies:
   - python=3.6
   - sqlite=3.28
   - sqlparse=0.3
+  - pysam
   - pip:
     - django-celery-results
     - django-widget-tweaks
-    - variantValidator>=1.0.0
+    - git+https://github.com/openvar/VariantValidator@master#egg=VariantValidator
     - django-cookie-law
     - django-allauth
     - django-recaptcha
