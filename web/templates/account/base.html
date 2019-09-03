@@ -2,7 +2,7 @@
 
 {% block header %}
   <!-- Header -->
-  <header class="bg-primary py-2 mb-5">
+  <header class="bg-primary py-2">
     <div class="container h-25">
       <div class="row h-25 align-items-center">
         <div class="col-lg-12">
@@ -11,7 +11,17 @@
       </div>
     </div>
   </header>
-  <div class="container mb-4">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} {% if 'error' in message.tags %} alert-danger {% endif %} alert-dismissible fade show" role="alert">
+        {{ message | safe }}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    {% endfor %}
+  {% endif %}
+  <div class="container mt-5 mb-4">
   {% block content %}
   {% endblock %}
   </div>
