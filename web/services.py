@@ -27,6 +27,8 @@ def process_result(val, validator):
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)
+        if not v['hgvs_transcript_variant']:
+            continue
         tx_id_info = validator.hdp.get_tx_identity_info(v['hgvs_transcript_variant'].split(':')[0])
         print(tx_id_info)
         gene_info = validator.hdp.get_gene_info(v['gene_symbol'])
