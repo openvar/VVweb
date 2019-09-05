@@ -30,6 +30,7 @@ def process_result(val, validator):
         v['id'] = 'res' + str(counter)
         latest = True
         if v['hgvs_transcript_variant']:
+            v['safe_hgvs_trans'] = v['hgvs_transcript_variant']
             tx_id_info = validator.hdp.get_tx_identity_info(v['hgvs_transcript_variant'].split(':')[0])
             print(tx_id_info)
             tx_ac = v['hgvs_transcript_variant'].split(':')[0]
@@ -44,6 +45,7 @@ def process_result(val, validator):
                         latest = False
         else:
             v['tx_ac'] = ''
+            v['safe_hgvs_trans'] = 'Unknown transcript variant'
 
         if v['gene_symbol']:
             gene_info = validator.hdp.get_gene_info(v['gene_symbol'])

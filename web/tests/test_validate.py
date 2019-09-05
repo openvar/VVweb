@@ -59,6 +59,7 @@ class TestProcessResultService(UnitTestCase):
         self.assertEqual(res['results'][0]['gene_ac'], 'NG_009819.1')
         self.assertTrue(res['results'][0]['latest'])
         self.assertEqual(res['warnings'], [])
+        self.assertEqual(res['results'][0]['safe_hgvs_trans'], 'Unknown transcript variant')
 
     def test_wrong_genome(self):
         val = self.vv.validate('17-50198002-C-A', 'GRCh37', 'all').format_as_dict()
