@@ -77,3 +77,8 @@ code {
     font: bold 12px arial,sans-serif;
     background: #fff;
 }
+
+
+.text-white-75 {
+    color: rgba(255, 255, 255, 0.75);
+}
