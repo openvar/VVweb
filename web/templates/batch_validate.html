@@ -1,79 +1,54 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
 
+{% block header_title %}Batch Validator{% endblock %}
+
 {% block content %}
-
-    <!-- Header -->
-    <header class="bg-primary py-2">
-        <div class="container h-25">
-            <div class="row h-25 align-items-center">
-                <div class="col-lg-12">
-                    <h1 class="display-4 text-white mt-5 mb-2">Batch Validator</h1>
-                    {% if output %}
-                        <p class="lead mb-1 text-white-50">Submitted {{ output.inputted }}</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </header>
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} {% if 'error' in message.tags %} alert-danger {% endif %} alert-dismissible fade show" role="alert">
-                {{ message | safe }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        {% endfor %}
-    {% endif %}
-
-    <div class="container mt-5">
-        <div class="row">
-            <div class="col-md-12 mb-5">
-                <h5>Information</h5>
-                <ul>
-                    <li>Be aware that for some genes e.g. COL1A1, 1 genomic (g.) variant will output 1 variant because COL1A1 has a single version of a single transcript variant</li>
-                    <li>For other genes e.g. TP53, 1 genomic (g.) variant could output up to 15 variants because TP53 has several versions of 8 transcript variants</li>
-                    <li>Validation requests are currently limited to 50000 variant descriptions</li>
-                    <li>If you are unsure whether your gene(s) of interest are likely to produce multiple variants for each genomic (g.) variant, you can check the number of transcripts by submitting the gene symbol to <a href="{% url 'genes2trans' %}">Gene to Transcripts</a></li>
-                    <li>For more help and information see the instructions <a href="{% url 'batch_instructions' %}">here</a>.</li>
-                </ul>
-                <form method="POST" novalidate>
-                    {% csrf_token %}
-                    {% for field in form %}
-                        <div class="form-group">
-                            {% if field.label != 'Select genome build' %}
-                                <label for="{{ field.id_for_label }}"><h4>{{ field.label }}</h4></label>
-                                {% if form.is_bound %}
-                                    {% if field.errors %}
-                                        {{ field | add_class:"form-control is-invalid"}}
-                                    {% else %}
-                                        {{ field | add_class:"form-control is-valid" }}
-                                    {% endif %}
-                                {% else %}
-                                    {{ field | add_class:"form-control" }}
-                                {% endif %}
-                            {% else %}
-                                <legend><h5>{{ field.label }}</h5></legend>
-                                {% for radio in field %}
-                                    <div class="form-check form-check-inline">
-                                        {{ radio.tag }}
-                                        <label for="{{ radio.id_for_label }}" class="form-check-label">{{ radio.choice_label }}</label>
-                                    </div>
-                                {% endfor %}
-                                {% if field.errors %}
-                                    <div class="invalid-feedback" style="display: block">This field is required</div>
-                                {% endif %}
-                            {% endif %}
-                            <div class="invalid-feedback">
-                                {{ field.errors }}
-                            </div>
-                        </div>
-                    {% endfor %}
-                    <button class="btn btn-primary" type="submit" {% if not user.is_authenticated %} disabled {% endif %}>Submit</button>
-                </form>
-            </div>
-        </div>
-    </div>
+  <div class="row">
+      <div class="col-md-12 mb-5">
+          <h5>Information</h5>
+          <ul>
+              <li>Be aware that for some genes e.g. COL1A1, 1 genomic (g.) variant will output 1 variant because COL1A1 has a single version of a single transcript variant</li>
+              <li>For other genes e.g. TP53, 1 genomic (g.) variant could output up to 15 variants because TP53 has several versions of 8 transcript variants</li>
+              <li>Validation requests are currently limited to 50000 variant descriptions</li>
+              <li>If you are unsure whether your gene(s) of interest are likely to produce multiple variants for each genomic (g.) variant, you can check the number of transcripts by submitting the gene symbol to <a href="{% url 'genes2trans' %}">Gene to Transcripts</a></li>
+              <li>For more help and information see the instructions <a href="{% url 'batch_instructions' %}">here</a>.</li>
+          </ul>
+          <form method="POST" novalidate>
+              {% csrf_token %}
+              {% for field in form %}
+                  <div class="form-group">
+                      {% if field.label != 'Select genome build' %}
+                          <label for="{{ field.id_for_label }}"><h4>{{ field.label }}</h4></label>
+                          {% if form.is_bound %}
+                              {% if field.errors %}
+                                  {{ field | add_class:"form-control is-invalid"}}
+                              {% else %}
+                                  {{ field | add_class:"form-control is-valid" }}
+                              {% endif %}
+                          {% else %}
+                              {{ field | add_class:"form-control" }}
+                          {% endif %}
+                      {% else %}
+                          <legend><h5>{{ field.label }}</h5></legend>
+                          {% for radio in field %}
+                              <div class="form-check form-check-inline">
+                                  {{ radio.tag }}
+                                  <label for="{{ radio.id_for_label }}" class="form-check-label">{{ radio.choice_label }}</label>
+                              </div>
+                          {% endfor %}
+                          {% if field.errors %}
+                              <div class="invalid-feedback" style="display: block">This field is required</div>
+                          {% endif %}
+                      {% endif %}
+                      <div class="invalid-feedback">
+                          {{ field.errors }}
+                      </div>
+                  </div>
+              {% endfor %}
+              <button class="btn btn-primary" type="submit" {% if not user.is_authenticated %} disabled {% endif %}>Submit</button>
+          </form>
+      </div>
+  </div>
 
 {% endblock %}
