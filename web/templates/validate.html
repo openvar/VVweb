@@ -27,6 +27,25 @@
 
     <div class="container mt-5">
         {% if output %}
+          {% if output.flag == 'warning' %}
+            <div class="row">
+              <div class="col-md-12 mb-5">
+                <h1>Error</h1>
+                <p>Unable to validate the submitted variant <code>{{ output.inputted }}</code> against the {{ output.genome }} assembly. The following warnings were returned:</p>
+                <ul>
+                {% for warning in output.warnings %}
+                  <li class="text-danger">{{ warning }}</li>
+                {% endfor %}
+                </ul>
+                <p>
+                  Please check your submission and re-submit.
+                  {% if 'does not agree with reference sequence' in output.warnings.0 %}
+                    Based on the error above you likely selected the wrong assembly.
+                  {% endif %}
+                </p>
+              </div>
+            </div>
+          {% else %}
             {% if output.results|length > 1 %}
                 <div class="row">
                     <div class="col-md-12 mb-5">
@@ -67,14 +86,14 @@
                         <ul class="nav nav-tabs" id="myTab" role="tablist">
                             {% for each in output.results %}
                                 <li class="nav-item">
-                                    <a class="nav-link" id="{{ each.id }}-tab" data-toggle="tab" href="#{{ each.id }}" role="tab" aria-controls="{{ each.id }}" aria-selected="false">{{ each.hgvs_transcript_variant }}</a>
+                                    <a class="nav-link" id="{{ each.id }}-tab" data-toggle="tab" href="#{{ each.id }}" role="tab" aria-controls="{{ each.id }}" aria-selected="false">{{ each.safe_hgvs_trans }}</a>
                                 </li>
                             {% endfor %}
                         </ul>
                         <div class="tab-content" id="myTabContent">
                             {% for each in output.results %}
                                 <div class="tab-pane" id="{{ each.id }}" role="tabpanel" aria-labelledby="{{ each.id }}-tab">
-                                    <h3 class="mt-3">{{ each.hgvs_transcript_variant }}</h3>
+                                    <h3 class="mt-3">{{ each.safe_hgvs_trans }}</h3>
                                     <h4>{{ each.transcript_description }}</h4>
                                     <h6>{{ output.genome }}: {{ each.chr_loc }}</h6>
                                     <br>
@@ -120,6 +139,15 @@
                                             <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.primary_assembly_loci.grch37.ac }}" target="_blank">{{ each.primary_assembly_loci.grch37.ac }}</a></td>
                                         </tr>
                                     </table>
+
+                                    {% if each.validation_warnings %}
+                                    <h5>Warnings output during validation</h5>
+                                      <ul>
+                                      {% for warning in each.validation_warnings %}
+                                        <li class="text-danger">{{ warning }}</li>
+                                      {% endfor %}
+                                      </ul>
+                                    {% endif %}
 
                                     <h4>Recommended Variant Descriptions</h4>
                                     <ol>
@@ -173,7 +201,8 @@
                     </div>
                 </div>
             </div>
-            <hr>
+          {% endif %}
+          <hr>
         {% endif %}
         <div class="row">
             <div class="col-md-12 mb-5">
@@ -222,6 +251,8 @@
 		}
 	</script>
   {% if output %}
-	  <script src="https://assets.varsome.com/static/components/components-bundle.js"></script>
+    {% if output.flag != 'warning' %}
+	    <script src="https://assets.varsome.com/static/components/components-bundle.js"></script>
+    {% endif %}
   {% endif %}
 {% endblock %}
