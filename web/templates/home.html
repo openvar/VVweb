@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 
@@ -55,7 +56,7 @@
     <div class="row">
       <div class="col-md-4 mb-5">
         <div class="card h-100">
-          <img class="card-img-top" src="http://placehold.it/300x200" alt="">
+          <img class="card-img-top" src="{% static 'img/Validator.png' %}" alt="">
           <div class="card-body">
             <h4 class="card-title">Validator</h4>
             <p class="card-text">Validate your variant descriptions using HGVS nomenclature.</p>
@@ -67,7 +68,7 @@
       </div>
       <div class="col-md-4 mb-5">
         <div class="card h-100">
-          <img class="card-img-top" src="http://placehold.it/300x200" alt="">
+          <img class="card-img-top" src="{% static 'img/VCF_to_HGVS.png' %}" alt="">
           <div class="card-body">
             <h4 class="card-title">VCF to HGVS</h4>
             <p class="card-text">Convert VCF files to validated HGVS variants.</p>
@@ -79,7 +80,7 @@
       </div>
       <div class="col-md-4 mb-5">
         <div class="card h-100">
-          <img class="card-img-top" src="http://placehold.it/300x200" alt="">
+          <img class="card-img-top" src="{% static 'img/Gene_to_Transcript.png' %}" alt="">
           <div class="card-body">
             <h4 class="card-title">Gene to Transcript</h4>
             <p class="card-text">Identify all transcripts from a gene symbol.</p>
