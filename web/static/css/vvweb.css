@@ -82,3 +82,12 @@ code {
 .text-white-75 {
     color: rgba(255, 255, 255, 0.75);
 }
+
+.dropdown-header {
+    padding: .2rem 1rem;
+    background-color: #f7f7f7;
+}
+
+.divider-header {
+    margin: .5rem 0 0 0;
+}
