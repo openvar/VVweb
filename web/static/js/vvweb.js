@@ -18,8 +18,8 @@ $(document).ready(function() {
 
     $('#validate-btn').on("click", function() {
         console.log("Clicked validate button");
-        $('#validate-btn .spinner-border').show();
-        $('#validate-btn-text').text('Loading...');
+        $('.overlay').show();
+        $('.loading').show();
     });
 
     $('#myTab a').on('click', function (e) {
