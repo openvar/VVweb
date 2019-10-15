@@ -10,9 +10,9 @@
             {% csrf_token %}
               {% for field in form %}
                   <div class="form-group">
-                  <label for="{{ field.id_for_label }}">{{ field.label }}: {% if field.field.required %}<span class="required">*</span>{% endif %}</label>
-                  {{ field|add_class:"form-control col-lg-10" }}
-                  {{ field.errors }}
+                    <label for="{{ field.id_for_label }}">{{ field.label }}: {% if field.field.required %}<span class="required">*</span>{% endif %}</label>
+                    {{ field|add_class:"form-control col-lg-10" }}
+                    <div class="text-danger">{{ field.errors }}</div>
                   </div>
               {% endfor %}
               <!-- H o n e y p o t -->
@@ -20,6 +20,10 @@
               <input class="ohnohoney" autocomplete="off" type="text" id="name" name="name" placeholder="Your name here">
               <label class="ohnohoney" for="email"></label>
               <input class="ohnohoney" autocomplete="off" type="email" id="email" name="email" placeholder="Your e-mail here">
+
+              <div class="text-danger">
+                {{ form.non_field_errors }}
+              </div>
 
               <button type="submit" class="btn btn-primary">Submit</button>
           </form>
