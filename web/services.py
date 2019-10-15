@@ -134,6 +134,19 @@ def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
     send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
 
 
+def send_contact_email(contact):
+    subject = "[Contact Form] New submission from %s" % contact.nameval
+    current_site = Site.objects.get_current()
+    message = render_to_string('email/contact.txt',
+                               {'domain': current_site.domain,
+                                'contact': contact})
+    html_msg = render_to_string('email/contact.html',
+                                {'domain': current_site.domain,
+                                 'contact': contact})
+
+    send_mail(subject, message, 'admin@variantValidator.org', settings.ADMIN_EMAILS, html_message=html_msg)
+
+
 def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
     """
     Taken directly from original function in batch validator and tweaked to work with new VV version

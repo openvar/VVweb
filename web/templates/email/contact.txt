@@ -1,0 +1,8 @@
+Contact Form Submission {{contact.asked|date}}
+
+Name: {{ contact.nameval }}
+Email: {{ contact.emailval }}
+Variant: {{ contact.variant }}
+
+{{ contact.question }}
+

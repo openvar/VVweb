@@ -20,7 +20,9 @@ class ContactForm(forms.ModelForm):
 
     def clean(self):
         if self.data['name'] or self.data['email']:
+            print("Got spam")
             raise forms.ValidationError("Spam detected")
+        return self.cleaned_data
 
 
 class BatchValidateForm(forms.Form):

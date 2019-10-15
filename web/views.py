@@ -43,8 +43,9 @@ def contact(request):
     if request.method == 'POST':
         form = forms.ContactForm(request.POST)
         if form.is_valid():
-            contact = form.save()
-            contact.send_email()
+            my_contact = form.save()
+            services.send_contact_email(my_contact)
+            messages.success(request, "Message sent")
             return redirect('contact')
 
     return render(request, 'contact.html', {

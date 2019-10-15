@@ -13,9 +13,3 @@ class Contact(models.Model):
     def __str__(self):
         return "%s - %s (dealt with: %s)" % (self.nameval, self.asked.date(), self.answered)
 
-    def send_email(self):
-        """
-        Function will email contact information to admins
-        :return:
-        """
-        print("Sending email")
