@@ -17,9 +17,11 @@ $(document).ready(function() {
     $('#validate-btn .spinner-border').hide();
 
     $('#validate-btn').on("click", function() {
-        console.log("Clicked validate button");
-        $('.overlay').show();
-        $('.loading').show();
+        if ($('#variant_id').val()){
+            console.log("Clicked validate button");
+            $('.overlay').show();
+            $('.loading').show();
+        }
     });
 
     $('#myTab a').on('click', function (e) {
