@@ -161,6 +161,7 @@ def batch_validate(request):
                 form.cleaned_data['gene_symbols']
             )
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % job)
+            services.send_initial_email(form.cleaned_data['email_address'], job, 'validation')
             return redirect('batch_validate')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
     else:
@@ -229,6 +230,7 @@ def vcf2hgvs(request):
                 )
             print(res)
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % res)
+            services.send_initial_email(form.cleaned_data['email_address'], res, 'VCF to HGVS')
             return redirect('vcf2hgvs')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
 

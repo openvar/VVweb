@@ -2,6 +2,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
 from django.conf import settings
+from django.utils import timezone
 from VariantValidator.modules.seq_data import to_accession
 
 
@@ -101,6 +102,25 @@ def process_result(val, validator):
     return alloutputs
 
 
+def send_initial_email(email, job_id, submitted):
+    subject = "VariantValidator Job Submitted"
+    current_site = Site.objects.get_current()
+    message = render_to_string('email/initial.txt', {
+        'job_id': job_id,
+        'domain': current_site.domain,
+        'sub': submitted,
+        'time': timezone.now(),
+    })
+    html_msg = render_to_string('email/initial.html', {
+        'job_id': job_id,
+        'domain': current_site.domain,
+        'sub': submitted,
+        'time': timezone.now(),
+    })
+
+    send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
+
+
 def send_result_email(email, job_id):
     subject = "Batch Validation Report"
     current_site = Site.objects.get_current()
@@ -136,13 +156,8 @@ def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
 
 def send_contact_email(contact):
     subject = "[Contact Form] New submission from %s" % contact.nameval
-    current_site = Site.objects.get_current()
-    message = render_to_string('email/contact.txt',
-                               {'domain': current_site.domain,
-                                'contact': contact})
-    html_msg = render_to_string('email/contact.html',
-                                {'domain': current_site.domain,
-                                 'contact': contact})
+    message = render_to_string('email/contact.txt', {'contact': contact})
+    html_msg = render_to_string('email/contact.html', {'contact': contact})
 
     send_mail(subject, message, 'admin@variantValidator.org', settings.ADMIN_EMAILS, html_message=html_msg)
 
