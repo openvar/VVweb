@@ -3,6 +3,9 @@
 {% block header_title %}Genes to Transcripts{% endblock %}
 
 {% block content %}
+  <div class="loading spinner-border text-primary" role="status">
+      <span class="sr-only">Loading...</span>
+  </div>
   {% if output %}
       <div class="row">
           <div class="col-md-12 mb-3">
@@ -41,7 +44,7 @@
               <div class="form-group">
                   <input id="symbol_id" name="symbol" type="text" class="form-control" placeholder="e.g. COL1A1 (or NM_000088.3)" required>
               </div>
-              <button class="btn btn-primary" type="submit">Submit</button>
+              <button class="btn btn-primary" id="g2t-btn" type="submit">Submit</button>
           </form>
       </div>
   </div>

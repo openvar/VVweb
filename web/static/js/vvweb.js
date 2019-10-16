@@ -24,6 +24,14 @@ $(document).ready(function() {
         }
     });
 
+    $('#g2t-btn').on("click", function() {
+        if ($('#symbol_id').val()){
+            console.log("Clicked validate button");
+            $('.overlay').show();
+            $('.loading').show();
+        }
+    });
+
     $('#myTab a').on('click', function (e) {
       e.preventDefault();
       console.log('clicked on a tab!');
