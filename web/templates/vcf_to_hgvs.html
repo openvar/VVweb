@@ -70,7 +70,7 @@
                       </div>
                   </div>
               {% endfor %}
-              <button class="btn btn-primary" type="submit" {% if not user.is_authenticated %} disabled {% endif %} >Submit</button>
+              <button class="btn btn-primary" type="submit" {% if locked %} disabled {% endif %} >Submit</button>
           </form>
       </div>
   </div>

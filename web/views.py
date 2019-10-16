@@ -10,6 +10,7 @@ from VariantValidator import settings as vvsettings
 import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
+from allauth.account.models import EmailAddress
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 validator = VariantValidator.Validator()
@@ -146,6 +147,8 @@ def batch_validate(request):
     :param request:
     :return:
     """
+    locked = False
+
     if request.method == 'POST':
         form = forms.BatchValidateForm(request.POST)
         if form.is_valid():
@@ -170,9 +173,23 @@ def batch_validate(request):
             form.fields['genome'].disabled = True
             form.fields['email_address'].disabled = True
             form.fields['gene_symbols'].disabled = True
+            locked = True
+        else:
+            email = EmailAddress.objects.get(email=request.user.email)
+            if email.verified:
+                form.fields['email_address'].initial = email.email
+            else:
+                form.fields['input_variants'].disabled = True
+                form.fields['genome'].disabled = True
+                form.fields['email_address'].disabled = True
+                form.fields['gene_symbols'].disabled = True
+                verify = reverse('account_email')
+                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting a Batch Validator job" % (verify))
+                locked = True
 
     return render(request, 'batch_validate.html', {
         'form': form,
+        'locked': locked,
     })
 
 
@@ -182,7 +199,7 @@ def vcf2hgvs(request):
     :param request:
     :return:
     """
-
+    locked = False
     if request.method == 'POST':
         form = forms.VCF2HGVSForm(request.POST, request.FILES)
         if form.is_valid():
@@ -225,10 +242,24 @@ def vcf2hgvs(request):
             form.fields['genome'].disabled = True
             form.fields['email_address'].disabled = True
             form.fields['gene_symbols'].disabled = True
+            locked = True
+        else:
+            email = EmailAddress.objects.get(email=request.user.email)
+            if email.verified:
+                form.fields['email_address'].initial = email.email
+            else:
+                form.fields['vcf_file'].disabled = True
+                form.fields['genome'].disabled = True
+                form.fields['email_address'].disabled = True
+                form.fields['gene_symbols'].disabled = True
+                verify = reverse('account_email')
+                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting VCF to HGVS jobs" % (verify))
+                locked = True
 
     return render(request, 'vcf_to_hgvs.html', {
         'form': form,
         'max': settings.MAX_VCF,
+        'locked': locked,
     })
 
 
