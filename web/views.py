@@ -106,7 +106,7 @@ def validate(request):
             print("Going to validate sequences")
 
             variant = request.POST.get('variant')
-            genome = request.POST.get('genomebuild')
+            genome = request.POST.get('genomebuild', 'GRCh37')
 
             output = tasks.validate(variant, genome, validator=validator)
             output = services.process_result(output, validator)
