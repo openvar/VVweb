@@ -100,6 +100,7 @@ def validate(request):
     output = False
     locked = False
     num = int(request.session.get('validations', 0))
+    last_genome = request.session.get('genome', None)
 
     if request.method == 'POST':
 
@@ -116,6 +117,10 @@ def validate(request):
             output = tasks.validate(variant, genome, validator=validator)
             output = services.process_result(output, validator)
             output['genome'] = genome
+
+            request.session['genome'] = genome
+            last_genome = genome
+
             logger.debug(output)
             logger.info("Successful validation made by user %s" % request.user)
 
@@ -144,6 +149,7 @@ def validate(request):
         'output': output,
         'varsome_token': getattr(settings, 'VARSOME_TOKEN'),
         'locked': locked,
+        'last': last_genome,
     })
 
 
@@ -154,6 +160,7 @@ def batch_validate(request):
     :return:
     """
     locked = False
+    last_genome = request.session.get('genome', None)
 
     if request.method == 'POST':
         form = forms.BatchValidateForm(request.POST)
@@ -169,6 +176,7 @@ def batch_validate(request):
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % job)
             services.send_initial_email(form.cleaned_data['email_address'], job, 'validation')
             logger.info("Batch validation submitted by user %s" % request.user)
+            request.session['genome'] = form.cleaned_data['genome']
             return redirect('batch_validate')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
     else:
@@ -183,6 +191,7 @@ def batch_validate(request):
             form.fields['gene_symbols'].disabled = True
             locked = True
         else:
+            form.fields['genome'].initial = last_genome
             email = EmailAddress.objects.get(email=request.user.email)
             if email.verified:
                 form.fields['email_address'].initial = email.email
@@ -208,6 +217,8 @@ def vcf2hgvs(request):
     :return:
     """
     locked = False
+    last_genome = request.session.get('genome', None)
+
     if request.method == 'POST':
         form = forms.VCF2HGVSForm(request.POST, request.FILES)
         if form.is_valid():
@@ -236,6 +247,9 @@ def vcf2hgvs(request):
                 )
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % res)
             services.send_initial_email(form.cleaned_data['email_address'], res, 'VCF to HGVS')
+
+            request.session['genome'] = form.cleaned_data['genome']
+
             logger.info("VCF to HGVS job submitted by user %s" % request.user)
             return redirect('vcf2hgvs')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
@@ -252,6 +266,7 @@ def vcf2hgvs(request):
             form.fields['gene_symbols'].disabled = True
             locked = True
         else:
+            form.fields['genome'].initial = last_genome
             email = EmailAddress.objects.get(email=request.user.email)
             if email.verified:
                 form.fields['email_address'].initial = email.email
