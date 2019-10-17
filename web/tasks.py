@@ -3,10 +3,14 @@ from django.conf import settings
 from celery import shared_task
 import VariantValidator
 from . import services
+import logging
+
+logger = logging.getLogger('vv')
 
 
 @shared_task
 def validate(variant, genome, transcripts='all', validator=None):
+    logger.debug("Running validate task")
     if validator is None:
         validator = VariantValidator.Validator()
     output = validator.validate(variant, genome, transcripts)
@@ -15,6 +19,7 @@ def validate(variant, genome, transcripts='all', validator=None):
 
 @shared_task
 def gene2transcripts(symbol, validator=None):
+    logger.debug("Running gene2transcripts task")
     if validator is None:
         validator = VariantValidator.Validator()
     output = validator.gene2transcripts(symbol)
@@ -23,6 +28,7 @@ def gene2transcripts(symbol, validator=None):
 
 @shared_task
 def batch_validate(variant, genome, email, gene_symbols, validator=None):
+    logger.debug("Running batch_validate task")
     if validator is None:
         validator = VariantValidator.Validator()
 
@@ -30,7 +36,7 @@ def batch_validate(variant, genome, email, gene_symbols, validator=None):
     for sym in gene_symbols.split('|'):
         if sym:
             returned_trans = gene2transcripts(sym, validator=validator)
-            print(returned_trans)
+            logger.debug(returned_trans)
             for trans in returned_trans['transcripts']:
                 transcripts.append(trans['reference'])
     if transcripts:
@@ -38,18 +44,19 @@ def batch_validate(variant, genome, email, gene_symbols, validator=None):
     else:
         transcripts = 'all'
 
-    print("Transcripts: %s" % transcripts)
+    logger.debug("Transcripts: %s" % transcripts)
     output = validator.validate(variant, genome, transcripts)
     res = output.format_as_table()
 
-    print("Now going to send email")
-    print(batch_validate.request.id)
+    logger.debug("Now going to send email")
+    logger.debug(batch_validate.request.id)
     services.send_result_email(email, batch_validate.request.id)
     return res
 
 
 @shared_task
 def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
+    logger.debug("Running vcf2hgvs task")
     if validator is None:
         validator = VariantValidator.Validator()
 
@@ -75,7 +82,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
 
                 # Split the VCF components into a list
                 variant_data = var_call.split()
-                print(variant_data)
+                logger.debug(variant_data)
 
                 try:
                     # Gather the call data
@@ -94,7 +101,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
 
                 # Create the pseudo VCF inclusive of reference check
                 pvd = services.vcf2psuedo(chr, pos, ref, alt, genome, validator)
-                print(pvd)
+                logger.debug(pvd)
                 # Analyse the return
                 if pvd['valid'] == 'pass':
                     pseudo_vcf = '%s-%s-%s-%s' % (chr, pos, ref, alt)
@@ -120,8 +127,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
 
                     ratio_valid = ratio_valid * 100
                     if ratio_valid < 90:
-                        print("EMAIL")
-                        print("Not enough are valid!!")
+                        logger.debug("Will email as not enough are valid!")
                         error_log.append("Only %s percent valid after processing 100 VCFs" % ratio_valid)
                         services.send_vcf_email(email=email, job_id=jobid, genome=genome, per=ratio_valid)
                         batch_submit = False
@@ -129,7 +135,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
 
                 # Limit jobs in batch list
                 elif vcf_validated > settings.MAX_VCF:
-                    print("FOUND TOO MANY")
+                    logger.debug("Will email as exceeded max")
                     error_log.append("Exceeded max %s validated VCFs" % settings.MAX_VCF)
                     services.send_vcf_email(email, jobid, cause='max_limit')
                     batch_submit = False
@@ -140,8 +146,8 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
 
             # Warn admin so that we can resubmit - needs manual intervension
             warning = ("Processing failure in bug catcher 1 - job suspended: {}".format(error))
-            print(warning)
-            print(error)
+            logger.warning(warning)
+            logger.warning(error)
 
             # Capture traceback
             # exc_type, exc_value, last_traceback = sys.exc_info()
@@ -168,23 +174,22 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
         ratio_valid = ratio_valid * 100
         if ratio_valid < 90:
             error_log.append("Only %s percent valid after processing whole file" % ratio_valid)
-            print("EMAIL")
-            print("Not enough valid")
+            logger.debug("Will email as not enough valid")
             services.send_vcf_email(email, jobid, genome=genome, per=ratio_valid)
             batch_submit = False
 
     # Autosubmit to batch?
     if batch_submit:
-        print("All good - going to submit to batch validator")
+        logger.debug("All good - going to submit to batch validator")
         variants = '|'.join(batch_list)
-        print(variants)
+        logger.debug(variants)
         batch_validate.delay(variants, genome, email, gene_symbols)
         return 'Success - %s (of %s) variants submitted to BatchValidator' % (len(batch_list), total_vcf_calls)
 
     # Alert admin to errors
     # if error_log:
     #     error_log = '\n'.join(error_log)
-    print(error_log)
+    logger.error(error_log)
         # create message
         # fromaddr = "vcf2hgvs@%s" % hostname
         # toaddr = "variantvalidator@gmail.com"

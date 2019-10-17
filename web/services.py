@@ -4,6 +4,9 @@ from django.contrib.sites.models import Site
 from django.conf import settings
 from django.utils import timezone
 from VariantValidator.modules.seq_data import to_accession
+import logging
+
+logger = logging.getLogger('vv')
 
 
 def process_result(val, validator):
@@ -14,7 +17,7 @@ def process_result(val, validator):
     :param validator: VariantValidator.Validator()
     :return: dict
     """
-
+    logger.debug("Processing validator results")
     flag = val['flag']
     meta = val['metadata']
     input_str = ''
@@ -103,6 +106,7 @@ def process_result(val, validator):
 
 
 def send_initial_email(email, job_id, submitted):
+    logger.debug("Sending job submission email")
     subject = "VariantValidator Job Submitted"
     current_site = Site.objects.get_current()
     message = render_to_string('email/initial.txt', {
@@ -122,6 +126,7 @@ def send_initial_email(email, job_id, submitted):
 
 
 def send_result_email(email, job_id):
+    logger.debug("Sending batch validation results email")
     subject = "Batch Validation Report"
     current_site = Site.objects.get_current()
     message = render_to_string('email/report.txt', {'job_id': job_id, 'domain': current_site.domain})
@@ -131,6 +136,7 @@ def send_result_email(email, job_id):
 
 
 def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
+    logger.debug("Sending VCF2HGVS error email")
     if cause != 'invalid' and cause != 'max_limit':
         raise TypeError("send_vcf_email expects string 'invalid' or 'max_limit'. %s is not accepted" % cause)
 
@@ -155,6 +161,7 @@ def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
 
 
 def send_contact_email(contact):
+    logger.debug("Sending contact form submission to admins")
     subject = "[Contact Form] New submission from %s" % contact.nameval
     message = render_to_string('email/contact.txt', {'contact': contact})
     html_msg = render_to_string('email/contact.html', {'contact': contact})
@@ -185,7 +192,6 @@ def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
 
     # Is there a supported chromosome?
     rs_chr = to_accession(chromosome, primary_assembly)
-    print(rs_chr)
     if rs_chr is None:
         validation['supported'] = 'false'
         validation['pseudo_vcf'] = 'false'
