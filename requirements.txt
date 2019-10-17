@@ -7,4 +7,3 @@ git+https://github.com/openvar/VariantValidator@master#egg=VariantValidator
 django-cookie-law
 django-allauth
 django-recaptcha
-dealer
