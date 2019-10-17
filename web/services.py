@@ -1,4 +1,4 @@
-from django.core.mail import send_mail
+from django.core.mail import send_mail, mail_admins
 from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
 from django.conf import settings
@@ -166,7 +166,7 @@ def send_contact_email(contact):
     message = render_to_string('email/contact.txt', {'contact': contact})
     html_msg = render_to_string('email/contact.html', {'contact': contact})
 
-    send_mail(subject, message, 'admin@variantValidator.org', settings.ADMIN_EMAILS, html_message=html_msg)
+    mail_admins(subject, message, html_message=html_msg)
 
 
 def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):

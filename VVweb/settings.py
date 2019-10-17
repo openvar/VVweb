@@ -159,6 +159,8 @@ if DEBUG is True:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DEFAULT_FROM_EMAIL = 'admin@variantValidator.org'
+EMAIL_SUBJECT_PREFIX = '[VVWeb] '
+SERVER_EMAIL = 'admin@variantValidator.org'
 
 # For VCF to HGVS conversion
 MAX_VCF = 50000
