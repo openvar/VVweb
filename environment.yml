@@ -18,3 +18,4 @@ dependencies:
     - django-cookie-law
     - django-allauth
     - django-recaptcha
+    - django-countries

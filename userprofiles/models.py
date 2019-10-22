@@ -1,22 +1,16 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
+from django_countries.fields import CountryField
 
 
 JOBS = (
-    ('clinician', 'Clinician'),
-    ('researcher', 'Researcher'),
-    ('bioinformatician', 'Bioinformatician'),
+    ('academic', 'Research (academic)'),
+    ('commercial', 'Research (commercial)'),
+    ('clinical', 'Clinical'),
+    ('healthcare', 'Healthcare'),
     ('student', 'Student'),
     ('other', 'Other'),
-)
-
-COUNTRIES = (
-    ('UK', 'United Kingdom'),
-    ('IE', 'Ireland'),
-    ('US', 'United States of America'),
-    ('FR', 'France'),
-    ('NA', 'Other')
 )
 
 
@@ -25,9 +19,7 @@ class UserProfile(models.Model):
                                 verbose_name=_('User'), on_delete=models.CASCADE)
     institution = models.CharField(
         max_length=150, null=True, blank=True, verbose_name=_('Institution'))
-    country = models.CharField(
-        max_length=2, blank=True, verbose_name=_('Country'), choices=COUNTRIES
-    )
+    country = CountryField()
     jobrole = models.CharField(
         max_length=140, blank=True, verbose_name=_('Job Role/Interest'), choices=JOBS)
 

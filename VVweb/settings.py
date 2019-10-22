@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.orcid',
     'userprofiles',
     'captcha',
+    'django_countries',
 ]
 
 MIDDLEWARE = [
@@ -163,6 +164,8 @@ SERVER_EMAIL = 'admin@variantValidator.org'
 
 # For VCF to HGVS conversion
 MAX_VCF = 50000
+
+COUNTRIES_FIRST = ['GB', 'US']
 
 LOGGING = {
     'version': 1,
