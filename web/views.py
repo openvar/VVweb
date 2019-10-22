@@ -123,6 +123,10 @@ def validate(request):
 
             logger.debug(output)
             logger.info("Successful validation made by user %s" % request.user)
+            return render(request, 'validate_results.html', {
+                'output': output,
+                'varsome_token': getattr(settings, 'VARSOME_TOKEN')
+            })
 
     if not request.user.is_authenticated:
         login_page = reverse('account_login')
@@ -130,18 +134,18 @@ def validate(request):
         if num < 5:
             if num == 4:
                 messages.warning(request,
-                                 "Warning: Only %s more submission allowed. "
-                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>." % (
+                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submission allowed. "
+                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>.</span>" % (
                                          5 - num, login_page, here))
             else:
                 messages.warning(request,
-                                 "Warning: Only %s more submissions allowed. "
-                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>." % (
+                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submissions allowed. "
+                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>.</span>" % (
                                      5 - num, login_page, here))
         else:
             logger.debug("Unauthenticated user blocked from validator")
             messages.error(request,
-                           "Please <a href='%s?next=%s' class='alert-link'>login</a> to continue using this service" % (
+                           "<span id='msg-body'>Please <a href='%s?next=%s' class='alert-link'>login</a> to continue using this service</span>" % (
                                login_page, here))
             locked = True
 
