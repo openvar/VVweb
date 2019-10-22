@@ -66,6 +66,10 @@ def instructions(request):
     return render(request, 'batch_instructions.html')
 
 
+def faqs(request):
+    return render(request, 'faqs.html')
+
+
 def genes_to_transcripts(request):
 
     output = False

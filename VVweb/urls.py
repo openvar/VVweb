@@ -26,6 +26,7 @@ urlpatterns = [
     path('help/contact/', views.contact, name='contact'),
     path('help/nomenclature/', views.nomenclature, name='nomenclature'),
     path('help/instructions/', views.instructions, name='batch_instructions'),
+    path('help/faq/', views.faqs, name='faqs'),
     path('service/validate/', views.validate, name='validate'),
     path('service/validate/batch/', views.batch_validate, name='batch_validate'),
     path('service/gene2trans/', views.genes_to_transcripts, name='genes2trans'),
