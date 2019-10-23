@@ -169,6 +169,16 @@ def send_contact_email(contact):
     mail_admins(subject, message, html_message=html_msg)
 
 
+def send_user_deletion_warning(user):
+    logger.debug("Sending email warning of account deletion to %s" % user)
+    subject = "Warning VariantValidator account will soon be deleted"
+    current_site = Site.objects.get_current()
+    message = render_to_string('email/user_warning.txt', {'user': user})
+    html_msg = render_to_string('email/user_warning.html', {'user': user, 'domain': current_site.domain})
+
+    send_mail(subject, message, 'admin@variantValidator.org', [user.email], html_message=html_msg)
+
+
 def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
     """
     Taken directly from original function in batch validator and tweaked to work with new VV version

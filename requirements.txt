@@ -8,3 +8,4 @@ django-cookie-law
 django-allauth
 django-recaptcha
 django-countries
+django-celery-beat

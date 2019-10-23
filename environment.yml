@@ -19,3 +19,4 @@ dependencies:
     - django-allauth
     - django-recaptcha
     - django-countries
+    - django-celery-beat

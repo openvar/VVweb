@@ -1,0 +1,12 @@
+{% load account %}
+
+Dear {% user_display user %},
+
+Your VariantValidator account has not been logged into for almost 2 years, and so will be deleted unless you log in within the next 30 days.
+
+To keep your account active, please visit www.variantvalidator.org and sign in with this email address or your username {{user.username}}.
+
+Best wishes,
+
+VariantValidator Admins
+

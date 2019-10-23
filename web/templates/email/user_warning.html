@@ -1,0 +1,26 @@
+{% load account %}
+
+<html>
+<body>
+  <p>
+    Dear {% user_display user %},
+  </p>
+  <p>
+    Your VariantValidator account has not been logged into for almost 2 years, and so will be deleted unless you log in
+    within the <b>next 30 days</b>.
+  </p>
+  <p>
+    To keep your account active, please visit <a href="http://{{ domain }}/{% url 'home' %}">VariantValidator</a>
+    and sign in with this email address or your username <code>{{user.username}}</code>.
+  </p>
+  <br>
+  <p>
+    Best wishes,
+  </p>
+  <p>
+    VariantValidator Admins
+  </p>
+</body>
+</html>
+
+

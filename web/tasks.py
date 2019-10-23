@@ -4,6 +4,10 @@ from celery import shared_task
 import VariantValidator
 from . import services
 import logging
+from django_celery_results.models import TaskResult
+from django.utils import timezone
+from datetime import timedelta
+from django.contrib.auth.models import User
 
 logger = logging.getLogger('vv')
 
@@ -212,3 +216,66 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
         # server.quit()
 
     return {'errors': error_log}
+
+
+@shared_task()
+def delete_old_jobs():
+    """
+    Task will check for any batch jobs that were completed over 7 days ago and remove them.
+    :return:
+    """
+    logger.info("Checking what job results can be deleted")
+    timepoint = timezone.now() - timedelta(days=7)
+    print(timepoint)
+    jobs = TaskResult.objects.filter(date_done__lte=timepoint)
+    print(jobs)
+    num, details = jobs.delete()
+    logger.info("Deleted %s task results" % num)
+    return {'deleted': num, 'detail': details}
+
+
+@shared_task()
+def email_old_users():
+    """
+    Task will look for users that haven't logged in for 23 months. They will be emailed to inform them that their
+    account will be deleted unless they log back in within the next month.
+    :return:
+    """
+    timepoint = timezone.now() - timedelta(days=(365*2 - 30))
+    print(timepoint)
+    users = User.objects.filter(last_login__lte=timepoint, profile__contacted_for_deletion=False)
+    if users:
+        logger.info("Sending deletion warning to %s" % users)
+    for user in users:
+        services.send_user_deletion_warning(user)
+        profile = user.profile
+        profile.contacted_for_deletion = True
+        profile.save()
+
+    # Check for users that have logged in since the email
+    active_users = User.objects.filter(last_login__gt=timepoint, profile__contacted_for_deletion=True)
+    print(active_users)
+    if active_users:
+        logger.info("These users have logged back in since email was sent: %s" % active_users)
+    for user in active_users:
+        profile = user.profile
+        profile.contacted_for_deletion = False
+        profile.save()
+
+    return "Sent %s emails. %s users are now active" % (len(users), len(active_users))
+
+
+@shared_task()
+def delete_old_users():
+    """
+    Task will look for users that haven't logged in for 24 months and have received the warning email, then delete their
+    accounts.
+    :return:
+    """
+    timepoint = timezone.now() - timedelta(days=(365*2))
+    print(timepoint)
+    users = User.objects.filter(last_login__lte=timepoint, profile__contacted_for_deletion=True)
+
+    num, details = users.delete()
+    logger.info("Deleted %s user accounts due to inactivity" % num)
+    return {'deleted': num, 'detail': details}

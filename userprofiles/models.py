@@ -30,6 +30,9 @@ class UserProfile(models.Model):
     personal_info_is_completed = models.BooleanField(
         default=False, verbose_name=_('Personal info completed'))
 
+    contacted_for_deletion = models.BooleanField(
+        default=False, verbose_name=_('Has been told account will be deleted'))
+
     class Meta:
         verbose_name = _('User profile')
         verbose_name_plural = _('User profiles')

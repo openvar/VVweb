@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'userprofiles',
     'captcha',
     'django_countries',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
