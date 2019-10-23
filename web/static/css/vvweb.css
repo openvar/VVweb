@@ -128,3 +128,7 @@ code {
     width: 0;
     z-index: -1;
 }
+
+.instructions-lst li:not(:last-child) {
+    margin-bottom: 5px;
+}
