@@ -29,13 +29,13 @@
                   <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required {% if locked %} disabled {% endif %}>
               </div>
               <div class="form-group" id="genomeselect">
-                  <div class="form-check form-check-inline">
-                      <input class="form-check-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if locked %} disabled {% endif %} {% if last == 'GRCh38' %}checked {% endif %}>
-                      <label class="form-check-label" for="grch37">GRCh38 (hg38, build38)</label>
+                  <div class="custom-radio custom-control custom-control-inline">
+                      <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if locked %} disabled {% endif %} {% if last == 'GRCh38' %}checked {% endif %}>
+                      <label class="custom-control-label" for="grch38">GRCh38 (hg38, build38)</label>
                   </div>
-                  <div class="form-check form-check-inline">
-                      <input class="form-check-input" type="radio" name="genomebuild" id="grch37" value="GRCh37" {% if locked %} disabled {% endif %} {% if last == 'GRCh37' %}checked {% endif %}>
-                      <label class="form-check-label" for="grch37">GRCh37 (hg19, build19)</label>
+                  <div class="custom-radio custom-control custom-control-inline">
+                      <input class="custom-control-input" type="radio" name="genomebuild" id="grch37" value="GRCh37" {% if locked %} disabled {% endif %} {% if last == 'GRCh37' %}checked {% endif %}>
+                      <label class="custom-control-label" for="grch37">GRCh37 (hg19, build19)</label>
                   </div>
               </div>
               <button id="validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
