@@ -91,17 +91,20 @@ $(document).ready(function() {
     var ajax_messages = function() {
         console.log("Changing message text");
         let num = $('#msg-valnum').text();
-        num = parseInt(num);
-        let newcounter = num - 1;
-        if (newcounter > 0) {
-            $('#msg-valnum').text(newcounter);
-        }else{
-            $('.alert.alert-warning').addClass('alert-danger');
-            $('#msg-body').html("Please <a href='/accounts/login/?next=/service/validate/' class='alert-link'>login</a> to continue using this service");
-            $('#variant_id').val('').attr('disabled', 'disabled');
-            $('#grch37').attr('disabled', 'disabled');
-            $('#grch38').attr('disabled', 'disabled');
-            $('#validate-btn').attr('disabled', 'disabled');
+        if (num) {
+            num = parseInt(num);
+            let newcounter = num - 1;
+            if (newcounter > 0) {
+                $('#msg-valnum').text(newcounter);
+            } else {
+                console.log('Num is 0');
+                $('.alert.alert-warning').addClass('alert-danger');
+                $('#msg-body').html("Please <a href='/accounts/login/?next=/service/validate/' class='alert-link'>login</a> to continue using this service");
+                $('#variant_id').val('').attr('disabled', 'disabled');
+                $('#grch37').attr('disabled', 'disabled');
+                $('#grch38').attr('disabled', 'disabled');
+                $('#validate-btn').attr('disabled', 'disabled');
+            }
         }
     };
 
