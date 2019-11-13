@@ -2,6 +2,7 @@
 {% load widget_tweaks %}
 {% load humanize %}
 
+{% block title %} - VCF to HGVS{% endblock %}
 {% block header_title %}VCF to HGVS{% endblock %}
 
 {% block content %}
@@ -38,7 +39,7 @@
                                   {{ field | add_class:"custom-file-input" }}
                               {% endif %}
                               <label class="custom-file-label" for="{{ field.id_for_label }}">Choose file...</label>
-                              <div class="invalid-feedback">
+                              <div class="invalid-feedback pt-2">
                                   {{ field.errors }}
                               </div>
                           </div>
@@ -56,9 +57,9 @@
                       {% else %}
                           <legend><h5>{{ field.label }}</h5></legend>
                           {% for radio in field %}
-                              <div class="form-check form-check-inline">
+                              <div class="custom-control custom-radio custom-control-inline">
                                   {{ radio.tag }}
-                                  <label for="{{ radio.id_for_label }}" class="form-check-label">{{ radio.choice_label }}</label>
+                                  <label for="{{ radio.id_for_label }}" class="custom-control-label">{{ radio.choice_label }}</label>
                               </div>
                           {% endfor %}
                           {% if field.errors %}

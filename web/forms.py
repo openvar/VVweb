@@ -37,7 +37,7 @@ class BatchValidateForm(forms.Form):
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
     genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
-                               widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+                               widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
                                label='Select genome build')
 
     def clean_input_variants(self):
@@ -62,7 +62,7 @@ class VCF2HGVSForm(forms.Form):
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
     genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
-                               widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+                               widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
                                label='Select genome build')
 
     def clean_gene_symbols(self):

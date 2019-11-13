@@ -12,7 +12,7 @@
   <meta name="description" content="">
   <meta name="author" content="">
 
-  <title>{% block title %}Business Frontpage - Start Bootstrap Template {% endblock %}</title>
+  <title>VariantValidator{% block title %} {% endblock %}</title>
 
   <!-- Bootstrap core CSS -->
   <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
@@ -23,7 +23,13 @@
   <link href="{% static 'css/vvweb.css' %}" rel="stylesheet">
   <link href="{% static 'cookielaw/css/cookielaw.css' %}" rel="stylesheet">
 
-  <script src="https://kit.fontawesome.com/ff8a38ffc2.js"></script>
+  <script src="https://kit.fontawesome.com/ff8a38ffc2.js" crossorigin="anonymous"></script>
+
+  <!-- Favicon -->
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon/apple-touch-icon.png' %}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32x32.png' %}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon/favicon-16x16.png' %}">
+  <link rel="manifest" href="{% static 'img/favicon/site.webmanifest' %}">
 
   {% block extraheader %}
   {% endblock %}
@@ -38,7 +44,7 @@
     <div class="container">
       <a class="navbar-brand" href="{% url 'home' %}">VariantValidator.org</a>
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
+        <span class="fas fa-bars" style="font-size: larger"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarResponsive">
         <ul class="navbar-nav ml-auto">
@@ -116,10 +122,13 @@
   <header class="bg-primary py-2">
     <div class="container h-25">
       <div class="row h-25 align-items-center">
-        <div class="col-lg-12">
+        <div class="col-9">
           <h1 class="display-4 text-white mt-4 mb-2">{% block header_title %}VariantValidator{% endblock %}</h1>
           <p class="lead mb-0 text-white-75">{% block subtitle %}{% endblock %}</p>
         </div>
+      <div class="col-3 text-right">
+        <img src="{% static 'img/logos/VV_logo.png' %}" alt="VariantValidator Logo" class="img-fluid" style="max-height: 200px">
+      </div>
       </div>
     </div>
   </header>
