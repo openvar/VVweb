@@ -125,11 +125,15 @@ def validate(request):
             request.session['genome'] = genome
             last_genome = genome
 
+            ucsc_link = services.get_ucsc_link(output)
+            varsome_link = services.get_varsome_link(output)
+
             logger.debug(output)
             logger.info("Successful validation made by user %s" % request.user)
             return render(request, 'validate_results.html', {
                 'output': output,
-                'varsome_token': getattr(settings, 'VARSOME_TOKEN')
+                'ucsc': ucsc_link,
+                'varsome': varsome_link,
             })
 
     if not request.user.is_authenticated:
@@ -155,7 +159,6 @@ def validate(request):
 
     return render(request, 'validate.html', {
         'output': output,
-        'varsome_token': getattr(settings, 'VARSOME_TOKEN'),
         'locked': locked,
         'last': last_genome,
     })

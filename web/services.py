@@ -3,7 +3,9 @@ from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
 from django.conf import settings
 from django.utils import timezone
-from VariantValidator.modules.seq_data import to_accession
+from VariantValidator.modules.seq_data import to_accession, to_chr_num_ucsc
+from VariantValidator.modules.utils import valstr
+from vvhgvs import parser
 import logging
 
 logger = logging.getLogger('vv')
@@ -226,3 +228,50 @@ def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
 
     # Return the result
     return validation
+
+
+def get_ucsc_link(output):
+    print(output)
+
+    if output['genome'] == 'GRCh37':
+        ucsc_assembly = 'hg19'
+    else:
+        ucsc_assembly = 'hg38'
+
+    hgvs_genomic = parser.Parser().parse(
+        output['results'][0]['primary_assembly_loci'][ucsc_assembly]['hgvs_genomic_description'])
+
+    chromosome = to_chr_num_ucsc(hgvs_genomic.ac, ucsc_assembly)
+    vcf_varsome = output['results'][0]['primary_assembly_loci'][ucsc_assembly]['vcfstr_alt']
+
+    if chromosome is not None:
+        vcf_components = output['genomes'][ucsc_assembly].split('-')
+        vcf_components[0] = chromosome
+        vcf_varsome = '-'.join(vcf_components)
+
+    browser_start = str(hgvs_genomic.posedit.pos.start.base - 11)
+    browser_end = str(hgvs_genomic.posedit.pos.end.base + 11)
+    ucsc_browser_position = '%s:%s-%s' % (chromosome, browser_start, browser_end)
+    coding = output['flag']
+    ucsc_link = 'http://genome.ucsc.edu/cgi-bin/hgTracks?' \
+                'db=%s&position=%s&hgt.customText=https://variantvalidator.org/bed/?variant=%s|%s|GRCh37|%s|%s' % \
+                (
+                 ucsc_assembly,
+                 ucsc_browser_position,
+                 coding,
+                 hgvs_genomic.ac,
+                 valstr(hgvs_genomic),
+                 vcf_varsome
+                )
+    return ucsc_link
+
+
+def get_varsome_link(output):
+    if output['genome'] == 'GRCh37':
+        assembly = 'hg19'
+    else:
+        assembly = 'hg38'
+
+    vcf = output['results'][0]['primary_assembly_loci'][assembly]['vcfstr_alt']
+    link = f"https://varsome.com/variant/{assembly}/{vcf}"
+    return link
