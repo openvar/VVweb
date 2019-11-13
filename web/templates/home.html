@@ -1,23 +1,13 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %} - Home{% endblock %}
+{% block header_title %}VariantValidator{% endblock %}
+{% block subtitle %}Accurate validation, mapping and formatting of sequence variants using HGVS nomenclature.{% endblock %}
 
 {% block content %}
 
-  <!-- Header -->
-  <header class="bg-primary py-5 mb-5">
-    <div class="container h-100">
-      <div class="row h-100 align-items-center">
-        <div class="col-lg-12">
-          <h1 class="display-4 text-white mt-5 mb-2">VariantValidator</h1>
-          <p class="lead mb-5 text-white-50">Accurate validation, mapping and formatting of sequence variants using HGVS nomenclature.</p>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Page Content -->
-  <div class="container">
-
-    <div class="row">
+  <div class="row">
       <div class="col-md-8 mb-5">
         <h2>What We Do</h2>
         <hr>
@@ -36,18 +26,14 @@
       <div class="col-md-4 mb-5">
         <h2>Powered By</h2>
         <hr>
-        <strong>VariantValidator</strong>
-        <br>version {{ versions.VariantValidator }}
-        <br>
-        <strong>vvHGVS</strong>
-        <br>version {{ versions.hgvs }}
-        <br>
-        <strong>UTA</strong>
-        <br>release {{ versions.uta }}
-        <br>
-        <strong>SeqRepo</strong>
-        <br>release {{ versions.seqrepo }}
-        <br>
+        <a class="font-weight-bold" href="http://github.com/openvar/variantvalidator/" target="_blank">VariantValidator</a>
+        <div class="ml-2">version {{ versions.VariantValidator }}</div>
+        <a class="font-weight-bold" href="http://github.com/openvar/vv_hgvs/" target="_blank">vvHGVS</a>
+        <div class="ml-2">version {{ versions.hgvs }}</div>
+        <a class="font-weight-bold" href="http://github.com/biocommons/uta/" target="_blank">UTA</a>
+        <div class="ml-2">release {{ versions.uta }}</div>
+        <a class="font-weight-bold" href="http://github.com/biocommons/seqrepo/" target="_blank">SeqRepo</a>
+        <div class="ml-2">release {{ versions.seqrepo }}</div>
       </div>
     </div>
     <!-- /.row -->
@@ -55,7 +41,7 @@
     <div class="row">
       <div class="col-md-4 mb-5">
         <div class="card h-100">
-          <img class="card-img-top" src="http://placehold.it/300x200" alt="">
+          <img class="card-img-top" src="{% static 'img/Validator.png' %}" alt="">
           <div class="card-body">
             <h4 class="card-title">Validator</h4>
             <p class="card-text">Validate your variant descriptions using HGVS nomenclature.</p>
@@ -67,7 +53,7 @@
       </div>
       <div class="col-md-4 mb-5">
         <div class="card h-100">
-          <img class="card-img-top" src="http://placehold.it/300x200" alt="">
+          <img class="card-img-top" src="{% static 'img/VCF_to_HGVS.png' %}" alt="">
           <div class="card-body">
             <h4 class="card-title">VCF to HGVS</h4>
             <p class="card-text">Convert VCF files to validated HGVS variants.</p>
@@ -79,7 +65,7 @@
       </div>
       <div class="col-md-4 mb-5">
         <div class="card h-100">
-          <img class="card-img-top" src="http://placehold.it/300x200" alt="">
+          <img class="card-img-top" src="{% static 'img/Gene_to_Transcript.png' %}" alt="">
           <div class="card-body">
             <h4 class="card-title">Gene to Transcript</h4>
             <p class="card-text">Identify all transcripts from a gene symbol.</p>
@@ -91,8 +77,4 @@
       </div>
     </div>
     <!-- /.row -->
-
-  </div>
-  <!-- /.container -->
-
 {% endblock %}

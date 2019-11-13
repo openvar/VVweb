@@ -1,8 +1,12 @@
-from django.core.mail import send_mail
+from django.core.mail import send_mail, mail_admins
 from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
 from django.conf import settings
+from django.utils import timezone
 from VariantValidator.modules.seq_data import to_accession
+import logging
+
+logger = logging.getLogger('vv')
 
 
 def process_result(val, validator):
@@ -13,13 +17,14 @@ def process_result(val, validator):
     :param validator: VariantValidator.Validator()
     :return: dict
     """
-
+    logger.debug("Processing validator results")
     flag = val['flag']
     meta = val['metadata']
     input_str = ''
     each = []
     genomes = {}
     counter = 0
+    warnings = []
     for k, v in val.items():
         if k == 'flag' or k == 'metadata':
             continue
@@ -27,28 +32,41 @@ def process_result(val, validator):
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)
-        tx_id_info = validator.hdp.get_tx_identity_info(v['hgvs_transcript_variant'].split(':')[0])
-        print(tx_id_info)
-        gene_info = validator.hdp.get_gene_info(v['gene_symbol'])
-        print(gene_info)
-        v['chr_loc'] = gene_info[1]
-        tx_ac = v['hgvs_transcript_variant'].split(':')[0]
-        gene_ac = v['hgvs_refseqgene_variant'].split(':')[0]
+        latest = True
+        if v['hgvs_transcript_variant']:
+            v['safe_hgvs_trans'] = v['hgvs_transcript_variant']
+            tx_id_info = validator.hdp.get_tx_identity_info(v['hgvs_transcript_variant'].split(':')[0])
+            print(tx_id_info)
+            tx_ac = v['hgvs_transcript_variant'].split(':')[0]
+            v['tx_ac'] = tx_ac
+            acc = tx_ac.split('.')
+            version_number = int(acc[1])
+            accession = acc[0]
+            for trans in list(val.keys()):
+                if accession in trans and trans != k:
+                    other_version = int(trans.split(':')[0].split('.')[1])
+                    if other_version > version_number:
+                        latest = False
+        else:
+            v['tx_ac'] = ''
+            v['safe_hgvs_trans'] = 'Unknown transcript variant'
+
+        if v['gene_symbol']:
+            gene_info = validator.hdp.get_gene_info(v['gene_symbol'])
+            print(gene_info)
+            v['chr_loc'] = gene_info[1]
+
+        if v['hgvs_refseqgene_variant']:
+            gene_ac = v['hgvs_refseqgene_variant'].split(':')[0]
+            v['gene_ac'] = gene_ac
+        else:
+            v['gene_ac'] = ''
+
         prot_ac = v['hgvs_predicted_protein_consequence']['tlr'].split(':')[0]
         prot_ac = prot_ac.split('(')[0]
-        v['tx_ac'] = tx_ac
-        v['gene_ac'] = gene_ac
         v['prot_ac'] = prot_ac
-        acc = tx_ac.split('.')
-        version_number = int(acc[1])
-        accession = acc[0]
-        latest = True
-        for trans in list(val.keys()):
-            if accession in trans and trans != k:
-                other_version = int(trans.split(':')[0].split('.')[1])
-                if other_version > version_number:
-                    latest = False
         v['latest'] = latest
+
         for genome in v['primary_assembly_loci']:
             vcfdict = v['primary_assembly_loci'][genome]['vcf']
             vcfstr = "%s:%s:%s:%s:%s" % (
@@ -69,7 +87,11 @@ def process_result(val, validator):
             genomes[genome] = vcfstr_alt
             v['primary_assembly_loci'][genome]['ac'] = \
                 v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
-        each.append(v)
+
+        if v['tx_ac'] or v['gene_ac']:
+            each.append(v)
+        else:
+            warnings = v['validation_warnings']
 
     alloutputs = {
         'flag': flag,
@@ -77,12 +99,34 @@ def process_result(val, validator):
         'inputted': input_str,
         'genomes': genomes,
         'results': sorted(each, key=lambda i: i['tx_ac']),
+        'warnings': warnings,
     }
 
     return alloutputs
 
 
+def send_initial_email(email, job_id, submitted):
+    logger.debug("Sending job submission email")
+    subject = "VariantValidator Job Submitted"
+    current_site = Site.objects.get_current()
+    message = render_to_string('email/initial.txt', {
+        'job_id': job_id,
+        'domain': current_site.domain,
+        'sub': submitted,
+        'time': timezone.now(),
+    })
+    html_msg = render_to_string('email/initial.html', {
+        'job_id': job_id,
+        'domain': current_site.domain,
+        'sub': submitted,
+        'time': timezone.now(),
+    })
+
+    send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
+
+
 def send_result_email(email, job_id):
+    logger.debug("Sending batch validation results email")
     subject = "Batch Validation Report"
     current_site = Site.objects.get_current()
     message = render_to_string('email/report.txt', {'job_id': job_id, 'domain': current_site.domain})
@@ -92,6 +136,7 @@ def send_result_email(email, job_id):
 
 
 def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
+    logger.debug("Sending VCF2HGVS error email")
     if cause != 'invalid' and cause != 'max_limit':
         raise TypeError("send_vcf_email expects string 'invalid' or 'max_limit'. %s is not accepted" % cause)
 
@@ -113,6 +158,25 @@ def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
                                  'max': settings.MAX_VCF})
 
     send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
+
+
+def send_contact_email(contact):
+    logger.debug("Sending contact form submission to admins")
+    subject = "[Contact Form] New submission from %s" % contact.nameval
+    message = render_to_string('email/contact.txt', {'contact': contact})
+    html_msg = render_to_string('email/contact.html', {'contact': contact})
+
+    mail_admins(subject, message, html_message=html_msg)
+
+
+def send_user_deletion_warning(user):
+    logger.debug("Sending email warning of account deletion to %s" % user)
+    subject = "Warning VariantValidator account will soon be deleted"
+    current_site = Site.objects.get_current()
+    message = render_to_string('email/user_warning.txt', {'user': user})
+    html_msg = render_to_string('email/user_warning.html', {'user': user, 'domain': current_site.domain})
+
+    send_mail(subject, message, 'admin@variantValidator.org', [user.email], html_message=html_msg)
 
 
 def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
@@ -138,7 +202,6 @@ def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
 
     # Is there a supported chromosome?
     rs_chr = to_accession(chromosome, primary_assembly)
-    print(rs_chr)
     if rs_chr is None:
         validation['supported'] = 'false'
         validation['pseudo_vcf'] = 'false'

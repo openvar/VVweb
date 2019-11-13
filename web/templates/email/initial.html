@@ -1,0 +1,19 @@
+<html>
+<body>
+<h3>Request ID: {{ job_id }}</h3>
+<h4>Batch {{ sub }} request received at {{ time | time }} {{ time | date }}</h4>
+
+<p>Your results will be emailed to you once your request has been processed.</p>
+<p>
+  The time taken to process your job will depend on the number of jobs that it includes and how busy the servers are,
+  however we guarantee that processing will take no longer than 7 days.
+</p>
+<p>
+  If you encounter any problems or have any queries, please <a href="http://{{ domain }}{% url 'contact' %}">contact admin</a>.
+</p>
+<br>
+<p>Regards,</p>
+<p>VariantValidator Admin</p>
+</body>
+</html>
+

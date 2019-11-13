@@ -2,102 +2,78 @@
 {% load widget_tweaks %}
 {% load humanize %}
 
+{% block title %} - VCF to HGVS{% endblock %}
+{% block header_title %}VCF to HGVS{% endblock %}
+
 {% block content %}
-
-    <!-- Header -->
-    <header class="bg-primary py-2">
-        <div class="container h-25">
-            <div class="row h-25 align-items-center">
-                <div class="col-lg-12">
-                    <h1 class="display-4 text-white mt-5 mb-2">VCF to HGVS</h1>
-                    {% if output %}
-                        <p class="lead mb-1 text-white-50">Submitted {{ output.inputted }}</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </header>
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        {% endfor %}
-    {% endif %}
-
-    <div class="container mt-5">
-        <div class="row">
-            <div class="col-md-12 mb-5">
-                <h5>Instructions</h5>
-                <ol>
-                    <li>Select VCF file to upload</li>
-                    <li>Optional: Specify genes of interest</li>
-                    <li>Provide email address</li>
-                    <li>Select genome build</li>
-                </ol>
-                <h5>Workflow</h5>
-                <p>
-                    If gene(s) and transcript(s) are specified, only VCF calls which map within the boundaries of
-                    specified transcript(s) will be retained.<br>
-                    Results will be returned by the batch validator tool via email.<br>
-                    VCF calls will be returned in the format chrX-12345-REF-ALT. The tool will process a maximum of {{ max|intcomma }} variants.
-                </p>
-                <form method="POST" novalidate enctype="multipart/form-data">
-                    {% csrf_token %}
-                    {% for field in form %}
-                        <div class="form-group">
-                            {% if field.label == 'VCF file' %}
-                                <legend><h4>{{ field.label }}</h4></legend>
-                                <div class="custom-file">
-                                    {% if form.is_bound %}
-                                        {% if field.errors %}
-                                            {{ field | add_class:"custom-file-input is-invalid" }}
-                                        {% else %}
-                                            {{ field | add_class:"custom-file-input is-valid" }}
-                                        {% endif %}
-                                    {% else %}
-                                        {{ field | add_class:"custom-file-input" }}
-                                    {% endif %}
-                                    <label class="custom-file-label" for="{{ field.id_for_label }}">Choose file...</label>
-                                    <div class="invalid-feedback">
-                                        {{ field.errors }}
-                                    </div>
-                                </div>
-                            {% elif field.label != 'Select genome build' %}
-                                <label for="{{ field.id_for_label }}"><h4>{{ field.label }}</h4></label>
-                                {% if form.is_bound %}
-                                    {% if field.errors %}
-                                        {{ field | add_class:"form-control is-invalid"}}
-                                    {% else %}
-                                        {{ field | add_class:"form-control is-valid" }}
-                                    {% endif %}
-                                {% else %}
-                                    {{ field | add_class:"form-control" }}
-                                {% endif %}
-                            {% else %}
-                                <legend><h5>{{ field.label }}</h5></legend>
-                                {% for radio in field %}
-                                    <div class="form-check form-check-inline">
-                                        {{ radio.tag }}
-                                        <label for="{{ radio.id_for_label }}" class="form-check-label">{{ radio.choice_label }}</label>
-                                    </div>
-                                {% endfor %}
-                                {% if field.errors %}
-                                    <div class="invalid-feedback" style="display: block">This field is required</div>
-                                {% endif %}
-                            {% endif %}
-                            <div class="invalid-feedback">
-                                {{ field.errors }}
-                            </div>
-                        </div>
-                    {% endfor %}
-                    <button class="btn btn-primary" type="submit">Submit</button>
-                </form>
-            </div>
-        </div>
-    </div>
+  <div class="row">
+      <div class="col-md-12 mb-5">
+          <h5>Instructions</h5>
+          <ol>
+              <li>Select VCF file to upload</li>
+              <li>Optional: Specify genes of interest</li>
+              <li>Provide email address</li>
+              <li>Select genome build</li>
+          </ol>
+          <h5>Workflow</h5>
+          <p>
+              If gene(s) and transcript(s) are specified, only VCF calls which map within the boundaries of
+              specified transcript(s) will be retained.<br>
+              Results will be returned by the batch validator tool via email.<br>
+              VCF calls will be returned in the format chrX-12345-REF-ALT. The tool will process a maximum of {{ max|intcomma }} variants.
+          </p>
+          <form method="POST" novalidate enctype="multipart/form-data">
+              {% csrf_token %}
+              {% for field in form %}
+                  <div class="form-group">
+                      {% if field.label == 'VCF file' %}
+                          <legend><h4>{{ field.label }}</h4></legend>
+                          <div class="custom-file">
+                              {% if form.is_bound %}
+                                  {% if field.errors %}
+                                      {{ field | add_class:"custom-file-input is-invalid" }}
+                                  {% else %}
+                                      {{ field | add_class:"custom-file-input is-valid" }}
+                                  {% endif %}
+                              {% else %}
+                                  {{ field | add_class:"custom-file-input" }}
+                              {% endif %}
+                              <label class="custom-file-label" for="{{ field.id_for_label }}">Choose file...</label>
+                              <div class="invalid-feedback pt-2">
+                                  {{ field.errors }}
+                              </div>
+                          </div>
+                      {% elif field.label != 'Select genome build' %}
+                          <label for="{{ field.id_for_label }}"><h4>{{ field.label }}</h4></label>
+                          {% if form.is_bound %}
+                              {% if field.errors %}
+                                  {{ field | add_class:"form-control is-invalid"}}
+                              {% else %}
+                                  {{ field | add_class:"form-control is-valid" }}
+                              {% endif %}
+                          {% else %}
+                              {{ field | add_class:"form-control" }}
+                          {% endif %}
+                      {% else %}
+                          <legend><h5>{{ field.label }}</h5></legend>
+                          {% for radio in field %}
+                              <div class="custom-control custom-radio custom-control-inline">
+                                  {{ radio.tag }}
+                                  <label for="{{ radio.id_for_label }}" class="custom-control-label">{{ radio.choice_label }}</label>
+                              </div>
+                          {% endfor %}
+                          {% if field.errors %}
+                              <div class="invalid-feedback" style="display: block">This field is required</div>
+                          {% endif %}
+                      {% endif %}
+                      <div class="invalid-feedback">
+                          {{ field.errors }}
+                      </div>
+                  </div>
+              {% endfor %}
+              <button class="btn btn-primary" type="submit" {% if locked %} disabled {% endif %} >Submit</button>
+          </form>
+      </div>
+  </div>
 
 {% endblock %}

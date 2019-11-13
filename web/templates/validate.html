@@ -1,217 +1,66 @@
 {% extends 'base.html' %}
 
+{% block title %} - Validator{% endblock %}
+{% block header_title %}Validator{% endblock %}
+{% block subtitle %}{% if output %}Submitted {{ output.inputted }}{% endif %}{% endblock %}
+
 {% block content %}
-    <!-- Header -->
-    <header class="bg-primary py-2 mb-5">
-        <div class="container h-25">
-            <div class="row h-25 align-items-center">
-                <div class="col-lg-12">
-                    <h1 class="display-4 text-white mt-5 mb-2">Validator</h1>
-                    {% if output %}
-                        <p class="lead mb-1 text-white-50">Submitted {{ output.inputted }}</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <div class="container">
-        {% if output %}
-            {% if output.results|length > 1 %}
-                <div class="row">
-                    <div class="col-md-12 mb-5">
-                        <p>VariantValidator returned multiple results, select those you are interested in from the table below</p>
-                        <table class="table table-bordered text-center">
-                            <tr>
-                                <th>Select</th>
-                                <th>Transcript Accession</th>
-                                <th>Gene Accession</th>
-                                <th>Latest Version</th>
-                            </tr>
-                            {% for each in output.results %}
-                                <tr>
-                                    <td>
-                                        <div class="custom-control custom-checkbox">
-                                            <input type="checkbox" class="custom-control-input res-checkbox" data-tabid="{{ each.id }}" id="{{ each.id }}-checkbox">
-                                            <label class="custom-control-label" for="{{ each.id }}-checkbox"></label>
-                                        </div>
-                                    </td>
-                                    <td>{{ each.tx_ac }}</td>
-                                    <td>{{ each.gene_ac }}</td>
-                                    <td class="text-center">
-                                        {% if each.latest %}
-                                            <span><i class="fas fa-check text-success"></i></span>
-                                        {% else %}
-                                            <span><i class="fas fa-times text-danger"></i></span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </table>
-                    </div>
-                </div>
-            {% endif %}
-            <div id="results">
-                <div class="row">
-                    <div class="col-md-12 mb-2">
-                        <ul class="nav nav-tabs" id="myTab" role="tablist">
-                            {% for each in output.results %}
-                                <li class="nav-item">
-                                    <a class="nav-link" id="{{ each.id }}-tab" data-toggle="tab" href="#{{ each.id }}" role="tab" aria-controls="{{ each.id }}" aria-selected="false">{{ each.hgvs_transcript_variant }}</a>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                        <div class="tab-content" id="myTabContent">
-                            {% for each in output.results %}
-                                <div class="tab-pane" id="{{ each.id }}" role="tabpanel" aria-labelledby="{{ each.id }}-tab">
-                                    <h3 class="mt-3">{{ each.hgvs_transcript_variant }}</h3>
-                                    <h4>{{ each.transcript_description }}</h4>
-                                    <h6>{{ output.genome }}: {{ each.chr_loc }}</h6>
-                                    <br>
-                                    <h5>HGVS-compliant variant descriptions</h5>
-                                    <table class="table table-bordered">
-                                        <tr>
-                                            <th>Type</th>
-                                            <th>Variant Description</th>
-                                            <th>Link to GenBank</th>
-                                        </tr>
-                                        <tr>
-                                            <td>Transcript (:c.)</td>
-                                            <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_transcript_variant }}</a></td>
-                                            <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.tx_ac }}" target="_blank">{{ each.tx_ac }}</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td>RefSeq Gene (:g.)</td>
-                                            <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_refseqgene_variant }}</a></td>
-                                            <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.gene_ac }}" target="_blank">{{ each.gene_ac }}</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td>Protein (:p.)</td>
-                                            <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_predicted_protein_consequence.tlr }}</a></td>
-                                            <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
-                                        </tr>
-                                    </table>
-
-                                    <h5>Genomic Variants</h5>
-                                    <table class="table table-bordered">
-                                        <tr>
-                                            <th>Variant Description</th>
-                                            <th>VCF Description</th>
-                                            <th>Link to GenBank</th>
-                                        </tr>
-                                        <tr>
-                                            <td><a class="variant-example" data-genome="GRCh38" href="#">{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}</a></td>
-                                            <td>{{ each.primary_assembly_loci.grch38.vcfstr }}</td>
-                                            <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.primary_assembly_loci.grch38.ac }}" target="_blank">{{ each.primary_assembly_loci.grch38.ac }}</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td><a class="variant-example" data-genome="GRCh37" href="#">{{ each.primary_assembly_loci.grch37.hgvs_genomic_description }}</a></td>
-                                            <td>{{ each.primary_assembly_loci.grch37.vcfstr }}</td>
-                                            <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.primary_assembly_loci.grch37.ac }}" target="_blank">{{ each.primary_assembly_loci.grch37.ac }}</a></td>
-                                        </tr>
-                                    </table>
-
-                                    <h4>Recommended Variant Descriptions</h4>
-                                    <ol>
-                                        <li>We recommend using a genomic and a transcript description in all publications</li>
-                                        <li>We currently recommend that RefSeqGene descriptions should be used when possible</li>
-                                    </ol>
-                                    <h5>Genomic descriptions</h5>
-                                    <table class="table table-bordered">
-                                        <tr>
-                                            <th>Reference Sequence Type</th>
-                                            <th>Variant Description</th>
-                                        </tr>
-                                        <tr>
-                                            <td>RefSeqGene</td>
-                                            <td>{{ each.hgvs_refseqgene_variant }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Chromosomal GRCh37</td>
-                                            <td>{{ each.primary_assembly_loci.grch37.hgvs_genomic_description }}</td>
-                                        </tr>
-                                    </table>
-                                    <h5>Transcript descriptions</h5>
-                                    <table class="table table-bordered">
-                                        <tr>
-                                            <th>Reference Sequence Type</th>
-                                            <th>Variant Description</th>
-                                        </tr>
-                                        <tr>
-                                            <td>RefSeq Transcript</td>
-                                            <td>{{ each.hgvs_transcript_variant }}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-12 mb-5">
-                        <h4>Aggregated data sources and clinical significance</h4>
-                        {% if output.genome == 'GRCh37' %}
-                          <variant-request refgenome="hg19" query="{{ output.genomes.grch37 }}"></variant-request>
-                        {% else %}
-                          <variant-request refgenome="hg38" query="{{ output.genomes.grch38 }}"></variant-request>
-                        {% endif %}
-                        <variant-details nearby="true" defaultexpanded="true"></variant-details>
-                        <region-browser></region-browser>
-                        <ncbi-clinvar defaultexpanded="true"></ncbi-clinvar>
-                        <genes-results defaultexpanded="true" showghrgenes="false" showhpo="false" showcgd="true" showtranscripts="false" showgenestats="false" showexacgenes="true" showdbnsfpgenes="false" showcivic="false"></genes-results>
-                        <dbnsfp-results defaultexpanded="true"></dbnsfp-results>
-                    </div>
-                </div>
-            </div>
-            <hr>
-        {% endif %}
-        <div class="row">
-            <div class="col-md-12 mb-5">
-                <h2>Input Variant Description</h2>
-                <h5>Enter variant description in the <a href="http://varnomen.hgvs.org/" target="_blank">HGVS</a> format or in VCF format as shown below:</h5>
-                <ul>
-                    <li><a class="variant-example" href="#" data-genome="GRCh37">NM_000088.3:c.589G>T</a></li>
-                    <li><a class="variant-example" href="#" data-genome="GRCh37">NC_000017.10:g.48275363C>A</a></li>
-                    <li><a class="variant-example" href="#" data-genome="GRCh37">NG_007400.1:g.8638G>T</a></li>
-                    <li><a class="variant-example" href="#" data-genome="GRCh37">LRG_1:g.8638G>T</a></li>
-                    <li><a class="variant-example" href="#" data-genome="GRCh37">LRG_1t1:c.589G>T</a></li>
-                    <li><a class="variant-example" href="#" data-genome="GRCh38">17-50198002-C-A</a></li>
-                    <li><a class="variant-example" href="#" data-genome="GRCh38">chr17:50198002C>A</a></li>
-                </ul>
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="form-group">
-                        <label for="variant_id">Variant Description:</label>
-                        <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required>
-                    </div>
-                    <div class="form-group" id="genomeselect">
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="genomebuild" id="grch38" value="GRCh38">
-                            <label class="form-check-label" for="grch37">GRCh38 (hg38, build38)</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="genomebuild" id="grch37" value="GRCh37">
-                            <label class="form-check-label" for="grch37">GRCh37 (hg19, build19)</label>
-                        </div>
-                    </div>
-                    <button id="validate-btn" type="submit" class="btn btn-primary">
-                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        <span id="validate-btn-text">Submit</span>
-                    </button>
-                </form>
-            </div>
-        </div>
+    <div class="loading spinner-border text-primary" role="status">
+      <span class="sr-only">Loading...</span>
     </div>
-{% endblock %}
+  <div id="validate-results"></div>
+  <div class="row">
+      <div class="col-md-12 mb-5">
+          <h2>Input Variant Description</h2>
+          <h5>Enter variant description in the <a href="http://varnomen.hgvs.org/" target="_blank">HGVS</a> format or in VCF format as shown below:</h5>
+          <ul>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">NM_000088.3:c.589G>T</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">NC_000017.10:g.48275363C>A</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">NG_007400.1:g.8638G>T</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">LRG_1:g.8638G>T</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh37">LRG_1t1:c.589G>T</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh38">17-50198002-C-A</a></li>
+              <li><a class="variant-example" href="#" data-genome="GRCh38">chr17:50198002C>A</a></li>
+          </ul>
+          <form method="post" id="validate-form">
+              {% csrf_token %}
+              <div class="form-group">
+                  <label for="variant_id">Variant Description:</label>
+                  <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required {% if locked %} disabled {% endif %}>
+              </div>
+              <div class="form-group" id="genomeselect">
+                  <div class="custom-radio custom-control custom-control-inline">
+                      <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if locked %} disabled {% endif %} {% if last == 'GRCh38' %}checked {% endif %}>
+                      <label class="custom-control-label" for="grch38">GRCh38 (hg38, build38)</label>
+                  </div>
+                  <div class="custom-radio custom-control custom-control-inline">
+                      <input class="custom-control-input" type="radio" name="genomebuild" id="grch37" value="GRCh37" {% if locked %} disabled {% endif %} {% if last == 'GRCh37' %}checked {% endif %}>
+                      <label class="custom-control-label" for="grch37">GRCh37 (hg19, build19)</label>
+                  </div>
+              </div>
+              <button id="validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
+                Submit
+              </button>
+          </form>
+      </div>
+  </div>
 
-{% block extrafooter %}
-	<script>
-		var varsomeConfig = {
-			api_url: 'https://api.varsome.com',
-			static_token: '{{ varsome_token | safe }}'
-		}
-	</script>
-  {% if output %}
-	  <script src="https://assets.varsome.com/static/components/components-bundle.js"></script>
-  {% endif %}
+  <div class="modal fade" id="timeoutModal" tabindex="-1" role="dialog" aria-labelledby="timeoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="timeoutModalLabel">Timed Out</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Your validation request ran for too long. Please re-submit as a batch process.</p>
+        </div>
+        <div class="modal-footer">
+          <a role="button" class="btn btn-primary" href="{% url 'batch_validate' %}">Go To Batch Tool</a>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}

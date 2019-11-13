@@ -1,0 +1,10 @@
+Request ID: {{ job_id }}
+Batch {{ sub }} request received at {{ time | time }} {{ time | date }}
+
+Your results will be emailed to you once your request has been processed.
+The time taken to process your job will depend on the number of jobs that it includes and how busy the servers are, however we guarantee that processing will take no longer than 7 days.
+If you encounter any problems or have any queries, please contact the admin (http://{{ domain }}{% url 'contact' %}).
+
+Regards,
+
+VariantValidator Admin

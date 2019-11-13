@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load i18n staticfiles %}
+{% load widget_tweaks %}
+{% load account %}
+
+{% block title %}{% trans "My profile: Identity" %}{% endblock %}
+{% block header_title %}User Profile{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-xs-12 offset-md-1 col-md-10 offset-md-1 offset-md-2 col-lg-8 offset-md-2">
+      <h1>{% user_display user %} - Personal Information</h1>
+      <form action="" class="form-horizontal" method="post">
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field | add_class:'form-control' }}
+          </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary btn-lg">{% trans "Save" %}</button>
+        <a href="javascript:history.back()" class="btn btn-lg btn-default">{% trans "Back" %}</a>
+      </form>
+    </div>
+  </div>
+{% endblock %}

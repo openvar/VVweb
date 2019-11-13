@@ -2,14 +2,17 @@
 <body>
 <h3>VCF to HGVS job_id: {{ job_id }}</h3>
 
-VCF2HGVS was unable to recover sufficient supported data from your uploaded file.
-The likelihood that the VCF file was derived from genome build {{ genome }} is {{ per }}%.
-The cut-off for analysis is <strong>90%</strong>.
+<p>
+  VCF2HGVS was unable to recover sufficient supported data from your uploaded file.
+  The likelihood that the VCF file was derived from genome build {{ genome }} is {{ per }}%.
+  The cut-off for analysis is <strong>90%</strong>.
+</p>
 
-If you have any queries, please <a href="http://{{ domain }}{% url 'contact' %}">contact admin</a>.
-
-Regards,
-
-VariantValidator Admin
+<p>
+  If you have any queries, please <a href="http://{{ domain }}{% url 'contact' %}">contact admin</a>.
+</p>
+<br>
+<p>Regards,</p>
+<p>VariantValidator Admin</p>
 </body>
 </html>

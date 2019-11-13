@@ -1,66 +1,55 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Nomenclature{% endblock %}
+{% block title %} - Nomenclature{% endblock %}
+
+{% block header_title %}Nomenclature Recommendations{% endblock %}
 
 {% block content %}
-<!-- Header -->
-  <header class="bg-primary py-2 mb-5">
-    <div class="container h-25">
-      <div class="row h-25 align-items-center">
-        <div class="col-lg-12">
-          <h1 class="display-4 text-white mt-5 mb-2">Nomenclature Recommendations</h1>
+  <div class="row">
+    <div class="col-md-12 mb-5">
+        <h2>Examples where HGVS recommendations may be confusing</h2>
+      <div class="card">
+        <div class="card-body">
+          <h4 class="card-title">Assigning the most 3' position possible to a deleted sequence (3' normalisation) results in discordance
+      between a variant being described with respect to the coding sequence and the genome (chromosomal) sequence</h4>
+          <br>
+          <h5 class="card-subtitle mb-2 text-muted">General recommendations</h5>
+          <ul>
+              <li>
+                  Variants should ideally be reported in terms of the genome (chromosomal) sequence or genomic DNA sequence.
+              </li>
+              <li>
+                  Variation in the genome sequence should take precedence over variation in the coding sequence.
+              </li>
+              <li>
+                  Coding sequence deletions should not cross exon boundaries.
+              </li>
+          </ul>
+          <br>
+          <h5 class="card-subtitle mb-2 text-muted">Examples</h5>
+            <ol>
+                <li class="h5">Normalisation at exon boundaries when the coding sequence is antisense to the genome sequence
+                  <img src="{% static 'img/antisense_shuffling.png' %}" class="img-fluid" alt="Antisense shuffling">
+                  <ul class="small">
+                    <li>Recommended genome sequence description: NC_000017.10:g.48275364delC </li>
+                    <li>Recommended genomic sequence description: NG_007400.1:g.8639delG</li>
+                    <li>Recommended coding sequence description: NM_000088.3:c.590delG</li>
+                  </ul>
+                </li>
+                <li class="h5">Several normalised variants have the same effect on the protein sequence
+                  <img src="{% static 'img/exon_boundary_crossing.png' %}" class="img-fluid" alt="Exon boundary crossing">
+                  <ul class="small">
+                      <li>Recommended genome sequence description: NC_000007.13:g.94039133_94039135delTGT</li>
+                      <li>Recommended genomic sequence description: NG_007405.1:g.20261_20263delTGT</li>
+                      <li>Recommended coding sequence description: NG_007405.1(NM_000089.3):c.1035_1035+2delTGT</li>
+                  </ul>
+                </li>
+            </ol>
+          <a href="http://varnomen.hgvs.org/recommendations/DNA/variant/deletion/" target="_blank" class="card-link">Varnomen Recommendation</a>
         </div>
       </div>
-    </div>
-  </header>
-
-  <div class="container">
-    <div class="row">
-      <div class="col-md-12 mb-5">
-          <h2>Examples where HGVS recommendations may be confusing</h2>
-        <div class="card">
-          <div class="card-body">
-            <h4 class="card-title">Assigning the most 3' position possible to a deleted sequence (3' normalisation) results in discordance
-				between a variant being described with respect to the coding sequence and the genome (chromosomal) sequence</h4>
-            <br>
-            <h5 class="card-subtitle mb-2 text-muted">General recommendations</h5>
-            <ul>
-                <li>
-                    Variants should ideally be reported in terms of the genome (chromosomal) sequence or genomic DNA sequence.
-                </li>
-                <li>
-                    Variation in the genome sequence should take precedence over variation in the coding sequence.
-                </li>
-                <li>
-                    Coding sequence deletions should not cross exon boundaries.
-                </li>
-            </ul>
-            <br>
-            <h5 class="card-subtitle mb-2 text-muted">Examples</h5>
-              <ol>
-                  <li class="h5">Normalisation at exon boundaries when the coding sequence is antisense to the genome sequence
-                    <img src="{% static 'img/antisense_shuffling.png' %}" class="img-fluid" alt="Antisense shuffling">
-                    <ul class="small">
-                      <li>Recommended genome sequence description: NC_000017.10:g.48275364delC </li>
-                      <li>Recommended genomic sequence description: NG_007400.1:g.8639delG</li>
-                      <li>Recommended coding sequence description: NM_000088.3:c.590delG</li>
-                    </ul>
-                  </li>
-                  <li class="h5">Several normalised variants have the same effect on the protein sequence
-                    <img src="{% static 'img/exon_boundary_crossing.png' %}" class="img-fluid" alt="Exon boundary crossing">
-                    <ul class="small">
-                        <li>Recommended genome sequence description: NC_000007.13:g.94039133_94039135delTGT</li>
-                        <li>Recommended genomic sequence description: NG_007405.1:g.20261_20263delTGT</li>
-                        <li>Recommended coding sequence description: NG_007405.1(NM_000089.3):c.1035_1035+2delTGT</li>
-                    </ul>
-                  </li>
-              </ol>
-            <a href="http://varnomen.hgvs.org/recommendations/DNA/variant/deletion/" target="_blank" class="card-link">Varnomen Recommendation</a>
-          </div>
-        </div>
-          <a href="{% url 'contact' %}">Suggest additional content for this page</a>
-      </div>
+        <a href="{% url 'contact' %}">Suggest additional content for this page</a>
     </div>
   </div>
 {% endblock %}

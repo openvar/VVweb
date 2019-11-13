@@ -11,9 +11,6 @@ git clone https://github.com/openvar/vvweb
 cd vvweb
 ```
 
-To run the batch processes, you'll need to install and setup [RabbitMQ](https://www.rabbitmq.com/download.html) and [Celery](http://docs.celeryproject.org/en/latest/index.html).
-Note that this isn't necessary if you only wish to run the interactive processes. 
-
 To install the python packages you should first create a python 3.6 virtual environment.
 
 ```bash
@@ -28,38 +25,60 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 
-This will likely fail as it won't be able to install VariantValidator>1.0 (hasn't been released yet), 
-you should therefore at this point go to the [VV git repo](https://github.com/openvar/variantValidator). Install and configure that version of VariantValidator within your virtual environment.
+This will install the latest VariantValidator (master branch of GitHub repo). You'll need to make sure VariantValidator is
+working correctly before proceeding any further. See the [VV git repo](https://github.com/openvar/variantValidator) for help.
 
-```bash
-# Should look something like this
-cd ../
-git clone https://github.com/openvar/variantValidator
-cd variantValidator/
-python setup.py install
-vv_configure.py  # will allow you to configure database connections etc 
-variant_validator.py -v "NM_000088.3:c.589G>T"  # Check it's working
-cd ../vvweb/
+
+## Web Setup
+
+Once everything is installed and you've got a complete virtual environment, you then need to setup the django app.
+
+### Postgres Database
+
+VVweb uses postgres, you therefore need to setup and create a user account and database specific for this task.
+Follow the settings (changing the inputs accordingly) below:
+
+```postgresql
+CREATE DATABASE myproject;
+CREATE USER myprojectuser WITH PASSWORD 'password';
+ALTER ROLE myprojectuser SET client_encoding TO 'utf8';
+ALTER ROLE myprojectuser SET default_transaction_isolation TO 'read committed';
+ALTER ROLE myprojectuser SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE myproject TO myprojectuser;
 ```
 
-## Django setup
+### Settings
 
-Once everything is installed and you've got a complete virtual environment, you then need to setup django.
-
-First, create a `local_settings.py` file within `VVweb/`. Inside should be all private settings, including a secrete key. It should look something like:
+Create a `local_settings.py` file within `VVweb/`. Inside should be all private settings, including a hash secret key. It should look something like:
 
 ```python
-# Note, this key shouldn't be used in any publically accessible version
+from .settings import DATABASES
+
+# Ensure you don't use the key below - it should be something different!
 SECRET_KEY = '+htjqfu=nn$+(vcs8sdx1=^2lprn8pj(s1zs4z4jv$*l%pxs68'
 
-VARSOME_TOKEN = 'NEED_A_TOKEN'
+DATABASES['default']['NAME'] = 'myproject'
+DATABASES['default']['USER'] = 'myprojectuser'
+DATABASES['default']['PASSWORD'] = 'password'
+
+# List of Admins, with their email address that will get emailed if an error is reported.
+ADMINS = [
+    ('Teri', 'trf5@le.ac.uk'),
+]
 ```
 
-To setup and create the database, first create a migration (checks what models need creating) and then migrate it into the database (currently a local sqlite database).
+To then create the database tables, make a migration (checks what models need creating) and then migrate it into the database.
 
 ```bash
 python manage.py makemigrations
 python manage.py migrate
+```
+
+Once this is done, you need to create an admin user account to access the web admin site. Make sure you don't lose track
+of this username and password.
+
+```bash
+python manage.py createsuperuser
 ```
 
 Then, you should be able to launch the development server
@@ -68,9 +87,26 @@ Then, you should be able to launch the development server
 python manage.py runserver
 ```
 
+### APIs and social accounts
+
+For the user authentication and re-captcha to work, you need to set up the app with the appropriate sites.
+
+For re-captcha, go to their site https://www.google.com/recaptcha/intro/v3.html and register the app. Create a 'v2 tickbox' recaptcha. This will 
+create a public and private key, both of which need to go in the `local_settings.py` file.
+
+```python
+RECAPTCHA_PUBLIC_KEY = 'key goes here'
+RECAPTCHA_PRIVATE_KEY = 'key goes here'
+```
+
+The social account logins for GitHub, Google and ORCID are setup using django-allauth. Their [documentation](https://django-allauth.readthedocs.io/en/latest/providers.html)
+describes how to setup each one. You'll need to go to the admin site (http://localhost:8000/admin/) to save the public and private keys. 
+
 ## Celery and RabbitMQ
 
-To run asynchronous tasks you need celery to talk to the Django app, via a broker (in out case RabbitMQ).
+To run the batch processes, you'll need to install and setup [RabbitMQ](https://www.rabbitmq.com/download.html) and [Celery](http://docs.celeryproject.org/en/latest/index.html).
+
+To run asynchronous tasks you need celery to talk to the Django app, via a broker (in our case RabbitMQ).
 Once RabbitMQ is running it should be connected to port 5672. This can be done by installing RabbitMQ from an RPM, from source or via a docker image.
 
 ```bash
@@ -78,14 +114,25 @@ Once RabbitMQ is running it should be connected to port 5672. This can be done b
 docker run -d --hostname my-rabbit --name some-rabbit -p 5672:5672 rabbitmq
 ```
 
-Once the rabbit service is running, start Celery within the vvweb directory. Note, that you need to be in the 
-virtual environment as thats where we installed celery.
+For the LAMPs, Liam can install RabbitMQ and ensure that it starts on reboot.
 
-```bash
-celery -A VVweb worker -l info
-```
+Once the rabbit service is running, start Celery using the provided script `run_celery.sh`. 
+This will start both celery and celery-beat which will listen for tasks and run them asynchronously.
+This script will need to be set to run on reboot along with all other services.
 
-Celery will then listen for tasks and run them asynchronously.
+To set up the celery-beat tasks (that is the daily jobs), go into the admin interface and create a series of cron times (e.g. to run at 1AM each day).
+You can then select a celery task, and a cron time and these jobs will continue to run while the service is operating.
+There are three tasks that need setting up this way, `delete_old_jobs`, `email_old_users` and `delete_old_users`. 
+
+### Media files
+
+There are four files that need to be created and served via the `media` directory. First, create this directory if it is missing,
+then create the four files - these are the `valid_variant_test_set.txt` etc files for the batch tool help. 
+
+### Deployment
+
+Once all the settings are set and celery is up and running, get apache to serve both static and app files. Make sure that the DEBUG setting
+is set to False!
 
 ## Submitting changes
 

@@ -1,0 +1,11 @@
+<html>
+<body>
+<h3>Contact Form Submission {{contact.asked|date}}</h3>
+
+<h4>Name: {{ contact.nameval }}</h4>
+<h4>Email: <a href="mailto:{{ contact.emailval }}">{{ contact.emailval }}</a></h4>
+<h4>Variant: {{ contact.variant }}</h4>
+<p>{{ contact.question }}</p>
+
+</body>
+</html>
