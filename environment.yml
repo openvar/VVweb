@@ -20,3 +20,4 @@ dependencies:
     - django-recaptcha
     - django-countries
     - django-celery-beat
+    - psycopg2
