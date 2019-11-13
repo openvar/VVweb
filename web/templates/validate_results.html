@@ -159,20 +159,8 @@
       <div class="row">
           <div class="col-md-12 mb-5">
               <h4>Aggregated data sources and clinical significance</h4>
-              {% if output.genome == 'GRCh37' %}
-                <variant-request refgenome="hg19" query="{{ output.genomes.grch37 }}"></variant-request>
-              {% else %}
-                <variant-request refgenome="hg38" query="{{ output.genomes.grch38 }}"></variant-request>
-              {% endif %}
-              <variant-details nearby="true" defaultexpanded="true"></variant-details>
-              <region-browser></region-browser>
-              <ncbi-clinvar defaultexpanded="true"></ncbi-clinvar>
-              <genes-results defaultexpanded="true" showghrgenes="false" showhpo="false" showcgd="true" showtranscripts="false" showgenestats="false" showexacgenes="true" showdbnsfpgenes="false" showcivic="false"></genes-results>
-              <dbnsfp-results defaultexpanded="true"></dbnsfp-results>
           </div>
       </div>
   </div>
 {% endif %}
 <hr>
-
-<script src="https://assets.varsome.com/static/components/components-bundle.js"></script>
