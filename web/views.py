@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, reverse
 from django.conf import settings
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from . import forms
 from . import tasks
 from . import services
@@ -125,7 +125,7 @@ def validate(request):
             request.session['genome'] = genome
             last_genome = genome
 
-            ucsc_link = services.get_ucsc_link(output)
+            ucsc_link = services.get_ucsc_link(validator, output)
             varsome_link = services.get_varsome_link(output)
 
             logger.debug(output)
@@ -319,4 +319,30 @@ def download_batch_res(request, job_id):
     response = HttpResponse(buffer, content_type='text/plain')
     response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
     logger.debug("Job %s results downloaded by user %s" % (job_id, request.user))
+    return response
+
+
+def bed_file(request):
+    # Capture the incoming request
+
+    info = request.GET.get('variant')
+    if info is None:
+        raise Http404("BED file does not exist without providing input variants")
+
+    # Split up the input
+    input_elements = info.split('|')
+    variant = input_elements[0]
+    chromosome = input_elements[1]  # 'NC_000017.11'
+    build = input_elements[2]  # 'GRCh38'
+    genomic = input_elements[3]
+    vcf = input_elements[4]
+
+    print(variant)
+    # Sort out URI encoding
+    if '+' in str(variant):
+        variant = variant.replace(' ', '+')
+
+    bed_call = services.create_bed_file(validator, *input_elements)
+
+    response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
     return response

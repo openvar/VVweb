@@ -3,9 +3,10 @@ from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
 from django.conf import settings
 from django.utils import timezone
+from django.shortcuts import reverse
 from VariantValidator.modules.seq_data import to_accession, to_chr_num_ucsc
 from VariantValidator.modules.utils import valstr
-from vvhgvs import parser
+from vvhgvs import normalizer
 import logging
 
 logger = logging.getLogger('vv')
@@ -230,15 +231,14 @@ def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
     return validation
 
 
-def get_ucsc_link(output):
-    print(output)
+def get_ucsc_link(validator, output):
 
     if output['genome'] == 'GRCh37':
         ucsc_assembly = 'hg19'
     else:
         ucsc_assembly = 'hg38'
 
-    hgvs_genomic = parser.Parser().parse(
+    hgvs_genomic = validator.hp.parse_hgvs_variant(
         output['results'][0]['primary_assembly_loci'][ucsc_assembly]['hgvs_genomic_description'])
 
     chromosome = to_chr_num_ucsc(hgvs_genomic.ac, ucsc_assembly)
@@ -252,14 +252,17 @@ def get_ucsc_link(output):
     browser_start = str(hgvs_genomic.posedit.pos.start.base - 11)
     browser_end = str(hgvs_genomic.posedit.pos.end.base + 11)
     ucsc_browser_position = '%s:%s-%s' % (chromosome, browser_start, browser_end)
-    coding = output['flag']
+    coding = output['results'][0]['hgvs_transcript_variant']
+    current_site = Site.objects.get_current()
     ucsc_link = 'http://genome.ucsc.edu/cgi-bin/hgTracks?' \
-                'db=%s&position=%s&hgt.customText=https://variantvalidator.org/bed/?variant=%s|%s|GRCh37|%s|%s' % \
+                'db=%s&position=%s&hgt.customText=http://%s/bed/?variant=%s|%s|%s|%s|%s' % \
                 (
                  ucsc_assembly,
                  ucsc_browser_position,
+                 current_site.domain,
                  coding,
                  hgvs_genomic.ac,
+                 output['genome'],
                  valstr(hgvs_genomic),
                  vcf_varsome
                 )
@@ -275,3 +278,84 @@ def get_varsome_link(output):
     vcf = output['results'][0]['primary_assembly_loci'][assembly]['vcfstr_alt']
     link = f"https://varsome.com/variant/{assembly}/{vcf}"
     return link
+
+
+def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
+
+    c_genome_pos = None
+    if variant == 'intergenic':
+        hgvs_coding = variant
+    else:
+        try:
+            hgvs_coding = validator.hp.parse_hgvs_variant(variant)
+            hn = normalizer.Normalizer(validator.hdp,
+                                       cross_boundaries=False,
+                                       shuffle_direction=3,
+                                       alt_aln_method=validator.alt_aln_method
+                                       )
+            c_genome_pos = validator.myvm_t_to_g(hgvs_coding, chromosome, validator.vm, hn)
+        except Exception as e:
+            hgvs_coding = 'false'
+
+    # Extract the additional data
+    g_genome_pos = validator.hp.parse_hgvs_variant(genomic)
+    vcf_list = vcf.split('-')
+
+    # Create a header
+    if build == 'GRCh37':
+        ucsc_build = 'hg19'
+    else:
+        ucsc_build = 'hg38'
+    # Create the request URL
+    current_site = Site.objects.get_current()
+    validate_url = reverse('validate')
+    request_url = f'http://{current_site.domain}{validate_url}?variant={hgvs_coding}&genomebuild={build}'
+
+    header = 'track name="VariantValidator" url="%s" db="%s" ' \
+             'visibility="pack" color="67,0,255" description="VariantValidator track for %s"' % (
+              request_url, ucsc_build, str(hgvs_coding))
+    bed_list = [header]
+
+    # Obtain orientation
+    if hgvs_coding == 'intergenic':
+        orientation = '+'
+    else:
+        ori = validator.tx_exons(tx_ac=hgvs_coding.ac, alt_ac=chromosome, alt_aln_method='splign')
+        orientation = int(ori[0]['alt_strand'])
+        if orientation == -1:
+            orientation = '-'
+        else:
+            orientation = '+'
+
+    # Create the bed_call
+    # map the c. variant
+    if hgvs_coding != 'intergenic' and hgvs_coding != 'false':
+        chr = to_chr_num_ucsc(c_genome_pos.ac, ucsc_build)
+        start = str(c_genome_pos.posedit.pos.start.base - 1)
+        end = str(c_genome_pos.posedit.pos.end.base)
+        edit = str(hgvs_coding)  # .posedit)
+        c_bed_call = '\t'.join([chr, start, end, edit, '0', str(orientation)])
+        bed_list.append(c_bed_call)
+
+    # map the g. variant
+    chr = to_chr_num_ucsc(g_genome_pos.ac, ucsc_build)
+    start = str(g_genome_pos.posedit.pos.start.base - 1)
+    end = str(g_genome_pos.posedit.pos.end.base)
+    edit = str(g_genome_pos)  # .posedit)
+    g_bed_call = '\t'.join([chr, start, end, edit, '0', '+'])
+    bed_list.append(g_bed_call)
+    # map the vcf
+    if 'chr' not in vcf_list[0]:
+        chr = 'chr' + vcf_list[0]
+    else:
+        chr = vcf_list[0]
+    start = str(int(vcf_list[1]) - 1)
+    end = str(int(vcf_list[1]) + len(vcf_list[2]) - 1)
+    edit = vcf
+    v_bed_call = '\t'.join([chr, start, end, edit, '0', '+'])
+    bed_list.append(v_bed_call)
+
+    # Create output
+    bed_call = '\n'.join(bed_list)
+    bed_call = bed_call + '\n'
+    return bed_call
