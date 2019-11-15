@@ -39,7 +39,7 @@
     <!-- /.row -->
 
     <div class="row">
-      <div class="col-md-4 mb-5">
+      <div class="col-md-3 mb-5">
         <div class="card h-100">
           <img class="card-img-top" src="{% static 'img/Validator.png' %}" alt="">
           <div class="card-body">
@@ -51,7 +51,19 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4 mb-5">
+      <div class="col-md-3 mb-5">
+        <div class="card h-100">
+          <img class="card-img-top" src="{% static 'img/Batch_Validator.png' %}" alt="">
+          <div class="card-body">
+            <h4 class="card-title">Batch Validator</h4>
+            <p class="card-text">Validate multiple variant descriptions at once.</p>
+          </div>
+          <div class="card-footer">
+            <a href="{% url 'validate' %}" class="btn btn-primary">Try It Out!</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 mb-5">
         <div class="card h-100">
           <img class="card-img-top" src="{% static 'img/VCF_to_HGVS.png' %}" alt="">
           <div class="card-body">
@@ -63,7 +75,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4 mb-5">
+      <div class="col-md-3 mb-5">
         <div class="card h-100">
           <img class="card-img-top" src="{% static 'img/Gene_to_Transcript.png' %}" alt="">
           <div class="card-body">
