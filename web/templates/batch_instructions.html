@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %} - Batch Help{% endblock %}
 {% block header_title %}Batch Tool Help{% endblock %}
@@ -65,8 +66,8 @@ COL5A1:c.5071A>T
 NM_000088.3:c.589GG>CT
 NM_000500.7:c.-107-19C>T</code></pre>
       <p>Plain text files containing these variant descriptions can be downloaded as
-        <a href="{{ MEDIA_URL }}valid_variant_test_set.txt" download>valid_variant_test_set.txt</a> and
-        <a href="{{ MEDIA_URL }}invalid_variant_test_set.txt" download>invalid_variant_test_set.txt</a></p>
+        <a href="{% static 'txt/valid_variant_test_set.txt' %}" download>valid_variant_test_set.txt</a> and
+        <a href="{% static 'txt/invalid_variant_test_set.txt' %}" download>invalid_variant_test_set.txt</a></p>
 
       <h3>What happens next?</h3>
       <p>When you press the submit button, you will immediately receive confirmation on screen that your job has been
@@ -109,8 +110,8 @@ NM_000500.7:c.-107-19C>T</code></pre>
       </p>
 
       <p>Example output files, derived form the example data above, can be downloaded as
-        <a href="{{ MEDIA_URL }}valid_variant_test_results.txt" download>valid_variant_test_results.txt</a>
-        and <a href="{{ MEDIA_URL }}invalid_variant_test_results.txt" download>invalid_variant_test_results.txt</a>
+        <a href="{% static 'txt/valid_variant_test_results.txt' %}" download>valid_variant_test_results.txt</a>
+        and <a href="{% static 'txt/invalid_variant_test_results.txt' %}" download>invalid_variant_test_results.txt</a>
       </p>
       <p>Finally, and importantly, once you have imported your results into a spreadsheet,
         be sure to save the spreadsheet in its native Excel or Calc format. If you forget, you will have to repeat the import process.</p>
