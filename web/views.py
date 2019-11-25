@@ -203,9 +203,21 @@ def batch_validate(request):
             locked = True
         else:
             form.fields['genome'].initial = last_genome
-            email = EmailAddress.objects.get(email=request.user.email)
-            if email.verified:
-                form.fields['email_address'].initial = email.email
+            email_address = getattr(request.user, 'email')
+            if email_address:
+                email = EmailAddress.objects.get(email=email_address)
+                if email.verified:
+                    form.fields['email_address'].initial = email.email
+                else:
+                    form.fields['input_variants'].disabled = True
+                    form.fields['genome'].disabled = True
+                    form.fields['email_address'].disabled = True
+                    form.fields['gene_symbols'].disabled = True
+                    verify = reverse('account_email')
+                    messages.error(request,
+                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting a Batch Validator job" % (
+                                       verify))
+                    locked = True
             else:
                 form.fields['input_variants'].disabled = True
                 form.fields['genome'].disabled = True
@@ -278,9 +290,21 @@ def vcf2hgvs(request):
             locked = True
         else:
             form.fields['genome'].initial = last_genome
-            email = EmailAddress.objects.get(email=request.user.email)
-            if email.verified:
-                form.fields['email_address'].initial = email.email
+            email_address = getattr(request.user, 'email')
+            if email_address:
+                email = EmailAddress.objects.get(email=email_address)
+                if email.verified:
+                    form.fields['email_address'].initial = email.email
+                else:
+                    form.fields['vcf_file'].disabled = True
+                    form.fields['genome'].disabled = True
+                    form.fields['email_address'].disabled = True
+                    form.fields['gene_symbols'].disabled = True
+                    verify = reverse('account_email')
+                    messages.error(request,
+                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting VCF to HGVS jobs" % (
+                                       verify))
+                    locked = True
             else:
                 form.fields['vcf_file'].disabled = True
                 form.fields['genome'].disabled = True
