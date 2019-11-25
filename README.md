@@ -15,7 +15,7 @@ To install the python packages you should first create a python 3.6 virtual envi
 
 ```bash
 # if you have conda installed
-conda env -f environment.yml
+conda env create -f environment.yml
 conda activate vvweb
 
 # otherwise
@@ -65,6 +65,10 @@ DATABASES['default']['PASSWORD'] = 'password'
 ADMINS = [
     ('Teri', 'trf5@le.ac.uk'),
 ]
+
+RECAPTCHA_PUBLIC_KEY = 'key goes here'
+RECAPTCHA_PRIVATE_KEY = 'key goes here'
+
 ```
 
 To then create the database tables, make a migration (checks what models need creating) and then migrate it into the database.
@@ -94,11 +98,6 @@ For the user authentication and re-captcha to work, you need to set up the app w
 For re-captcha, go to their site https://www.google.com/recaptcha/intro/v3.html and register the app. Create a 'v2 tickbox' recaptcha. This will 
 create a public and private key, both of which need to go in the `local_settings.py` file.
 
-```python
-RECAPTCHA_PUBLIC_KEY = 'key goes here'
-RECAPTCHA_PRIVATE_KEY = 'key goes here'
-```
-
 The social account logins for GitHub, Google and ORCID are setup using django-allauth. Their [documentation](https://django-allauth.readthedocs.io/en/latest/providers.html)
 describes how to setup each one. You'll need to go to the admin site (http://localhost:8000/admin/) to save the public and private keys. 
 
@@ -124,14 +123,13 @@ To set up the celery-beat tasks (that is the daily jobs), go into the admin inte
 You can then select a celery task, and a cron time and these jobs will continue to run while the service is operating.
 There are three tasks that need setting up this way, `delete_old_jobs`, `email_old_users` and `delete_old_users`. 
 
-### Media files
-
-There are four files that need to be created and served via the `media` directory. First, create this directory if it is missing,
-then create the four files - these are the `valid_variant_test_set.txt` etc files for the batch tool help. 
-
 ### Deployment
 
-Once all the settings are set and celery is up and running, get apache to serve both static and app files. Make sure that the DEBUG setting
+Once all the settings are set and celery is up and running, get apache to serve both static and app files.
+
+See Django's own documentation on serving the files with apache.
+ 
+Make sure that the DEBUG setting
 is set to False! Also, change allowed_hosts setting to include the new domain name - that also needs setting in the admin interface.
 
 ## Submitting changes
