@@ -132,7 +132,7 @@ then create the four files - these are the `valid_variant_test_set.txt` etc file
 ### Deployment
 
 Once all the settings are set and celery is up and running, get apache to serve both static and app files. Make sure that the DEBUG setting
-is set to False!
+is set to False! Also, change allowed_hosts setting to include the new domain name - that also needs setting in the admin interface.
 
 ## Submitting changes
 
