@@ -116,7 +116,7 @@ def validate(request):
             logger.debug("Going to validate sequences")
 
             variant = request.POST.get('variant')
-            genome = request.POST.get('genomebuild', 'GRCh37')
+            genome = request.POST.get('genomebuild', 'GRCh38')
 
             output = tasks.validate(variant, genome, validator=validator)
             output = services.process_result(output, validator)
@@ -157,10 +157,15 @@ def validate(request):
                                login_page, here))
             locked = True
 
+    initial = request.GET.get('variant')
+    if initial:
+        last_genome = request.GET.get('genome', 'GRCh38')
+
     return render(request, 'validate.html', {
         'output': output,
         'locked': locked,
         'last': last_genome,
+        'initial': initial,
     })
 
 

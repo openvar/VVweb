@@ -26,7 +26,7 @@
               {% csrf_token %}
               <div class="form-group">
                   <label for="variant_id">Variant Description:</label>
-                  <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required {% if locked %} disabled {% endif %}>
+                  <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required {% if locked %} disabled {% endif %} {% if initial %} value="{{ initial }}" {% endif %}>
               </div>
               <div class="form-group" id="genomeselect">
                   <div class="custom-radio custom-control custom-control-inline">
