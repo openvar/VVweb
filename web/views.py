@@ -157,10 +157,15 @@ def validate(request):
                                login_page, here))
             locked = True
 
+    initial = request.GET.get('variant')
+    if initial:
+        last_genome = request.GET.get('genome', 'GRCh37')
+
     return render(request, 'validate.html', {
         'output': output,
         'locked': locked,
         'last': last_genome,
+        'initial': initial,
     })
 
 
