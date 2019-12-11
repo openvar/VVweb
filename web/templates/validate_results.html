@@ -68,28 +68,63 @@
                           <h4>{{ each.transcript_description }}</h4>
                           <h6>{{ output.genome }}: {{ each.chr_loc }}</h6>
                           <br>
-                          <h5>HGVS-compliant variant descriptions</h5>
+                          {% if each.validation_warnings %}
+                          <h5>Warnings output during validation</h5>
+                            <ul>
+                            {% for warning in each.validation_warnings %}
+                              <li class="text-danger">{{ warning }}</li>
+                            {% endfor %}
+                            </ul>
+                          {% endif %}
+                          <h4>HGVS-compliant variant descriptions</h4>
                           <table class="table table-bordered">
                               <tr>
                                   <th>Type</th>
                                   <th>Variant Description</th>
-                                  <th>Link to GenBank</th>
+                                  <th>Link to Reference sequence Record</th>
                               </tr>
+                              {% if each.hgvs_transcript_variant %}
                               <tr>
                                   <td>Transcript (:c.)</td>
                                   <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_transcript_variant }}</a></td>
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.tx_ac }}" target="_blank">{{ each.tx_ac }}</a></td>
                               </tr>
+                              {%  endif %}
+                              {% if each.hgvs_lrg_transcript_variant %}
+                              <tr>
+                                  <td>Transcript (:c.)</td>
+                                  <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_lrg_transcript_variant}}</a></td>
+                                  <td><a href="{{ each.reference_sequence_records.lrg }}" target="_blank">{{ each.lrg_ac }}</a></td>
+                              </tr>
+                              {% endif %}
+                              {% if each.hgvs_refseqgene_variant %}
                               <tr>
                                   <td>RefSeq Gene (:g.)</td>
                                   <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_refseqgene_variant }}</a></td>
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.gene_ac }}" target="_blank">{{ each.gene_ac }}</a></td>
                               </tr>
+                              {% endif %}
+                              {% if each.hgvs_lrg_variant %}
+                              <tr>
+                                  <td>LRG (:g.)</td>
+                                  <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_lrg_variant }}</a></td>
+                                  <td><a href="{{ each.reference_sequence_records.lrg }}" target="_blank">{{ each.lrg_ac }}</a></td>
+                              </tr>
+                              {% endif %}
+                              {% if each.hgvs_predicted_protein_consequence.tlr  %}
                               <tr>
                                   <td>Protein (:p.)</td>
                                   <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_predicted_protein_consequence.tlr }}</a></td>
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
                               </tr>
+                             {% endif %}
+                              {% if each.hgvs_predicted_protein_consequence.slr  %}
+                              <tr>
+                                  <td>Protein (:p.)</td>
+                                  <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_predicted_protein_consequence.slr }}</a></td>
+                                  <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
+                              </tr>
+                             {% endif %}
                           </table>
 
                           <h5>Genomic Variants</h5>
@@ -99,32 +134,44 @@
                                   <th>VCF Description</th>
                                   <th>Link to GenBank</th>
                               </tr>
-                              <tr>
+                              {% if each.primary_assembly_loci.grch38.hgvs_genomic_description %}
+                               <tr>
                                   <td><a class="variant-example" data-genome="GRCh38" href="#">{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}</a></td>
                                   <td>{{ each.primary_assembly_loci.grch38.vcfstr }}</td>
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.primary_assembly_loci.grch38.ac }}" target="_blank">{{ each.primary_assembly_loci.grch38.ac }}</a></td>
                               </tr>
+                              {% endif %}
+                              {% if each.primary_assembly_loci.grch37.hgvs_genomic_description %}
                               <tr>
                                   <td><a class="variant-example" data-genome="GRCh37" href="#">{{ each.primary_assembly_loci.grch37.hgvs_genomic_description }}</a></td>
                                   <td>{{ each.primary_assembly_loci.grch37.vcfstr }}</td>
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.primary_assembly_loci.grch37.ac }}" target="_blank">{{ each.primary_assembly_loci.grch37.ac }}</a></td>
                               </tr>
+                              {% endif %}
+                              {%  for alt in each.alt_genomic_loci %}
+                                {% if alt.grch38 %}
+                                  <tr>
+                                      <td><a class="variant-example" data-genome={{ alt.grch38.genome }} href="#">{{ alt.grch38.hgvs_genomic_description }}</a></td>
+                                      <td>{{ alt.grch38.vcfstr }}</td>
+                                      <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ alt.grch38.ac }}" target="_blank">{{ alt.grch38.ac }}</a></td>
+                                  </tr>
+                                 {% endif %}
+                                {% if alt.grch37 %}
+                                  <tr>
+                                      <td><a class="variant-example" data-genome={{ alt.grch37.genome }} href="#">{{ alt.grch37.hgvs_genomic_description }}</a></td>
+                                      <td>{{ alt.grch37.vcfstr }}</td>
+                                      <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ alt.grch37.ac }}" target="_blank">{{ alt.grch37.ac }}</a></td>
+                                  </tr>
+                                 {% endif %}
+                              {% endfor %}
                           </table>
-
-                          {% if each.validation_warnings %}
-                          <h5>Warnings output during validation</h5>
-                            <ul>
-                            {% for warning in each.validation_warnings %}
-                              <li class="text-danger">{{ warning }}</li>
-                            {% endfor %}
-                            </ul>
-                          {% endif %}
-
+                          <br>
                           <h4>Recommended Variant Descriptions</h4>
                           <ol>
                               <li>We recommend using a genomic and a transcript description in all publications</li>
                               <li>We currently recommend that RefSeqGene descriptions should be used when possible</li>
                           </ol>
+
                           <h5>Genomic descriptions</h5>
                           <table class="table table-bordered">
                               <tr>
@@ -132,25 +179,115 @@
                                   <th>Variant Description</th>
                               </tr>
                               <tr>
-                                  <td>RefSeqGene</td>
+                                  <td>Gene</td>
                                   <td>{{ each.hgvs_refseqgene_variant }}</td>
                               </tr>
+                              {% if each.primary_assembly_loci.grch37 %}
                               <tr>
                                   <td>Chromosomal GRCh37</td>
                                   <td>{{ each.primary_assembly_loci.grch37.hgvs_genomic_description }}</td>
                               </tr>
+                              {%  endif %}
+                              {% if each.primary_assembly_loci.grch38 %}
+                              <tr>
+                                  <td>Chromosomal GRCh38</td>
+                                  <td>{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}</td>
+                              </tr>
+                              {%  endif %}
+                              {% if each.hgvs_lrg_variant %}
+                              <tr>
+                                  <td>LRG</td>
+                                  <td>{{ each.hgvs_lrg_variant }}</td>
+                              </tr>
+                              {%  endif %}
                           </table>
+                          {% if not "Intergenic" in each.safe_hgvs_trans %}
                           <h5>Transcript descriptions</h5>
                           <table class="table table-bordered">
                               <tr>
                                   <th>Reference Sequence Type</th>
                                   <th>Variant Description</th>
                               </tr>
+                              {% if each.genome_context_intronic_sequence %}
                               <tr>
-                                  <td>RefSeq Transcript</td>
+                                  <td>Transcript</td>
+                                  <td>{{ each.genome_context_intronic_sequence }}</td>
+                              </tr>
+                              {% endif %}
+                              {% if each.refseqgene_context_intronic_sequence %}
+                              <tr>
+                                  <td>Transcript</td>
+                                  <td>{{ each.refseqgene_context_intronic_sequence }}</td>
+                              </tr>
+                              {% endif %}
+                              {% if not each.genome_context_intronic_sequence %}
+                              <tr>
+                                  <td>Transcript</td>
                                   <td>{{ each.hgvs_transcript_variant }}</td>
                               </tr>
+                              {% endif %}
+                              {% if each.hgvs_lrg_transcript_variant %}
+                              <tr>
+                                  <td>LRG Transcript</td>
+                                  <td>{{ each.hgvs_lrg_transcript_variant }}</td>
+                              </tr>
+                              {% endif %}
                           </table>
+                          <br>
+                          <h4>Gene Information</h4>
+                          <table class="table table-bordered">
+                              <tr>
+                                  <th>Attribute</th>
+                                  <th>Identifier</th>
+                                  <th>Source</th>
+                              </tr>
+                              {% if each.gene_symbol %}
+                              <tr>
+                                  <td>Symbol</td>
+                                  <td>{{ each.gene_symbol }}</td>
+                                  <td><a href="https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/{{ each.gene_ids.hgnc_id }}" target="_blank">HGNC</a></td>
+                              </tr>
+                              {% endif %}
+
+                              {% if 'HGNC:' in each.gene_ids.hgnc_id %}
+                              <tr>
+                                  <td>HGNC ID</td>
+                                  <td>{{ each.gene_ids.hgnc_id }}</td>
+                                  <td><a href="https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/{{ each.gene_ids.hgnc_id }}" target="_blank">HGNC</a></td>
+                              </tr>
+                              {% endif %}
+
+                              {% if each.gene_ids.entrez_gene_id %}
+                              <tr>
+                                  <td>NCBI Gene ID</td>
+                                  <td>{{ each.gene_ids.entrez_gene_id }}</td>
+                                  <td><a href="https://www.ncbi.nlm.nih.gov/gene/{{ each.gene_ids.entrez_gene_id }}" target="_blank">NCBI</a></td>
+                              </tr>
+                              {%  endif %}
+
+                              {% if each.gene_ids.ensembl_gene_id%}
+                              <tr>
+                                  <td>Ensembl Gene ID</td>
+                                  <td>{{ each.gene_ids.ensembl_gene_id }}</td>
+                                  <td><a href="https://www.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g={{ each.gene_ids.ensembl_gene_id }}" target="_blank">Ensembl</a></td>
+                              </tr>
+                              {%  endif %}
+                                {% for omim in each.gene_ids.omim_id %}
+                                  <tr>
+                                    <td>OMIM</td>
+                                    <td>{{ omim }}</td>
+                                    <td><a href="https://www.omim.org/entry/{{ omim }}" target="_blank">OMIM</a></td>
+                                  </tr>
+                                {% endfor %}
+                                {% for ccds in each.gene_ids.ccds_ids %}
+                                  <tr>
+                                    <td>CCDS</td>
+                                    <td>{{ ccds }}</td>
+                                    <td><a href="https://www.ncbi.nlm.nih.gov/projects/CCDS/CcdsBrowse.cgi?REQUEST=ALLFIELDS&DATA={{ ccds }}&ORGANISM=0&BUILDS=CURRENTBUILDS" target="_blank">CCDS</a></td>
+                                  </tr>
+                                {% endfor %}
+                          </table>
+                          {%  endif %}
                       </div>
                   {% endfor %}
               </div>
@@ -158,12 +295,25 @@
       </div>
       <div class="row">
           <div class="col-md-12 mb-5">
-              <h4>External Links</h4>
-              <ul>
-                <li><a href="{{ ucsc }}" target="_blank">UCSC Genome Browser</a></li>
-                <li><a href="{{ varsome }}" target="_blank">VarSome</a></li>
+
+              <h4>View variant in external resources</h4>
+               {%  if ucsc or varsome %}
+               <ul>
+                {% if ucsc %}
+                    <li><a href="{{ ucsc }}" target="_blank">UCSC Genome Browser</a></li>
+                {% endif %}
+                {% if varsome %}
+                    <li><a href="{{ varsome }}" target="_blank">VarSome</a></li>
+                {%  endif %}
+                {% if gnomad %}
+                    <li><a href="{{ gnomad }}" target="_blank">gnomAD</a></li>
+                {% endif %}
               </ul>
-          </div>
+              {%  endif %}
+              {%  if not ucsc and not varsome %}
+                  <li class="text-danger">No links to external resources available, possibly because the variant cannot be mapped to the selected genome build</li>
+              {%  endif %}
+           </div>
       </div>
   </div>
 {% endif %}

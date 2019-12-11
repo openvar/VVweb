@@ -31,7 +31,6 @@ def process_result(val, validator):
     for k, v in val.items():
         if k == 'flag' or k == 'metadata':
             continue
-        print(k)
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)
@@ -39,7 +38,6 @@ def process_result(val, validator):
         if v['hgvs_transcript_variant']:
             v['safe_hgvs_trans'] = v['hgvs_transcript_variant']
             tx_id_info = validator.hdp.get_tx_identity_info(v['hgvs_transcript_variant'].split(':')[0])
-            print(tx_id_info)
             tx_ac = v['hgvs_transcript_variant'].split(':')[0]
             v['tx_ac'] = tx_ac
             acc = tx_ac.split('.')
@@ -52,11 +50,10 @@ def process_result(val, validator):
                         latest = False
         else:
             v['tx_ac'] = ''
-            v['safe_hgvs_trans'] = 'Unknown transcript variant'
+            v['safe_hgvs_trans'] = 'Intergenic Variant'
 
         if v['gene_symbol']:
             gene_info = validator.hdp.get_gene_info(v['gene_symbol'])
-            print(gene_info)
             v['chr_loc'] = gene_info[1]
 
         if v['hgvs_refseqgene_variant']:
@@ -64,6 +61,19 @@ def process_result(val, validator):
             v['gene_ac'] = gene_ac
         else:
             v['gene_ac'] = ''
+
+        # Collect LRG data
+        if v['hgvs_lrg_variant']:
+            lrg_ac = v['hgvs_lrg_variant'].split(':')[0]
+            v['lrg_ac'] = lrg_ac
+        else:
+            v['lrg_ac'] = ''
+
+        if v['hgvs_lrg_transcript_variant']:
+            lrg_tac = v['hgvs_lrg_transcript_variant'].split(':')[0]
+            v['lrg_tx_ac'] = lrg_tac
+        else:
+            v['lrg_tx_ac'] = ''
 
         prot_ac = v['hgvs_predicted_protein_consequence']['tlr'].split(':')[0]
         prot_ac = prot_ac.split('(')[0]
@@ -90,6 +100,36 @@ def process_result(val, validator):
             genomes[genome] = vcfstr_alt
             v['primary_assembly_loci'][genome]['ac'] = \
                 v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
+            if 'grc' in genome:
+                v['primary_assembly_loci'][genome]['genome'] = genome.replace('grch', 'GRCh')
+            else:
+                v['primary_assembly_loci'][genome]['genome'] = genome
+
+        for alt in v['alt_genomic_loci']:
+            for genome in alt:
+                vcfdict = alt[genome]['vcf']
+                vcfstr = "%s:%s:%s:%s:%s" % (
+                    genome.replace('grch', 'GRCh'),
+                    vcfdict['chr'],
+                    vcfdict['pos'],
+                    vcfdict['ref'],
+                    vcfdict['alt']
+                )
+                vcfstr_alt = "%s-%s-%s-%s" % (
+                    vcfdict['chr'],
+                    vcfdict['pos'],
+                    vcfdict['ref'],
+                    vcfdict['alt']
+                )
+                alt[genome]['vcfstr'] = vcfstr
+                alt[genome]['vcfstr_alt'] = vcfstr_alt
+                genomes[genome] = vcfstr_alt
+                alt[genome]['ac'] = \
+                    alt[genome]['hgvs_genomic_description'].split(':')[0]
+                if 'grc' in genome:
+                    alt[genome]['genome'] = genome.replace('grch', 'GRCh')
+                else:
+                    alt[genome]['genome'] = genome
 
         if v['tx_ac'] or v['gene_ac']:
             each.append(v)
@@ -105,6 +145,10 @@ def process_result(val, validator):
         'warnings': warnings,
     }
 
+    # import json
+    # print(alloutputs['flag'])
+    # print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
+    # print('OK')
     return alloutputs
 
 
@@ -233,51 +277,69 @@ def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
 
 def get_ucsc_link(validator, output):
 
-    if output['genome'] == 'GRCh37':
-        ucsc_assembly = 'hg19'
-    else:
-        ucsc_assembly = 'hg38'
+    try:
+        if output['genome'] == 'GRCh37':
+            ucsc_assembly = 'hg19'
+        else:
+            ucsc_assembly = 'hg38'
 
-    hgvs_genomic = validator.hp.parse_hgvs_variant(
-        output['results'][0]['primary_assembly_loci'][ucsc_assembly]['hgvs_genomic_description'])
+        hgvs_genomic = validator.hp.parse_hgvs_variant(
+            output['results'][0]['primary_assembly_loci'][ucsc_assembly]['hgvs_genomic_description'])
 
-    chromosome = to_chr_num_ucsc(hgvs_genomic.ac, ucsc_assembly)
-    vcf_varsome = output['results'][0]['primary_assembly_loci'][ucsc_assembly]['vcfstr_alt']
+        chromosome = to_chr_num_ucsc(hgvs_genomic.ac, ucsc_assembly)
+        vcf_varsome = output['results'][0]['primary_assembly_loci'][ucsc_assembly]['vcfstr_alt']
 
-    if chromosome is not None:
-        vcf_components = output['genomes'][ucsc_assembly].split('-')
-        vcf_components[0] = chromosome
-        vcf_varsome = '-'.join(vcf_components)
+        if chromosome is not None:
+            vcf_components = output['genomes'][ucsc_assembly].split('-')
+            vcf_components[0] = chromosome
+            vcf_varsome = '-'.join(vcf_components)
 
-    browser_start = str(hgvs_genomic.posedit.pos.start.base - 11)
-    browser_end = str(hgvs_genomic.posedit.pos.end.base + 11)
-    ucsc_browser_position = '%s:%s-%s' % (chromosome, browser_start, browser_end)
-    coding = output['results'][0]['hgvs_transcript_variant']
-    current_site = Site.objects.get_current()
-    ucsc_link = 'http://genome.ucsc.edu/cgi-bin/hgTracks?' \
-                'db=%s&position=%s&hgt.customText=http://%s/bed/?variant=%s|%s|%s|%s|%s' % \
-                (
-                 ucsc_assembly,
-                 ucsc_browser_position,
-                 current_site.domain,
-                 coding,
-                 hgvs_genomic.ac,
-                 output['genome'],
-                 valstr(hgvs_genomic),
-                 vcf_varsome
-                )
-    return ucsc_link
+        browser_start = str(hgvs_genomic.posedit.pos.start.base - 11)
+        browser_end = str(hgvs_genomic.posedit.pos.end.base + 11)
+        ucsc_browser_position = '%s:%s-%s' % (chromosome, browser_start, browser_end)
+        coding = output['results'][0]['hgvs_transcript_variant']
+        current_site = Site.objects.get_current()
+        ucsc_link = 'http://genome.ucsc.edu/cgi-bin/hgTracks?' \
+                    'db=%s&position=%s&hgt.customText=http://%s/bed/?variant=%s|%s|%s|%s|%s' % \
+                    (
+                     ucsc_assembly,
+                     ucsc_browser_position,
+                     current_site.domain,
+                     coding,
+                     hgvs_genomic.ac,
+                     output['genome'],
+                     valstr(hgvs_genomic),
+                     vcf_varsome
+                    )
+        return ucsc_link
+    except Exception:
+        # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
+        pass
 
 
 def get_varsome_link(output):
-    if output['genome'] == 'GRCh37':
-        assembly = 'hg19'
-    else:
-        assembly = 'hg38'
+    try:
+        if output['genome'] == 'GRCh37':
+            assembly = 'hg19'
+        else:
+            assembly = 'hg38'
 
-    vcf = output['results'][0]['primary_assembly_loci'][assembly]['vcfstr_alt']
-    link = f"https://varsome.com/variant/{assembly}/{vcf}"
-    return link
+        vcf = output['results'][0]['primary_assembly_loci'][assembly]['vcfstr_alt']
+        link = f"https://varsome.com/variant/{assembly}/{vcf}"
+        return link
+    except Exception:
+        # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
+        pass
+
+def get_gnomad_link(output):
+    try:
+        if output['genome'] == 'GRCh37':
+            vcf = output['results'][0]['primary_assembly_loci']['grch37']['vcfstr_alt']
+            link = f"https://gnomad.broadinstitute.org/variant/{vcf}"
+            return link
+    except Exception:
+        # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
+        pass
 
 
 def create_bed_file(validator, variant, chromosome, build, genomic, vcf):

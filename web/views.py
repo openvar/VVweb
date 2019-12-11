@@ -127,6 +127,7 @@ def validate(request):
 
             ucsc_link = services.get_ucsc_link(validator, output)
             varsome_link = services.get_varsome_link(output)
+            gnomad_link = services.get_gnomad_link(output)
 
             logger.debug(output)
             logger.info("Successful validation made by user %s" % request.user)
@@ -134,6 +135,7 @@ def validate(request):
                 'output': output,
                 'ucsc': ucsc_link,
                 'varsome': varsome_link,
+                'gnomad': gnomad_link
             })
 
     if not request.user.is_authenticated:
