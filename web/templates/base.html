@@ -58,12 +58,13 @@
                 <a class="dropdown-item" href="{% url 'batch_validate' %}">Batch Validator</a>
                 <a class="dropdown-item" href="{% url 'genes2trans' %}">Genes to Transcripts</a>
                 <a class="dropdown-item" href="{% url 'vcf2hgvs' %}">VCF to HGVS</a>
+                <a class="dropdown-item" href="https://rest.variantvalidator.org/">REST API</a>
               </div>
           </li>
           <li class="nav-item dropdown {% if 'help' in request.resolver_match.route %}active {% endif %}">
             <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">Information</a>
               <div class="dropdown-menu dropleft" aria-labelledby="navbarDropdown">
-                <a class="dropdown-item" href="{% url 'about' %}">About</a>
+                <a class="dropdown-item" href="https://github.com/openvar/variantValidator/blob/master/README.md">About</a>
                 <a class="dropdown-item" href="{% url 'contact' %}">Contact</a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="{% url 'nomenclature' %}">Nomenclature</a>
@@ -211,5 +212,13 @@
   {% endblock %}
 
 </body>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
 
+  ga('create', 'UA-77024113-1', 'auto');
+  ga('send', 'pageview');
+</script>
 </html>

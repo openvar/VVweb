@@ -14,7 +14,7 @@ dependencies:
   - pip:
     - django-celery-results
     - django-widget-tweaks
-    - git+https://github.com/openvar/VariantValidator@master#egg=VariantValidator
+    - git+https://github.com/openvar/VariantValidator@v1.0.3#egg=VariantValidator
     - django-cookie-law
     - django-allauth
     - django-recaptcha
