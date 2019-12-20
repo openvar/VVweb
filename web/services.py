@@ -340,7 +340,14 @@ def get_gnomad_link(output):
     except Exception:
         # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
         pass
-
+    try:
+        if output['genome'] == 'GRCh38':
+            vcf = output['results'][0]['primary_assembly_loci']['grch38']['vcfstr_alt']
+            link = f"https://gnomad.broadinstitute.org/variant/{vcf}?dataset=gnomad_r3"
+            return link
+    except Exception:
+        # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
+        pass
 
 def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
 
