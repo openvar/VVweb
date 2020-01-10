@@ -29,6 +29,7 @@ def process_result(val, validator):
     counter = 0
     warnings = []
     for k, v in val.items():
+        # print(k)
         if k == 'flag' or k == 'metadata':
             continue
         counter += 1
@@ -37,7 +38,7 @@ def process_result(val, validator):
         latest = True
         if v['hgvs_transcript_variant']:
             v['safe_hgvs_trans'] = v['hgvs_transcript_variant']
-            tx_id_info = validator.hdp.get_tx_identity_info(v['hgvs_transcript_variant'].split(':')[0])
+            # tx_id_info = validator.hdp.get_tx_identity_info(v['hgvs_transcript_variant'].split(':')[0])
             tx_ac = v['hgvs_transcript_variant'].split(':')[0]
             v['tx_ac'] = tx_ac
             acc = tx_ac.split('.')
@@ -53,8 +54,11 @@ def process_result(val, validator):
             v['safe_hgvs_trans'] = 'Intergenic Variant'
 
         if v['gene_symbol']:
-            gene_info = validator.hdp.get_gene_info(v['gene_symbol'])
-            v['chr_loc'] = gene_info[1]
+            try:
+                gene_info = validator.hdp.get_gene_info(v['gene_symbol'])
+                v['chr_loc'] = gene_info[1]
+            except TypeError:
+                pass
 
         if v['hgvs_refseqgene_variant']:
             gene_ac = v['hgvs_refseqgene_variant'].split(':')[0]
@@ -145,10 +149,10 @@ def process_result(val, validator):
         'warnings': warnings,
     }
 
-    # import json
-    # print(alloutputs['flag'])
-    # print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
-    # print('OK')
+    #import json
+    #print(alloutputs['flag'])
+    #print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
+    #print('OK')
     return alloutputs
 
 
