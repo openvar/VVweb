@@ -288,6 +288,18 @@
                                 {% endfor %}
                           </table>
                           {%  endif %}
+                            <div class="row">
+                              <div class="col-md-12 mb-5">
+                                  <h4>Project variant onto other transcripts via a genomic position</h4>
+                                      {% if each.primary_assembly_loci.grch38.hgvs_genomic_description %}
+                                          <a class="variant-example" data-genome="GRCh38" href="#">{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}</a><p1> (GRCh38)</p1><br>
+                                      {% endif %}
+                                      {% if each.primary_assembly_loci.grch37.hgvs_genomic_description %}
+                                          <a class="variant-example" data-genome="GRCh37" href="#">{{ each.primary_assembly_loci.grch37.hgvs_genomic_description }}</a><p1> (GRCh37)</p1><br>
+                                      {% endif %}
+                                      <p1>Alternatively, select a genomic variant from the Genomic Variants table (above)</p1>
+                               </div>
+                            </div>
                       </div>
                   {% endfor %}
               </div>
