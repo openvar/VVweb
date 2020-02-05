@@ -79,9 +79,13 @@ def process_result(val, validator):
         else:
             v['lrg_tx_ac'] = ''
 
-        prot_ac = v['hgvs_predicted_protein_consequence']['tlr'].split(':')[0]
-        prot_ac = prot_ac.split('(')[0]
-        v['prot_ac'] = prot_ac
+        if v['hgvs_predicted_protein_consequence']['tlr'] is not None:
+            prot_ac = v['hgvs_predicted_protein_consequence']['tlr'].split(':')[0]
+            prot_ac = prot_ac.split('(')[0]
+            v['prot_ac'] = prot_ac
+        else:
+            v['prot_ac'] = None
+
         v['latest'] = latest
 
         for genome in v['primary_assembly_loci']:
@@ -149,10 +153,10 @@ def process_result(val, validator):
         'warnings': warnings,
     }
 
-    #import json
-    #print(alloutputs['flag'])
-    #print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
-    #print('OK')
+    import json
+    # print(alloutputs['flag'])
+    # print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
+    # print('OK')
     return alloutputs
 
 
@@ -335,6 +339,7 @@ def get_varsome_link(output):
         # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
         pass
 
+
 def get_gnomad_link(output):
     try:
         if output['genome'] == 'GRCh37':
@@ -352,6 +357,7 @@ def get_gnomad_link(output):
     except Exception:
         # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
         pass
+
 
 def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
 
