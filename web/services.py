@@ -29,9 +29,12 @@ def process_result(val, validator):
     counter = 0
     warnings = []
     for k, v in val.items():
-        # print(k)
         if k == 'flag' or k == 'metadata':
             continue
+        # print('k')
+        # print(k)
+        # print('v')
+        # print(v)
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)
@@ -139,10 +142,14 @@ def process_result(val, validator):
                 else:
                     alt[genome]['genome'] = genome
 
-        if v['tx_ac'] or v['gene_ac']:
+        if v['tx_ac'] or v['gene_ac'] or "intergenic_variant" in k:
             each.append(v)
+            # print('appended')
         else:
             warnings = v['validation_warnings']
+            # print('not appended')
+            # print(k)
+            # print(v)
 
     alloutputs = {
         'flag': flag,
@@ -153,7 +160,7 @@ def process_result(val, validator):
         'warnings': warnings,
     }
 
-    import json
+    # import json
     # print(alloutputs['flag'])
     # print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
     # print('OK')
