@@ -29,9 +29,12 @@ def process_result(val, validator):
     counter = 0
     warnings = []
     for k, v in val.items():
-        # print(k)
         if k == 'flag' or k == 'metadata':
             continue
+        # print('k')
+        # print(k)
+        # print('v')
+        # print(v)
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)
@@ -79,9 +82,13 @@ def process_result(val, validator):
         else:
             v['lrg_tx_ac'] = ''
 
-        prot_ac = v['hgvs_predicted_protein_consequence']['tlr'].split(':')[0]
-        prot_ac = prot_ac.split('(')[0]
-        v['prot_ac'] = prot_ac
+        if v['hgvs_predicted_protein_consequence']['tlr'] is not None:
+            prot_ac = v['hgvs_predicted_protein_consequence']['tlr'].split(':')[0]
+            prot_ac = prot_ac.split('(')[0]
+            v['prot_ac'] = prot_ac
+        else:
+            v['prot_ac'] = None
+
         v['latest'] = latest
 
         for genome in v['primary_assembly_loci']:
@@ -135,10 +142,14 @@ def process_result(val, validator):
                 else:
                     alt[genome]['genome'] = genome
 
-        if v['tx_ac'] or v['gene_ac']:
+        if v['tx_ac'] or v['gene_ac'] or "intergenic_variant" in k:
             each.append(v)
+            # print('appended')
         else:
             warnings = v['validation_warnings']
+            # print('not appended')
+            # print(k)
+            # print(v)
 
     alloutputs = {
         'flag': flag,
@@ -149,10 +160,10 @@ def process_result(val, validator):
         'warnings': warnings,
     }
 
-    #import json
-    #print(alloutputs['flag'])
-    #print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
-    #print('OK')
+    # import json
+    # print(alloutputs['flag'])
+    # print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
+    # print('OK')
     return alloutputs
 
 
@@ -335,6 +346,7 @@ def get_varsome_link(output):
         # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
         pass
 
+
 def get_gnomad_link(output):
     try:
         if output['genome'] == 'GRCh37':
@@ -352,6 +364,7 @@ def get_gnomad_link(output):
     except Exception:
         # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
         pass
+
 
 def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
 
