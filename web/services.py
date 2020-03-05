@@ -368,17 +368,21 @@ def get_gnomad_link(output):
 
 def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
 
+    # Create local normalizer
+    hn = normalizer.Normalizer(validator.hdp,
+                               cross_boundaries=False,
+                               shuffle_direction=3,
+                               alt_aln_method=validator.alt_aln_method
+                               )
+    # In URL, + is translated to ' '
+    variant = variant.replace(' ', '+')
+
     c_genome_pos = None
     if variant == 'intergenic':
         hgvs_coding = variant
     else:
         try:
             hgvs_coding = validator.hp.parse_hgvs_variant(variant)
-            hn = normalizer.Normalizer(validator.hdp,
-                                       cross_boundaries=False,
-                                       shuffle_direction=3,
-                                       alt_aln_method=validator.alt_aln_method
-                                       )
             c_genome_pos = validator.myvm_t_to_g(hgvs_coding, chromosome, validator.vm, hn)
         except Exception as e:
             hgvs_coding = 'false'
@@ -406,7 +410,10 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
     if hgvs_coding == 'intergenic':
         orientation = '+'
     else:
-        ori = validator.tx_exons(tx_ac=hgvs_coding.ac, alt_ac=chromosome, alt_aln_method='splign')
+        try:
+            ori = validator.tx_exons(tx_ac=hgvs_coding.ac, alt_ac=chromosome, alt_aln_method='splign')
+        except Exception as e:
+            print(e)
         orientation = int(ori[0]['alt_strand'])
         if orientation == -1:
             orientation = '-'
