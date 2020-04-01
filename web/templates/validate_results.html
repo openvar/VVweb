@@ -178,10 +178,12 @@
                                   <th>Reference Sequence Type</th>
                                   <th>Variant Description</th>
                               </tr>
+                              {% if each.hgvs_refseqgene_variant %}
                               <tr>
                                   <td>Gene</td>
                                   <td>{{ each.hgvs_refseqgene_variant }}</td>
                               </tr>
+                              {%  endif %}
                               {% if each.primary_assembly_loci.grch37 %}
                               <tr>
                                   <td>Chromosomal GRCh37</td>
