@@ -54,7 +54,10 @@ def process_result(val, validator):
                         latest = False
         else:
             v['tx_ac'] = ''
-            v['safe_hgvs_trans'] = 'Intergenic Variant'
+            if flag == 'mitochondrial':
+                v['safe_hgvs_trans'] = 'Mitochondrial Variant'
+            else:
+                v['safe_hgvs_trans'] = 'Intergenic Variant'
 
         if v['gene_symbol']:
             try:
@@ -142,7 +145,7 @@ def process_result(val, validator):
                 else:
                     alt[genome]['genome'] = genome
 
-        if v['tx_ac'] or v['gene_ac'] or "intergenic_variant" in k:
+        if v['tx_ac'] or v['gene_ac'] or "intergenic_variant" or "mitochondrial" in k:
             each.append(v)
             # print('appended')
         else:
@@ -160,10 +163,12 @@ def process_result(val, validator):
         'warnings': warnings,
     }
 
-    # import json
-    # print(alloutputs['flag'])
-    # print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
-    # print('OK')
+    #import json
+    #print('\n')
+    #print(alloutputs['flag'])
+    #print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
+    #print('OK')
+    #print('\n')
     return alloutputs
 
 
