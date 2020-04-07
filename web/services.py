@@ -56,6 +56,10 @@ def process_result(val, validator):
             v['tx_ac'] = ''
             if flag == 'mitochondrial':
                 v['safe_hgvs_trans'] = 'Mitochondrial Variant'
+            elif "validation_warning" in k:
+                v['tx_ac'] = k
+                latest = False
+                v['safe_hgvs_trans'] = 'Validation Warning'
             else:
                 v['safe_hgvs_trans'] = 'Intergenic Variant'
 
@@ -145,7 +149,7 @@ def process_result(val, validator):
                 else:
                     alt[genome]['genome'] = genome
 
-        if v['tx_ac'] or v['gene_ac'] or "intergenic_variant" or "mitochondrial" in k:
+        if v['tx_ac'] or v['gene_ac'] or "intergenic_variant" or "mitochondrial" or "validation_warning" in k:
             each.append(v)
             # print('appended')
         else:
