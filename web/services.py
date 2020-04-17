@@ -151,6 +151,8 @@ def process_result(val, validator):
 
         if v['tx_ac'] or v['gene_ac'] or "intergenic_variant" or "mitochondrial" or "validation_warning" in k:
             each.append(v)
+            if "intergenic_variant" or "mitochondrial" or "validation_warning" in k:
+                warnings = v['validation_warnings']
             # print('appended')
         else:
             warnings = v['validation_warnings']
