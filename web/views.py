@@ -326,13 +326,25 @@ def download_batch_res(request, job_id):
 
     buffer = str()
     buffer += '# Job ID:%s\n' % job_id
-    for row in job.result:
-        if isinstance(row, list):
-            buffer += '\t'.join(row)
-        else:
-            buffer += row
-        buffer += '\n'
-    print(buffer)
+    try:
+        for row in job.result:
+            if isinstance(row, list):
+                # The sql query returns null for some columns which is converted
+                # to a Python NoneType. In this case the join() was failing.
+                # Added a list comprehension to convert the NoneType to a string
+                # containing the word 'None'.
+                buffer += '\t'.join(['None' if v is None else v for v in row])
+            elif isinstance(row, str):
+                # Converted the else statement to an elif, to test whether we got a string.
+                # If yes we append it here (Usually the Metadata row).
+                # Add an else statement if needed.
+                buffer += row
+            buffer += '\n'
+    except Exception as ex:
+        # This will print errors to the Apache log
+        print(ex)
+
+    # print(buffer)   # Jon Wakelin 17/Sep/2020
 
     response = HttpResponse(buffer, content_type='text/plain')
     response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
