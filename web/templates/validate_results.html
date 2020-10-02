@@ -140,6 +140,20 @@
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
                               </tr>
                              {% endif %}
+                              {% if each.hgvs_predicted_protein_consequence.lrg_tlr  %}
+                              <tr>
+                                  <td>LRG Protein (:p.)</td>
+                                  <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_predicted_protein_consequence.lrg_tlr }}</a></td>
+                                  <td><a href="{{ each.reference_sequence_records.lrg }}" target="_blank">{{ each.lrg_ac }}</a></td>
+                              </tr>
+                             {% endif %}
+                              {% if each.hgvs_predicted_protein_consequence.lrg_slr  %}
+                              <tr>
+                                  <td>LRG Protein (:p.)</td>
+                                  <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_predicted_protein_consequence.lrg_slr }}</a></td>
+                                  <td><a href="{{ each.reference_sequence_records.lrg }}" target="_blank">{{ each.lrg_ac }}</a></td>
+                              </tr>
+                             {% endif %}
                           </table>
 
                           <h5>Genomic Variants</h5>
@@ -261,6 +275,19 @@
                                   <td>{{ each.hgvs_predicted_protein_consequence.tlr }}</td>
                               </tr>
                               {% endif %}
+                              {% if each.hgvs_predicted_protein_consequence.lrg_slr  %}
+                              <tr>
+                                  <td>LRG Protein single letter code</td>
+                                  <td>{{ each.hgvs_predicted_protein_consequence.lrg_slr }}</td>
+                              </tr>
+                              {% endif %}
+                              {% if each.hgvs_predicted_protein_consequence.lrg_tlr  %}
+                                  <tr>
+                                  <td>LRG Protein three letter code</td>
+                                  <td>{{ each.hgvs_predicted_protein_consequence.lrg_tlr }}</td>
+                              </tr>
+                              {% endif %}
+
                           </table>
                           <br>
                           <h4>Gene Information</h4>
