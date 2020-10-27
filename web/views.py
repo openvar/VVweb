@@ -128,14 +128,29 @@ def validate(request):
             ucsc_link = services.get_ucsc_link(validator, output)
             varsome_link = services.get_varsome_link(output)
             gnomad_link = services.get_gnomad_link(output)
-
+            
+            # dbSNP and ClinVar links for variant 
+            ext_links = services.get_external_links(variant) 
+            
+            # check if an error was returned in the dictionary
+            if 'error_msg' in ext_links:
+                logger.info("error retrieving clinvar and dbsnp links")
+                logger.debug(ext_links)
+                dbsnp_link = ''
+                clinvar_link  = ''    
+            else:
+                dbsnp_link = ext_links['dbsnp'] 
+                clinvar_link = ext_links['clinvar']
+                
             logger.debug(output)
             logger.info("Successful validation made by user %s" % request.user)
             return render(request, 'validate_results.html', {
                 'output': output,
                 'ucsc': ucsc_link,
                 'varsome': varsome_link,
-                'gnomad': gnomad_link
+                'gnomad': gnomad_link,
+                'dbsnp': dbsnp_link, 
+                'clinvar': clinvar_link 
             })
 
     if not request.user.is_authenticated:

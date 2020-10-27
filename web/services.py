@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.shortcuts import reverse
 from VariantValidator.modules.seq_data import to_accession, to_chr_num_ucsc
 from VariantValidator.modules.utils import valstr
+from VariantValidator.modules import variant_external_resources as external_links 
 from vvhgvs import normalizer
 import logging
 
@@ -376,6 +377,21 @@ def get_gnomad_link(output):
         # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
         pass
 
+def get_external_links(variant):
+    
+    """ 
+    Calls variant_external_resources.get_external_resource_links to retrieve the urls for linking the variant to dbSNP and ClinVar and returns
+    the urls in a dictionary. Any errors encountered are returned in the dictionary so they can be reported without causing the system to crash
+    :param variant: 
+    :return ext_links: 
+    """ 
+
+    try: 
+        ext_links = external_links.get_external_resource_links(variant) 
+        return ext_links
+    except Exception: 
+        # We don't want to fail - just carry on 
+        pass 
 
 def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
 

@@ -383,9 +383,15 @@
                 {% if gnomad %}
                     <li><a href="{{ gnomad }}" target="_blank">gnomAD_{{ output.genome }}</a></li>
                 {% endif %}
-              </ul>
-              {%  endif %}
-              {%  if not ucsc and not varsome and not gnomad %}
+                {% if dbsnp %} 
+                    <li><a href="{{ dbsnp }}" target="_blank">dbSNP</a></li> 
+                {% endif %} 
+                {% if clinvar %} 
+                    <li><a href="{{ clinvar }}" target="_blank">ClinVar</a></li> 
+                {% endif %}
+               </ul> 
+              {%  endif %} 			
+              {%  if not ucsc and not varsome and not gnomad and not dbsnp and not clinvar %}
                   <li class="text-danger">No links to external resources available, possibly because the variant cannot be mapped to the selected genome build</li>
               {%  endif %}
            </div>
