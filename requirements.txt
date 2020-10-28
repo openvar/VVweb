@@ -10,3 +10,8 @@ django-recaptcha
 django-countries
 django-celery-beat
 psycopg2
+django-easy-pdf
+WeasyPrint
+
+--pre
+xhtml2pdf

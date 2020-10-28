@@ -75,11 +75,11 @@
                               <li><h5>Selected genome build: {{ output.genome }}</h5></li>
                               <li><h5>Map location: {{ each.chr_loc }}</h5></li>
                           {% endif %}
-                          {% if each.annotations.db_xref.select is not None %}
-                              <li><h5>Select transcript: {{ each.annotations.db_xref.select}} Select</h5></li>
+                          {% if each.annotations.db_xref.select %}
+                              <li><h5>Select transcript: {{ each.annotations.db_xref.select}}</h5></li>
                           {% endif %}
                           {% if each.annotations.db_xref.CCDS%}
-                              <li><h5>CCDS ID: {{ each.annotations.db_xref.CCDS}}</h5></li>
+                              <li><h5>CCDS ID: <a href="https://www.ncbi.nlm.nih.gov/CCDS/CcdsBrowse.cgi?REQUEST=CCDS&DATA={{ each.annotations.db_xref.CCDS }}" target="_blank">{{ each.annotations.db_xref.CCDS }}</a></h5></li>
                           {% endif %}
                           </ul>
                           <br>
@@ -155,7 +155,6 @@
                               </tr>
                              {% endif %}
                           </table>
-
                           <h5>Genomic Variants</h5>
                           <table class="table table-bordered">
                               <tr>
@@ -197,8 +196,9 @@
                           <br>
                           <h4>Recommended Variant Descriptions</h4>
                           <ol>
-                              <li>We recommend using a genomic and a transcript description in all publications</li>
+                              <li>HGVS guidelines recommend using genomic and transcript descriptions in all publications</li>
                               <li>We currently recommend that RefSeqGene descriptions should be used when possible</li>
+                              <li>Use of the three- or one-letter amino acid alphabet is optional, but three-letter is recommended</li>
                           </ol>
 
                           <h5>Genomic descriptions</h5>
@@ -286,9 +286,8 @@
                                   <td>LRG Protein three letter code</td>
                                   <td>{{ each.hgvs_predicted_protein_consequence.lrg_tlr }}</td>
                               </tr>
+                              </table>
                               {% endif %}
-
-                          </table>
                           <br>
                           <h4>Gene Information</h4>
                           <table class="table table-bordered">
@@ -350,6 +349,41 @@
                                 {% endfor %}
                           </table>
                           {%  endif %}
+                          {% if each.hgvs_transcript_variant %}
+                              <form method="post" id="pdf-validate-form">
+                                  {% csrf_token %}
+                                  <div class="form-group">
+                                      <input type="hidden" id="variant_id" name="variant" type="text" class="form-control" required value="{{ each.hgvs_transcript_variant }}">
+                                  </div>
+                                  <div class="form-group" id="genomeselect">
+                                      <div class="custom-radio custom-control custom-control-inline">
+                                          <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value={{ output.genome }} {% if locked %} disabled {% endif %} {% if last == 'GRCh38' %} checked {% endif %}>
+                                      </div>
+                                  </div>
+                                  <button id="validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
+                                    Print pdf
+                                  </button>
+                              </form>
+                          {% else %}
+                              <form method="post" id="pdf-validate-form">
+                                  {% csrf_token %}
+                                  <div class="form-group">
+                                      {% if 'GRCh37' in output.genome%}
+                                        <input type="hidden" id="variant_id" name="variant" type="text" class="form-control" required value="{{ each.primary_assembly_loci.grch37.hgvs_genomic_description }}">
+                                      {% else %}
+                                        <input type="hidden" id="variant_id" name="variant" type="text" class="form-control" required value="{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}">
+                                      {% endif %}
+                                  </div>
+                                  <div class="form-group" id="genomeselect">
+                                      <div class="custom-radio custom-control custom-control-inline">
+                                          <input class="custom-control-input" type="radio" name="genomebuild" value={{ output.genome }} checked>
+                                      </div>
+                                  <button id="validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
+                                    Print pdf
+                                  </button>
+                              </form>
+                          {% endif %}
+                            <br>
                             <br>
                             <div class="row">
                               <div class="col-md-12 mb-5">
