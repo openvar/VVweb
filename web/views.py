@@ -5,6 +5,7 @@ from django.http import HttpResponse, Http404
 from . import forms
 from . import tasks
 from . import services
+from .utils import render_to_pdf
 import VariantValidator
 from VariantValidator import settings as vvsettings
 import vvhgvs
@@ -12,6 +13,7 @@ from configparser import ConfigParser
 from celery.result import AsyncResult
 from allauth.account.models import EmailAddress
 import logging
+
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 validator = VariantValidator.Validator()
@@ -109,26 +111,57 @@ def validate(request):
     if request.method == 'POST':
 
         if request.user.is_authenticated or num < 5:
-            num += 1
-            if not request.user.is_authenticated:
-                request.session['validations'] = num
-
             logger.debug("Going to validate sequences")
 
             variant = request.POST.get('variant')
             genome = request.POST.get('genomebuild', 'GRCh38')
+            pdf_r = request.POST.get('pdf_request')
+            if pdf_r is None:
+                pdf_r = True
+            elif pdf_r is "False":
+                pdf_r = False
+            print('Request pdf = ' + str(pdf_r))
 
             output = tasks.validate(variant, genome, validator=validator)
             output = services.process_result(output, validator)
             output['genome'] = genome
 
             request.session['genome'] = genome
-            last_genome = genome
 
             ucsc_link = services.get_ucsc_link(validator, output)
             varsome_link = services.get_varsome_link(output)
             gnomad_link = services.get_gnomad_link(output)
 
+            if pdf_r is True:
+                # Render the template into pdf
+                config = ConfigParser()
+                config.read(vvsettings.CONFIG_DIR)
+                versions = {
+                    'VariantValidator': VariantValidator.__version__,
+                    'hgvs': vvhgvs.__version__,
+                    'uta': config['postgres']['version'],
+                    'seqrepo': config['seqrepo']['version'],
+                }
+                context = {
+                    'output': output,
+                    'versions': versions
+                }
+                pdf = render_to_pdf(request, 'pdf_results.html', context)
+                if pdf:
+                    response = HttpResponse(pdf, content_type='application/pdf')
+                    filename = "VariantValidator_report_%s.pdf" % variant
+                    content = "inline; filename=%s" % filename
+                    download = request.GET.get("download")
+                    if download:
+                        content = "attachment; filename=%s" % filename
+                    response['Content-Disposition'] = content
+                    return response
+                return HttpResponse("Not found")
+
+            # Count requests to 5
+            num += 1
+            if not request.user.is_authenticated:
+                request.session['validations'] = num
             logger.debug(output)
             logger.info("Successful validation made by user %s" % request.user)
             return render(request, 'validate_results.html', {
@@ -374,16 +407,15 @@ def bed_file(request):
 
     # Split up the input
     input_elements = info.split('|')
-    variant = input_elements[0]
-    chromosome = input_elements[1]  # 'NC_000017.11'
-    build = input_elements[2]  # 'GRCh38'
-    genomic = input_elements[3]
-    vcf = input_elements[4]
+#    variant = input_elements[0]
+#    chromosome = input_elements[1]  # 'NC_000017.11'
+#    build = input_elements[2]  # 'GRCh38'
+#    genomic = input_elements[3]
+#    vcf = input_elements[4]
 
-    print(variant)
     # Sort out URI encoding
-    if '+' in str(variant):
-        variant = variant.replace(' ', '+')
+    if '+' in str(input_elements[0]):
+        input_elements = str(input_elements[0].replace(' ', '+'))
 
     bed_call = services.create_bed_file(validator, *input_elements)
 

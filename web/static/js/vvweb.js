@@ -29,7 +29,7 @@ $(document).ready(function() {
 
     $('#g2t-btn').on("click", function() {
         if ($('#symbol_id').val()){
-            console.log("Clicked validate button");
+            console.log("Clicked g2t button");
             $('.overlay').show();
             $('.loading').show();
         }
@@ -110,20 +110,37 @@ $(document).ready(function() {
 
 
     $('#validate-form').on('submit', function(evt) {
+        console.log('HTML');
         evt.preventDefault();
+
+        let html_caught = document.getElementById("validate-form");
+        let pdf_caught = document.getElementById("pdf-validate-form");
+
         let variant = $('#variant_id').val();
         let genome = $('#genomeselect input:checked').val();
         console.log(variant);
         console.log(genome);
-        $.ajax({
-            type: 'POST',
-            url: '',
-            data: {
-                variant: variant,
-                genomebuild: genome,
-                csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
-            },
-            timeout: 30000,
+
+        let pdf = null
+
+        if ( html_caught == null && pdf_caught != null) {
+                console.log("PDF response requested");
+                pdf = "True";
+        }
+        if ( html_caught != null && pdf_caught == null) {
+                console.log("HTML response requested");
+                pdf = "False";
+        }
+            $.ajax({
+                type: 'POST',
+                url: '',
+                data: {
+                    variant: variant,
+                    genomebuild: genome,
+                    pdf_request: pdf,
+                    csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
+                },
+                timeout: 30000,
             success: function(res) {
                 console.log('Success!');
                 $('.overlay').hide();

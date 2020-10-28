@@ -11,6 +11,10 @@ dependencies:
   - sqlite=3.28
   - sqlparse=0.3
   - pysam
+  - cairo
+  - pango
+  - gdk-pixbuf
+  - libffi
   - pip:
     - django-celery-results
     - django-widget-tweaks
