@@ -89,7 +89,7 @@
                           </table>
                           {% if not "Intergenic" in each.safe_hgvs_trans %}
                               <h5>Transcript and protein descriptions</h5>
-                          <table class="table table-sm" style='font-size:80%'>
+                            <table class="table table-sm" style='font-size:80%'>
                               <tr>
                                   <th>Reference Sequence Type</th>
                                   <th>Variant Description</th>
@@ -141,9 +141,8 @@
                                   <td>LRG Protein three letter code</td>
                                   <td>{{ each.hgvs_predicted_protein_consequence.lrg_tlr }}</td>
                               </tr>
-                          </table>
-
-                          {% endif %}
+                              {% endif %}
+                                  </table>
 
                          <p style="page-break-before: always" ></p>
                           <h4>Gene Information</h4>
