@@ -26,7 +26,7 @@
               <li><a class="variant-example" href="#" data-genome="GRCh38">chr17:g.50198002C>A</a></li>
               <li><a class="variant-example" href="#" data-genome="GRCh38">chr17(GRCh38):g.50198002C>A</a></li>
           </ul>
-          <form method="post" id="validate-form">
+          <form method="post" id="validate-form" name="validate-form">
               {% csrf_token %}
               <div class="form-group">
                   <label for="variant_id">Variant Description:</label>
