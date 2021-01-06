@@ -377,17 +377,30 @@ def get_gnomad_link(output):
         # This exception picks up variants with no primary assembly for the selected genome e.g. HLA-DRB4
         pass
 
-def get_external_links(variant):
+def get_external_links(output):
     
     """ 
-    Calls variant_external_resources.get_external_resource_links to retrieve the urls for linking the variant to dbSNP and ClinVar and returns
-    the urls in a dictionary. Any errors encountered are returned in the dictionary so they can be reported without causing the system to crash
-    :param variant: 
+    Calls variant_external_resources.get_external_resource_links using the previously validated hgvs genomic description 
+    for the requested genome build to retrieve the urls for linking the variant to dbSNP and ClinVar. The urls are returned
+    in a dictionary. Any errors encountered are returned in the dictionary so they can be reported without causing the system 
+    to crash
+    :param output
     :return ext_links: 
     """ 
 
-    try: 
-        ext_links = external_links.get_external_resource_links(variant) 
+     # call get_external_resource_links with the validated HGVS genomic variant description 
+    try:
+        if output['genome'] == 'GRCh37':
+            output_variant = output['results'][0]['primary_assembly_loci']['grch37'] ['hgvs_genomic_description']   
+            ext_links = external_links.get_external_resource_links(output_variant) 
+        return ext_links
+    except Exception: 
+        # We don't want to fail - just carry on 
+        pass 
+    try:
+        if output['genome'] == 'GRCh38':
+            output_variant = output['results'][0]['primary_assembly_loci']['grch38'] ['hgvs_genomic_description']   
+            ext_links = external_links.get_external_resource_links(output_variant) 
         return ext_links
     except Exception: 
         # We don't want to fail - just carry on 

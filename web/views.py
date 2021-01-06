@@ -129,8 +129,8 @@ def validate(request):
             varsome_link = services.get_varsome_link(output)
             gnomad_link = services.get_gnomad_link(output)
             
-            # dbSNP and ClinVar links for variant 
-            ext_links = services.get_external_links(variant) 
+            # dbSNP and ClinVar links for validated variant 
+            ext_links = services.get_external_links(output) 
             
             # check if an error was returned in the dictionary
             if 'error_msg' in ext_links:
