@@ -17,6 +17,7 @@ To install the python packages you should first create a python 3.6 virtual envi
 # if you have conda installed
 conda env create -f environment.yml
 conda activate vvweb
+pip install -r requirements.txt
 
 # otherwise
 module load python/gcc/3.6.4  # only if on SPECTRE

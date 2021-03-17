@@ -1,28 +1,16 @@
 name: vvweb
 channels:
-  - conda-forge/label/gcc7
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  - celery
-  - django
   - pip
   - python=3.6
   - sqlite=3.28
-  - sqlparse=0.3
+  - protobuf=3.5.1
+  - mysql-connector-python
   - pysam
-  - cairo
-  - pango
-  - gdk-pixbuf
-  - libffi
-  - pip:
-    - django-celery-results
-    - django-widget-tweaks
-    - git+https://github.com/openvar/VariantValidator@master#egg=VariantValidator
-    - django-cookie-law
-    - django-allauth
-    - django-recaptcha
-    - django-countries
-    - django-celery-beat
-    - psycopg2
+  - pyliftover>=0.3
+  - numpy
+  - httplib2>=0.9.0
+  - configparser>=3.5.0
+  - requests
