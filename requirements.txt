@@ -9,5 +9,5 @@ django-allauth
 django-recaptcha
 django-countries
 django-celery-beat
-psycopg2
+psycopg2==2.7.4
 WeasyPrint
