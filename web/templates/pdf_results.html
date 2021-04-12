@@ -4,69 +4,68 @@
 {% block header_title %}VariantValidator{% endblock %}
 
 {% block content %}
-  <div class="row">
-      <div class="column" style="max-width: 65%; min-width: 65%; float: left; padding: 10px; word-wrap: break-word;">
-          <h4>Submitted Variant</h4>
-          <h5>{{ output.inputted }}</h5>
+  <div class="row" style="width:100%; background-color:white;">
+      <div class="column" style="max-width: 45%; min-width: 45%; float: left; padding: 10px; word-wrap: break-word; padding-top: 10px; left:0; padding-bottom: 10px;">
+          <h6>Submitted Variant</h6>
+          <h7 style='font-size:80%'>{{ output.inputted }}</h7>
                   {% for each in output.results %}
-                          <ul>
+                          <ul style="padding-left: 20px;">
                               {% if each.annotations.map %}
-                                  <li>Selected genome build: {{ output.genome }}</li>
-                                  <li>Map location: {{ each.annotations.map }}</li>
+                                  <li style='font-size:70%'>Selected genome build: {{ output.genome }}</li>
+                                  <li style='font-size:70%'>Map location: {{ each.annotations.map }}</li>
                               {% endif %}
                               {% if not each.annotations.map %}
-                                  <li>Selected genome build: {{ output.genome }}</li>
-                                  <li>Map location: {{ each.chr_loc }}</li>
+                                  <li style='font-size:70%'>Selected genome build: {{ output.genome }}</li>
+                                  <li style='font-size:70%'>Map location: {{ each.chr_loc }}</li>
                               {% endif %}
                               {% if each.annotations.db_xref.select %}
-                                  <li>Select transcript: {{ each.annotations.db_xref.select}}</li>
+                                  <li style='font-size:70%'>Select transcript: {{ each.annotations.db_xref.select}}</li>
                               {% endif %}
                               {% if each.annotations.db_xref.CCDS%}
-                                  <li>CCDS ID: <a href="https://www.ncbi.nlm.nih.gov/CCDS/CcdsBrowse.cgi?REQUEST=CCDS&DATA={{ each.annotations.db_xref.CCDS }}" target="_blank">{{ each.annotations.db_xref.CCDS }}</a></li>
+                                  <li style='font-size:70%'>CCDS ID: <a href="https://www.ncbi.nlm.nih.gov/CCDS/CcdsBrowse.cgi?REQUEST=CCDS&DATA={{ each.annotations.db_xref.CCDS }}" target="_blank">{{ each.annotations.db_xref.CCDS }}</a></li>
                               {% endif %}
                           </ul>
                 {% endfor %}
       </div>
-        <div class="column" style="max-width: 35%; min-width: 35%; float: right; padding: 10px; background-color:#D3D3D3; word-wrap: break-word;">
-        <h4>Versions</h4>
-            <ul>
-                <li><a href="http://github.com/openvar/variantvalidator/" target="_blank">VariantValidator </a>version {{ versions.VariantValidator }}</li>
-                <li><a href="http://github.com/openvar/vv_hgvs/" target="_blank">vv_hgvs </a>version {{ versions.hgvs }}</li>
-                <li><a href="http://github.com/biocommons/uta/" target="_blank">UTA </a>release {{ versions.uta }}</li>
-                <li><a href="http://github.com/biocommons/seqrepo/" target="_blank">SeqRepo </a>release {{ versions.seqrepo }}</li>
+        <div class="column" style="max-width: 25%; min-width: 25%; float: right; padding: 10px; background-color:white; word-wrap: break-word; padding-top: 10px; right:0; padding-bottom: 10px;">
+        <h6>Versions</h6>
+            <ul style="padding-left: 20px;">
+                <li style='font-size:70%; '><a href="http://github.com/openvar/variantvalidator/" target="_blank">VariantValidator </a> {{ versions.VariantValidator }}</li>
+                <li style='font-size:70%'><a href="http://github.com/openvar/vv_hgvs/" target="_blank">vv_hgvs </a> {{ versions.hgvs }}</li>
+                <li style='font-size:70%'><a href="https://www528.lamp.le.ac.uk/vvdata/vvta/" target="_blank">VVTA </a> {{ versions.uta }}</li>
+                <li style='font-size:70%'><a href="https://www528.lamp.le.ac.uk/vvdata/vv_seqrepo/" target="_blank">VVSeqRepo </a> {{ versions.seqrepo }}</li>
             </ul>
       </div>
   </div>
-    <div id="results">
-          <div class="col-md-12 mb-2">
+    <div id="results" style="width:66%;">
+          <div class="col-md-12 mb-2" style="width:100%;">
                   {% for each in output.results %}
                           {% if each.validation_warnings %}
-                          <h5>Warnings output during validation</h5>
-                            <ul>
+                          <h7>Warnings output during validation</h7>
+                            <ul style="padding-left: 20px;">
                             {% for warning in each.validation_warnings %}
-                              <li class="text-danger">{{ warning }}</li>
+                              <li style='font-size:60%; color: red;'>{{ warning }}</li>
                             {% endfor %}
                             </ul>
                           {% endif %}
-                          <br>
-                          <h4>Recommended Variant Descriptions</h4>
-                          <ol>
-                              <li style='font-size:80%'>HGVS guidelines recommend using genomic and transcript descriptions in all publications</li>
-                              <li style='font-size:80%'>Use of the three- or one-letter amino acid alphabet is optional, but three-letter is recommended</li>
+                          <h6>Recommended Variant Descriptions</h6>
+                          <ol style="padding-left: 20px;">
+                              <li style='font-size:60%'>HGVS guidelines recommend using genomic and transcript descriptions in all publications</li>
+                              <li style='font-size:60%'>Use of the three- or one-letter amino acid alphabet is optional, but three-letter is recommended</li>
                           </ol>
 
-                          <h5>Genomic descriptions</h5>
-                          <table class="table table-sm" style='font-size:80%'>
+                          <h7>Genomic descriptions</h7>
+                          <table class="table table-sm" style='font-size:60%'>
                               <tr>
-                                  <th>Reference Sequence Type</th>
+                                  <th style="width: 160px;">Reference Sequence Type</th>
                                   <th>Variant Description</th>
                               </tr>
-                              {% if each.hgvs_refseqgene_variant %}
+                              <!-- {% if each.hgvs_refseqgene_variant %}
                               <tr>
                                   <td>Gene</td>
                                   <td>{{ each.hgvs_refseqgene_variant }}</td>
                               </tr>
-                              {%  endif %}
+                              {%  endif %} -->
                               {% if each.primary_assembly_loci.grch37 %}
                               <tr>
                                   <td>Chromosomal GRCh37</td>
@@ -79,18 +78,18 @@
                                   <td>{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}</td>
                               </tr>
                               {%  endif %}
-                              {% if each.hgvs_lrg_variant %}
+                              <!-- {% if each.hgvs_lrg_variant %}
                               <tr>
                                   <td>LRG</td>
                                   <td>{{ each.hgvs_lrg_variant }}</td>
                               </tr>
-                              {%  endif %}
+                              {%  endif %} -->
                           </table>
                           {% if not "Intergenic" in each.safe_hgvs_trans %}
-                              <h5>Transcript and protein descriptions</h5>
-                            <table class="table table-sm" style='font-size:80%'>
+                              <h7>Transcript and protein descriptions</h7>
+                            <table class="table table-sm" style='font-size:60%'>
                               <tr>
-                                  <th>Reference Sequence Type</th>
+                                  <th style="width: 160px;">Reference Sequence Type</th>
                                   <th>Variant Description</th>
                               </tr>
                               {% if each.genome_context_intronic_sequence %}
@@ -117,24 +116,24 @@
                                   <td>{{ each.hgvs_lrg_transcript_variant }}</td>
                               </tr>
                               {% endif %}
-                              {% if each.hgvs_predicted_protein_consequence.slr  %}
+                              <!-- {% if each.hgvs_predicted_protein_consequence.slr  %}
                               <tr>
                                   <td>Protein single letter code</td>
                                   <td>{{ each.hgvs_predicted_protein_consequence.slr }}</td>
                               </tr>
-                              {% endif %}
+                              {% endif %} -->
                               {% if each.hgvs_predicted_protein_consequence.tlr  %}
                                   <tr>
                                   <td>Protein three letter code</td>
                                   <td>{{ each.hgvs_predicted_protein_consequence.tlr }}</td>
                               </tr>
                               {% endif %}
-                              {% if each.hgvs_predicted_protein_consequence.lrg_slr  %}
+                              <!-- {% if each.hgvs_predicted_protein_consequence.lrg_slr  %}
                               <tr>
                                   <td>LRG Protein single letter code</td>
                                   <td>{{ each.hgvs_predicted_protein_consequence.lrg_slr }}</td>
                               </tr>
-                              {% endif %}
+                              {% endif %} -->
                               {% if each.hgvs_predicted_protein_consequence.lrg_tlr  %}
                                   <tr>
                                   <td>LRG Protein three letter code</td>
@@ -143,11 +142,11 @@
                               {% endif %}
                                   </table>
 
-                         <p style="page-break-before: always" ></p>
-                          <h4>Gene Information</h4>
-                          <table class="table table-sm" style='font-size:80%'>
+                         <!-- <p style="page-break-before: always;"></p> -->
+                          <h7>Gene Information</h7>
+                          <table class="table table-sm" style='font-size:60%'>
                               <tr>
-                                  <th>Attribute</th>
+                                  <th style="width: 160px;">Attribute</th>
                                   <th>Identifier</th>
                                   <th>Source</th>
                               </tr>
@@ -173,7 +172,7 @@
                               </tr>
                               {% endif %}
 
-                              {% if each.gene_ids.entrez_gene_id %}
+                              <!-- {% if each.gene_ids.entrez_gene_id %}
                               <tr>
                                   <td>NCBI Gene ID</td>
                                   <td>{{ each.gene_ids.entrez_gene_id }}</td>
@@ -201,11 +200,11 @@
                                     <td>{{ ccds }}</td>
                                     <td><a href="https://www.ncbi.nlm.nih.gov/projects/CCDS/CcdsBrowse.cgi?REQUEST=ALLFIELDS&DATA={{ ccds }}&ORGANISM=0&BUILDS=CURRENTBUILDS" target="_blank">CCDS</a></td>
                                   </tr>
-                                {% endfor %}
+                                {% endfor %} -->
                           </table>
                           {%  endif %}
                   {% endfor %}
-      </div>
+           </div>
   </div>
 {% endblock %}
 

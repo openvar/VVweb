@@ -17,7 +17,7 @@
       <div class="card">
         <div class="card-body">
           <div class="row">
-            <div class="col mb-2">
+            <!-- <div class="col mb-2">
               <p>{% blocktrans %}Please sign in with one
                   of your existing third party accounts:{% endblocktrans %}
               </p>
@@ -32,13 +32,13 @@
               {% endfor %}
               </div>
               {% include "socialaccount/snippets/login_extra.html" %}
-            </div>
-            <div class="col-sm-1 mb-2 mt-2 mb-sm-0 mt-sm-0">
+            </div> -->
+            <!-- <div class="col-sm-1 mb-2 mt-2 mb-sm-0 mt-sm-0">
               <div class="line"></div>
               <div class="wordwrapper">
                   <div class="word">or</div>
               </div>
-            </div>
+            </div> -->
             <div class="col">
               <p>{% blocktrans with site.name as site_name %}If you've <a href="{{ signup_url }}">registered</a>
                   for a {{ site_name }} account, sign in below:{% endblocktrans %}
@@ -102,7 +102,7 @@
       </div>
       <p class="pt-2">
         By registering an account, either directly or via a third-party, you are agreeing to our
-        <a href="{% url 'about' %}#privacy">privacy policy</a>. Consent can be retracted at any time by
+        <a href="https://github.com/openvar/variantValidator/blob/master/README.md">privacy policy</a>. Consent can be retracted at any time by
         <a href="{% url 'contact' %}">contacting admin</a>.
       </p>
     </div>
