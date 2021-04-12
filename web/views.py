@@ -30,6 +30,7 @@ def home(request):
         'hgvs': vvhgvs.__version__,
         'uta': config['postgres']['version'],
         'seqrepo': config['seqrepo']['version'],
+        'vvdb': config['mysql']['version']
     }
 
     return render(request, 'home.html', {
@@ -141,6 +142,7 @@ def validate(request):
                     'hgvs': vvhgvs.__version__,
                     'uta': config['postgres']['version'],
                     'seqrepo': config['seqrepo']['version'],
+                    'vvdb': config['mysql']['version']
                 }
                 context = {
                     'output': output,

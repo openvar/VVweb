@@ -11,24 +11,22 @@ git clone https://github.com/openvar/vvweb
 cd vvweb
 ```
 
-To install the python packages you should first create a python 3.6 virtual environment.
-
-```bash
-# if you have conda installed
-conda env create -f environment.yml
-conda activate vvweb
-pip install -r requirements.txt
-
-# otherwise
-module load python/gcc/3.6.4  # only if on SPECTRE
-python -m venv env
-source env/bin/activate
-pip install -r requirements.txt
-```
+To install the python packages you should first [install VariantValidator](https://github.com/openvar/variantValidator/blob/master/docs/INSTALLATION.md) including the VariantValidator enviromnent
 
 This will install the latest VariantValidator (master branch of GitHub repo). You'll need to make sure VariantValidator is
 working correctly before proceeding any further. See the [VV git repo](https://github.com/openvar/variantValidator) for help.
 
+
+Next, clone the environment to use with VVweb
+```bash
+conda create --name vvweb --clone vvenv
+```
+
+Finally install additional packages
+```bash
+conda activate vvweb
+pip install -r requirements.txt
+```
 
 ## Web Setup
 
@@ -64,7 +62,7 @@ DATABASES['default']['PASSWORD'] = 'password'
 
 # List of Admins, with their email address that will get emailed if an error is reported.
 ADMINS = [
-    ('Teri', 'trf5@le.ac.uk'),
+    ('Admin', 'admin@email.com'),
 ]
 
 RECAPTCHA_PUBLIC_KEY = 'key goes here'
@@ -84,6 +82,11 @@ of this username and password.
 
 ```bash
 python manage.py createsuperuser
+```
+
+Next collect the static folders for Admin accounts
+```bash
+python manage.py collectstatic
 ```
 
 Then, you should be able to launch the development server
