@@ -165,7 +165,7 @@ EMAIL_SUBJECT_PREFIX = '[VVWeb] '
 SERVER_EMAIL = 'admin@variantValidator.org'
 
 # For VCF to HGVS conversion
-MAX_VCF = 50000
+MAX_VCF = 25000
 
 COUNTRIES_FIRST = ['GB', 'US']
 
