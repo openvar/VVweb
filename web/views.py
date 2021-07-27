@@ -39,7 +39,8 @@ def home(request):
 
 
 def about(request):
-    return render(request, 'about.html')
+    return render('https://github.com/openvar/variantValidator/blob/master/README.md')
+    # return render(request, 'about.html')
 
 
 def contact(request):

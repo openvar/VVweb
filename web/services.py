@@ -153,12 +153,8 @@ def process_result(val, validator):
             each.append(v)
             if "intergenic_variant" or "mitochondrial" or "validation_warning" in k:
                 warnings = v['validation_warnings']
-            # print('appended')
         else:
             warnings = v['validation_warnings']
-            # print('not appended')
-            # print(k)
-            # print(v)
 
     alloutputs = {
         'flag': flag,
@@ -169,12 +165,6 @@ def process_result(val, validator):
         'warnings': warnings,
     }
 
-    #import json
-    #print('\n')
-    #print(alloutputs['flag'])
-    #print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
-    #print('OK')
-    #print('\n')
     return alloutputs
 
 

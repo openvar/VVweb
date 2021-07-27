@@ -153,15 +153,6 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
             logger.warning(warning)
             logger.warning(error)
 
-            # Capture traceback
-            # exc_type, exc_value, last_traceback = sys.exc_info()
-            # te = traceback.format_exc()
-            # tbk = [warning] + [str(var_call)] + [genome] + [str(exc_type)] + [str(exc_value)] + [str(te)]
-            #
-            # # Write to error log
-            # to_log = '\n'.join(tbk)
-            # write_to_my_log(my_name_is, str(to_log))
-
             # Assemble an error log
             # String the log into a single list
             report_error_log = ['Processsing_error_1'] + [str(warning)]
@@ -189,32 +180,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
         logger.debug(variants)
         batch_validate.delay(variants, genome, email, gene_symbols)
         return 'Success - %s (of %s) variants submitted to BatchValidator' % (len(batch_list), total_vcf_calls)
-
-    # Alert admin to errors
-    # if error_log:
-    #     error_log = '\n'.join(error_log)
     logger.error(error_log)
-        # create message
-        # fromaddr = "vcf2hgvs@%s" % hostname
-        # toaddr = "variantvalidator@gmail.com"
-        #
-        # msg = MIMEMultipart()
-        # msg['From'] = fromaddr
-        # msg['To'] = toaddr
-        # if MANUAL_RESUBMISSION is True:
-        #     msg['Subject'] = 'MANUAL RESUBMISSION REQUIRED for job id ' + str(current_request)
-        # else:
-        #     msg['Subject'] = 'vcf2hgvs errors recorded for job id ' + str(current_request)
-        #
-        # body = 'vcf2hgvs was activated at ' + str(time.ctime()) + ' by user ' + email + '\n\n' + str(error_log)
-        # msg.attach(MIMEText(body, 'plain'))
-        #
-        # # Start server, send
-        # server = smtplib.SMTP("127.0.0.1", 25)
-        # text = msg.as_string()
-        # server.sendmail(fromaddr, toaddr, text)
-        # server.quit()
-
     return {'errors': error_log}
 
 
