@@ -31,26 +31,24 @@ def gene2transcripts(symbol, validator=None):
 
 
 @shared_task
-def batch_validate(variant, genome, email, gene_symbols, validator=None):
+def batch_validate(variant, genome, email, gene_symbols, transcripts, options, validator=None):
     logger.debug("Running batch_validate task")
     if validator is None:
         validator = VariantValidator.Validator()
 
-    transcripts = []
     for sym in gene_symbols.split('|'):
         if sym:
             returned_trans = gene2transcripts(sym, validator=validator)
             logger.debug(returned_trans)
             for trans in returned_trans['transcripts']:
                 transcripts.append(trans['reference'])
-    if transcripts:
-        transcripts = '|'.join(transcripts)
-    else:
-        transcripts = 'all'
 
     logger.debug("Transcripts: %s" % transcripts)
     output = validator.validate(variant, genome, transcripts)
+    # Convert to a table
     res = output.format_as_table()
+    # Add options to the metadata dictionary
+    res[0] = res[0] + ", options: " + str(options)
 
     logger.debug("Now going to send email")
     logger.debug(batch_validate.request.id)
@@ -178,7 +176,10 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
         logger.debug("All good - going to submit to batch validator")
         variants = '|'.join(batch_list)
         logger.debug(variants)
-        batch_validate.delay(variants, genome, email, gene_symbols)
+        batch_validate.delay(variants, genome, email, gene_symbols, transcripts='all', options='transcript|genomic|'
+                                                                                               'protein|refseqgene|'
+                                                                                               'lrg|vcf|gene_info|'
+                                                                                               'tx_name|alt_loci')
         return 'Success - %s (of %s) variants submitted to BatchValidator' % (len(batch_list), total_vcf_calls)
     logger.error(error_log)
     return {'errors': error_log}

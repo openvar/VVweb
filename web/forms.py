@@ -4,6 +4,18 @@ from allauth.account.forms import SignupForm, PasswordField
 from django.utils.translation import ugettext_lazy as _
 from captcha.fields import ReCaptchaField
 
+BATCH_FORM_OPTIONS = [
+    ('transcript', 'Transcript context descriptions'),
+    ('genomic', 'Genomic context descriptions'),
+    ('protein', 'Protein context descriptions'),
+    ('refseqgene', 'RefSeqGene context descriptions'),
+    ('lrg', 'LRG context descriptions'),
+    ('vcf', 'VCF coordinates'),
+    ('gene_info', 'Gene symbol and HGNC ID'),
+    ('tx_name', 'Transcript name'),
+    ('alt_loci', 'Alternate genomic reference sequences')
+]
+
 
 class ContactForm(forms.ModelForm):
     class Meta:
@@ -29,13 +41,28 @@ class BatchValidateForm(forms.Form):
     input_variants = forms.CharField(widget=forms.Textarea(
         attrs={'placeholder': 'Variant descriptions must be separated by new lines, spaces or tabs.'}),
                                      label='Input Variant Descriptions'
-                                     )
+    )
     gene_symbols = forms.CharField(widget=forms.Textarea(
         attrs={'rows': '3', 'placeholder': 'One gene symbol per line'}),
                                    required=False,
-                                   label='Limit search, optionally, to specific genes (use HGNC gene symbols)')
+                                   label='Limit search, optionally, to specific genes (use HGNC gene symbols)'
+    )
+    select_transcripts = forms.CharField(widget=forms.Textarea(
+        attrs={'rows': '3', 'placeholder': 'One transcript id per line'}),
+                                         required=False,
+                                         label='Limit search, optionally, to specific transcripts (see our Genes to '
+                                         'Transcripts tool)'
+    )
+    options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
+        attrs={'checked': 'check_label'}),
+                                        choices=BATCH_FORM_OPTIONS,
+                                        required=False,
+                                        label='Customise the information returned in the output file'
+                                        )
+
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
+
     genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
                                widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
                                label='Select genome build')
@@ -49,8 +76,19 @@ class BatchValidateForm(forms.Form):
         return var_str
 
     def clean_gene_symbols(self):
+        print(self.cleaned_data)
         symbols = self.cleaned_data['gene_symbols'].strip().split()
         return '|'.join(symbols)
+
+    def clean_select_transcripts(self):
+        transcripts = self.cleaned_data['select_transcripts'].strip().split()
+        if len(transcripts) == 0:
+            transcripts = ['all']
+        return '|'.join(transcripts)
+
+    def clean_options(self):
+        ops = self.cleaned_data['options']
+        return '|'.join(ops)
 
 
 class VCF2HGVSForm(forms.Form):

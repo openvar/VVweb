@@ -21,15 +21,21 @@
                   <div class="form-group">
                       {% if field.label != 'Select genome build' %}
                           <label for="{{ field.id_for_label }}"><h4>{{ field.label }}</h4></label>
-                          {% if form.is_bound %}
-                              {% if field.errors %}
-                                  {{ field | add_class:"form-control is-invalid"}}
-                              {% else %}
-                                  {{ field | add_class:"form-control is-valid" }}
-                              {% endif %}
+                          {% if field.label == 'Customise the information returned in the output file' %}
+                            {{ field }}
                           {% else %}
-                              {{ field | add_class:"form-control" }}
+
+                            {% if form.is_bound %}
+                                {% if field.errors %}
+                                    {{ field | add_class:"form-control is-invalid"}}
+                                {% else %}
+                                    {{ field | add_class:"form-control is-valid" }}
+                                {% endif %}
+                            {% else %}
+                                {{ field | add_class:"form-control" }}
+                            {% endif %}
                           {% endif %}
+
                       {% else %}
                           <legend><h5>{{ field.label }}</h5></legend>
                           {% for radio in field %}

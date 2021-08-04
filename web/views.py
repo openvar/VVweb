@@ -87,7 +87,8 @@ def genes_to_transcripts(request):
         if 'transcripts' in output.keys():
             for trans in output['transcripts']:
                 if trans['reference'].startswith('LRG'):
-                    trans['url'] = 'http://ftp.ebi.ac.uk/pub/databases/lrgex/' + trans['reference'].split('t')[0] + '.xml'
+                    trans['url'] = 'http://ftp.ebi.ac.uk/pub/databases/lrgex/' + trans['reference'].split('t')[0
+                                                                                                              ] + '.xml'
                 else:
                     trans['url'] = 'https://www.ncbi.nlm.nih.gov/nuccore/' + trans['reference']
 
@@ -180,18 +181,23 @@ def validate(request):
         if num < 5:
             if num == 4:
                 messages.warning(request,
-                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submission allowed. "
-                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>.</span>" % (
+                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> "
+                                 "more submission allowed. "
+                                 "For unlimited access please <a href='%s?next=%s' "
+                                 "class='alert-link'>login</a>.</span>" % (
                                          5 - num, login_page, here))
             else:
                 messages.warning(request,
-                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submissions allowed. "
-                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>.</span>" % (
+                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submissions "
+                                 "allowed. "
+                                 "For unlimited access please <a href='%s?next=%s' "
+                                 "class='alert-link'>login</a>.</span>" % (
                                      5 - num, login_page, here))
         else:
             logger.debug("Unauthenticated user blocked from validator")
             messages.error(request,
-                           "<span id='msg-body'>Please <a href='%s?next=%s' class='alert-link'>login</a> to continue using this service</span>" % (
+                           "<span id='msg-body'>Please <a href='%s?next=%s' class='alert-link'>login</a> "
+                           "to continue using this service</span>" % (
                                login_page, here))
             locked = True
 
@@ -225,7 +231,9 @@ def batch_validate(request):
                 form.cleaned_data['input_variants'],
                 form.cleaned_data['genome'],
                 form.cleaned_data['email_address'],
-                form.cleaned_data['gene_symbols']
+                form.cleaned_data['gene_symbols'],
+                form.cleaned_data['select_transcripts'],
+                form.cleaned_data['options']
             )
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % job)
             services.send_initial_email(form.cleaned_data['email_address'], job, 'validation')
@@ -238,11 +246,14 @@ def batch_validate(request):
         if not request.user.is_authenticated:
             login_page = reverse('account_login')
             here = reverse('batch_validate')
-            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> to submit Validator Batch jobs" % (login_page, here))
+            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> "
+                                    "to submit Validator Batch jobs" % (login_page, here))
             form.fields['input_variants'].disabled = True
             form.fields['genome'].disabled = True
             form.fields['email_address'].disabled = True
             form.fields['gene_symbols'].disabled = True
+            form.fields['select_transcripts'].disabled = True
+            form.fields['options'].disabled = True
             locked = True
         else:
             form.fields['genome'].initial = last_genome
@@ -256,9 +267,12 @@ def batch_validate(request):
                     form.fields['genome'].disabled = True
                     form.fields['email_address'].disabled = True
                     form.fields['gene_symbols'].disabled = True
+                    form.fields['select_transcripts'].disabled = True
+                    form.fields['options'].disabled = True
                     verify = reverse('account_email')
                     messages.error(request,
-                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting a Batch Validator job" % (
+                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
+                                   "before submitting a Batch Validator job" % (
                                        verify))
                     locked = True
             else:
@@ -266,8 +280,11 @@ def batch_validate(request):
                 form.fields['genome'].disabled = True
                 form.fields['email_address'].disabled = True
                 form.fields['gene_symbols'].disabled = True
+                form.fields['select_transcripts'].disabled = True
+                form.fields['options'].disabled = True
                 verify = reverse('account_email')
-                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting a Batch Validator job" % (verify))
+                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
+                                        "before submitting a Batch Validator job" % verify)
                 locked = True
 
     return render(request, 'batch_validate.html', {
@@ -325,7 +342,8 @@ def vcf2hgvs(request):
         if not request.user.is_authenticated:
             login_page = reverse('account_login')
             here = reverse('vcf2hgvs')
-            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> to submit VCF to HGVS jobs" % (login_page, here))
+            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> "
+                                    "to submit VCF to HGVS jobs" % (login_page, here))
             form.fields['vcf_file'].disabled = True
             form.fields['genome'].disabled = True
             form.fields['email_address'].disabled = True
@@ -345,7 +363,8 @@ def vcf2hgvs(request):
                     form.fields['gene_symbols'].disabled = True
                     verify = reverse('account_email')
                     messages.error(request,
-                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting VCF to HGVS jobs" % (
+                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before "
+                                   "submitting VCF to HGVS jobs" % (
                                        verify))
                     locked = True
             else:
@@ -354,7 +373,8 @@ def vcf2hgvs(request):
                 form.fields['email_address'].disabled = True
                 form.fields['gene_symbols'].disabled = True
                 verify = reverse('account_email')
-                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting VCF to HGVS jobs" % (verify))
+                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
+                                        "before submitting VCF to HGVS jobs" % (verify))
                 locked = True
 
     return render(request, 'vcf_to_hgvs.html', {
@@ -376,7 +396,92 @@ def download_batch_res(request, job_id):
     buffer = str()
     buffer += '# Job ID:%s\n' % job_id
     try:
+        # Modify the output based on the options selected by the user.
+
+        # First pass, collect the metadata line which has had the options embedded
+        metaline = ''
         for row in job.result:
+            if "Metadata:" in str(row):
+                metaline = str(row)
+
+        # Next parse the metaline to set the options
+        # 'options': 'transcript|genomic|protein|refseqgene|lrg|vcf|gene_info|tx_name|alt_loci'
+        if 'transcript' in metaline:
+            transcript_d = True
+        else:
+            transcript_d = False
+
+        if 'genomic' in metaline:
+            genomic_d = True
+        else:
+            genomic_d = False
+
+        if 'protein' in metaline:
+            protein_d = True
+        else:
+            protein_d = False
+
+        if 'refseqgene' in metaline:
+            refseqgene_d = True
+        else:
+            refseqgene_d = False
+
+        if 'lrg' in metaline:
+            lrg_d = True
+        else:
+            lrg_d = False
+
+        if 'vcf' in metaline:
+            vcf_d = True
+        else:
+            vcf_d = False
+
+        if 'gene_info' in metaline:
+            gene_info_d = True
+        else:
+            gene_info_d = False
+
+        if 'tx_name' in metaline:
+            tx_name_d = True
+        else:
+            tx_name_d = False
+
+        if 'lrg' in metaline:
+            alt_loci_d = True
+        else:
+            alt_loci_d = False
+
+        # Based on the option controls, add the correct list elements from job.result into the list my_results
+        my_results = []
+        for row in job.result:
+            output_these_elements = []
+
+            # Add selected variant and warnings
+            output_these_elements = output_these_elements + row[0:1]
+            if transcript_d is True:
+                output_these_elements = output_these_elements + row[2:3]
+            if refseqgene_d is True:
+                output_these_elements = output_these_elements + row[4:5]
+            if lrg_d is True:
+                output_these_elements = output_these_elements + row[6:7]
+            if protein_d is True:
+                output_these_elements = output_these_elements + row[8]
+            if genomic_d is True:
+                output_these_elements = output_these_elements + row[9]
+                output_these_elements = output_these_elements + row[15]
+            if vcf_d is True:
+                output_these_elements = output_these_elements + row[10:14]
+                output_these_elements = output_these_elements + row[16:20]
+            if gene_info_d is True:
+                output_these_elements = output_these_elements + row[21:22]
+            if tx_name_d is True:
+                output_these_elements = output_these_elements + row[23]
+            if alt_loci_d is True:
+                output_these_elements = output_these_elements + row[24]
+            my_results.append(output_these_elements)
+
+        # String together the list into an output string for transfer into a text file (tab delimited "\n" newlines)
+        for row in my_results:
             if isinstance(row, list):
                 # The sql query returns null for some columns which is converted
                 # to a Python NoneType. In this case the join() was failing.
