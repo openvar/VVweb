@@ -95,15 +95,22 @@ Then, you should be able to launch the development server
 python manage.py runserver
 ```
 
-### APIs and social accounts
+Using th Django Admin interface add additional domain names to the following table
 
-For the user authentication and re-captcha to work, you need to set up the app with the appropriate sites.
+```sql
+vvweb=# SELECT * FROM django_site;
+id |          domain          |       name
+----+--------------------------+------------------
+  1 | example.com              | example.com
+  2 | www525.lamp.le.ac.uk     | login525
+  3 | variantvalidator.org     | VariantValidator
+  5 | www.variantvalidator.org | VariantValidator
+```
+Then in settings.py, select the line using the following 
+- This sets the row in Django table that the site uses by default. Site is initialised 
+- with example.com which is SITE_ID = 1
 
-For re-captcha, go to their site https://www.google.com/recaptcha/intro/v3.html and register the app. Create a 'v2 tickbox' recaptcha. This will 
-create a public and private key, both of which need to go in the `local_settings.py` file.
-
-The social account logins for GitHub, Google and ORCID are setup using django-allauth. Their [documentation](https://django-allauth.readthedocs.io/en/latest/providers.html)
-describes how to setup each one. You'll need to go to the admin site (http://localhost:8000/admin/) to save the public and private keys. 
+`SITE_ID = 2`
 
 ## Celery and RabbitMQ
 
