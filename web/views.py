@@ -515,12 +515,6 @@ def bed_file(request):
 
     # Split up the input
     input_elements = info.split('|')
-#    variant = input_elements[0]
-#    chromosome = input_elements[1]  # 'NC_000017.11'
-#    build = input_elements[2]  # 'GRCh38'
-#    genomic = input_elements[3]
-#    vcf = input_elements[4]
-
     # Sort out URI encoding
     if '+' in str(input_elements[0]):
         input_elements = str(input_elements[0].replace(' ', '+'))
@@ -529,3 +523,20 @@ def bed_file(request):
 
     response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
     return response
+
+# <LICENSE>
+# Copyright (C) 2016-2021 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>
