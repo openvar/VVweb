@@ -96,7 +96,18 @@ DATABASES = {
     }
 }
 
-SITE_ID = 1
+# This sets the row in Django table that the site uses by default. Site is initialised 
+# with example.com which is SITE_ID = 1
+
+#vvweb=# SELECT * FROM django_site;
+#id |          domain          |       name
+#----+--------------------------+------------------
+#  1 | example.com              | example.com
+#  2 | www525.lamp.le.ac.uk     | login525
+#  3 | variantvalidator.org     | VariantValidator
+#  5 | www.variantvalidator.org | VariantValidator
+
+SITE_ID = 2
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
@@ -158,11 +169,12 @@ CELERY_RESULT_BACKEND = 'django-db'
 CELERY_CACHE_BACKEND = 'django-cache'
 
 if DEBUG is True:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 DEFAULT_FROM_EMAIL = 'admin@variantValidator.org'
 EMAIL_SUBJECT_PREFIX = '[VVWeb] '
 SERVER_EMAIL = 'admin@variantValidator.org'
+ACCOUNT_EMAIL_SUBJECT_PREFIX = '[VVWeb] '
 
 # For VCF to HGVS conversion
 MAX_VCF = 25000
