@@ -43,6 +43,8 @@
                                   {{ field.errors }}
                               </div>
                           </div>
+                      {% elif field.label == 'Customise the information returned in the output file' %}
+                            {{ field }}
                       {% elif field.label != 'Select genome build' %}
                           <label for="{{ field.id_for_label }}"><h4>{{ field.label }}</h4></label>
                           {% if form.is_bound %}
