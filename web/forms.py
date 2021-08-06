@@ -76,7 +76,6 @@ class BatchValidateForm(forms.Form):
         return var_str
 
     def clean_gene_symbols(self):
-        print(self.cleaned_data)
         symbols = self.cleaned_data['gene_symbols'].strip().split()
         return '|'.join(symbols)
 

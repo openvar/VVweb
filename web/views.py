@@ -14,7 +14,6 @@ from celery.result import AsyncResult
 from allauth.account.models import EmailAddress
 import logging
 
-
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 validator = VariantValidator.Validator()
 
@@ -75,7 +74,6 @@ def faqs(request):
 
 
 def genes_to_transcripts(request):
-
     output = False
 
     if request.method == "POST":
@@ -88,7 +86,7 @@ def genes_to_transcripts(request):
             for trans in output['transcripts']:
                 if trans['reference'].startswith('LRG'):
                     trans['url'] = 'http://ftp.ebi.ac.uk/pub/databases/lrgex/' + trans['reference'].split('t')[0
-                                                                                                              ] + '.xml'
+                    ] + '.xml'
                 else:
                     trans['url'] = 'https://www.ncbi.nlm.nih.gov/nuccore/' + trans['reference']
 
@@ -185,7 +183,7 @@ def validate(request):
                                  "more submission allowed. "
                                  "For unlimited access please <a href='%s?next=%s' "
                                  "class='alert-link'>login</a>.</span>" % (
-                                         5 - num, login_page, here))
+                                     5 - num, login_page, here))
             else:
                 messages.warning(request,
                                  "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submissions "
@@ -404,49 +402,44 @@ def download_batch_res(request, job_id):
             if "Metadata:" in str(row):
                 metaline = str(row)
 
+        print("\nMetaline is")
+        print(metaline)
+
         # Next parse the metaline to set the options
         # 'options': 'transcript|genomic|protein|refseqgene|lrg|vcf|gene_info|tx_name|alt_loci'
         if 'transcript' in metaline:
             transcript_d = True
         else:
             transcript_d = False
-
         if 'genomic' in metaline:
             genomic_d = True
         else:
             genomic_d = False
-
         if 'protein' in metaline:
             protein_d = True
         else:
             protein_d = False
-
         if 'refseqgene' in metaline:
             refseqgene_d = True
         else:
             refseqgene_d = False
-
         if 'lrg' in metaline:
             lrg_d = True
         else:
             lrg_d = False
-
         if 'vcf' in metaline:
             vcf_d = True
         else:
             vcf_d = False
-
         if 'gene_info' in metaline:
             gene_info_d = True
         else:
             gene_info_d = False
-
         if 'tx_name' in metaline:
             tx_name_d = True
         else:
             tx_name_d = False
-
-        if 'lrg' in metaline:
+        if 'alt_loci' in metaline:
             alt_loci_d = True
         else:
             alt_loci_d = False
@@ -454,30 +447,44 @@ def download_batch_res(request, job_id):
         # Based on the option controls, add the correct list elements from job.result into the list my_results
         my_results = []
         for row in job.result:
-            output_these_elements = []
-
-            # Add selected variant and warnings
-            output_these_elements = output_these_elements + row[0:1]
-            if transcript_d is True:
-                output_these_elements = output_these_elements + row[2:3]
-            if refseqgene_d is True:
-                output_these_elements = output_these_elements + row[4:5]
-            if lrg_d is True:
-                output_these_elements = output_these_elements + row[6:7]
-            if protein_d is True:
-                output_these_elements = output_these_elements + row[8]
-            if genomic_d is True:
-                output_these_elements = output_these_elements + row[9]
-                output_these_elements = output_these_elements + row[15]
-            if vcf_d is True:
-                output_these_elements = output_these_elements + row[10:14]
-                output_these_elements = output_these_elements + row[16:20]
-            if gene_info_d is True:
-                output_these_elements = output_these_elements + row[21:22]
-            if tx_name_d is True:
-                output_these_elements = output_these_elements + row[23]
-            if alt_loci_d is True:
-                output_these_elements = output_these_elements + row[24]
+            if "# Metadata" not in row:
+                output_these_elements = []
+                # Add selected variant and warnings
+                l = row[0:2]
+                output_these_elements = output_these_elements + l
+                if transcript_d is True:
+                    l = row[2:4]
+                    output_these_elements = output_these_elements + l
+                if refseqgene_d is True:
+                    l = row[4:6]
+                    output_these_elements = output_these_elements + l
+                if lrg_d is True:
+                    l = row[6:8]
+                    output_these_elements = output_these_elements + l
+                if protein_d is True:
+                    l = [row[8]]
+                    output_these_elements = output_these_elements + l
+                if genomic_d is True:
+                    l = [row[9]]
+                    output_these_elements = output_these_elements + l
+                    l = [row[15]]
+                    output_these_elements = output_these_elements + l
+                if vcf_d is True:
+                    l = row[10:14]
+                    output_these_elements = output_these_elements + l
+                    l = row[16:20]
+                    output_these_elements = output_these_elements + l
+                if gene_info_d is True:
+                    l = row[21:22]
+                    output_these_elements = output_these_elements + l
+                if tx_name_d is True:
+                    l = [row[23]]
+                    output_these_elements = output_these_elements + l
+                if alt_loci_d is True:
+                    l = [row[24]]
+                    output_these_elements = output_these_elements + l
+            else:
+                output_these_elements = row
             my_results.append(output_these_elements)
 
         # String together the list into an output string for transfer into a text file (tab delimited "\n" newlines)
@@ -499,7 +506,6 @@ def download_batch_res(request, job_id):
         print(ex)
 
     # print(buffer)   # Jon Wakelin 17/Sep/2020
-
     response = HttpResponse(buffer, content_type='text/plain')
     response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
     logger.debug("Job %s results downloaded by user %s" % (job_id, request.user))
