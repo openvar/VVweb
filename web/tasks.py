@@ -57,7 +57,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
 
 
 @shared_task
-def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
+def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, validator=None):
     logger.debug("Running vcf2hgvs task")
     if validator is None:
         validator = VariantValidator.Validator()
@@ -176,10 +176,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, validator=None):
         logger.debug("All good - going to submit to batch validator")
         variants = '|'.join(batch_list)
         logger.debug(variants)
-        batch_validate.delay(variants, genome, email, gene_symbols, transcripts='all', options='transcript|genomic|'
-                                                                                               'protein|refseqgene|'
-                                                                                               'lrg|vcf|gene_info|'
-                                                                                               'tx_name|alt_loci')
+        batch_validate.delay(variants, genome, email, gene_symbols, transcripts, options)
         return 'Success - %s (of %s) variants submitted to BatchValidator' % (len(batch_list), total_vcf_calls)
     logger.error(error_log)
     return {'errors': error_log}

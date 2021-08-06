@@ -92,10 +92,25 @@ class BatchValidateForm(forms.Form):
 
 class VCF2HGVSForm(forms.Form):
     vcf_file = forms.FileField(label='VCF file')
+
     gene_symbols = forms.CharField(widget=forms.Textarea(
         attrs={'rows': '3', 'placeholder': 'One gene symbol per line'}),
                                    required=False,
                                    label='Limit search, optionally, to specific genes (use HGNC gene symbols)')
+
+    select_transcripts = forms.CharField(widget=forms.Textarea(
+        attrs={'rows': '3', 'placeholder': 'One transcript id per line'}),
+                                         required=False,
+                                         label='Limit search, optionally, to specific transcripts (see our Genes to '
+                                         'Transcripts tool)'
+    )
+    options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
+        attrs={'checked': 'check_label'}),
+                                        choices=BATCH_FORM_OPTIONS,
+                                        required=False,
+                                        label='Customise the information returned in the output file'
+                                        )
+
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
     genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
@@ -105,6 +120,16 @@ class VCF2HGVSForm(forms.Form):
     def clean_gene_symbols(self):
         symbols = self.cleaned_data['gene_symbols'].strip().split()
         return '|'.join(symbols)
+
+    def clean_select_transcripts(self):
+        transcripts = self.cleaned_data['select_transcripts'].strip().split()
+        if len(transcripts) == 0:
+            transcripts = ['all']
+        return '|'.join(transcripts)
+
+    def clean_options(self):
+        ops = self.cleaned_data['options']
+        return '|'.join(ops)
 
 
 class UpdatedSignUpForm(SignupForm):

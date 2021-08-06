@@ -223,7 +223,6 @@ def batch_validate(request):
     if request.method == 'POST':
         form = forms.BatchValidateForm(request.POST)
         if form.is_valid():
-            print(form.cleaned_data)
 
             job = tasks.batch_validate.delay(
                 form.cleaned_data['input_variants'],
@@ -315,7 +314,9 @@ def vcf2hgvs(request):
                         chunk,
                         form.cleaned_data['genome'],
                         form.cleaned_data['gene_symbols'],
-                        form.cleaned_data['email_address']
+                        form.cleaned_data['email_address'],
+                        form.cleaned_data['select_transcripts'],
+                        form.cleaned_data['options']
                     )
                     jobs.append(str(res))
                 res = ', '.join(jobs)
@@ -324,7 +325,9 @@ def vcf2hgvs(request):
                     request.FILES['vcf_file'].read(),
                     form.cleaned_data['genome'],
                     form.cleaned_data['gene_symbols'],
-                    form.cleaned_data['email_address']
+                    form.cleaned_data['email_address'],
+                    form.cleaned_data['select_transcripts'],
+                    form.cleaned_data['options']
                 )
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % res)
             services.send_initial_email(form.cleaned_data['email_address'], res, 'VCF to HGVS')
@@ -346,6 +349,8 @@ def vcf2hgvs(request):
             form.fields['genome'].disabled = True
             form.fields['email_address'].disabled = True
             form.fields['gene_symbols'].disabled = True
+            form.fields['select_transcripts'].disabled = True
+            form.fields['options'].disabled = True
             locked = True
         else:
             form.fields['genome'].initial = last_genome
@@ -359,6 +364,8 @@ def vcf2hgvs(request):
                     form.fields['genome'].disabled = True
                     form.fields['email_address'].disabled = True
                     form.fields['gene_symbols'].disabled = True
+                    form.fields['select_transcripts'].disabled = True
+                    form.fields['options'].disabled = True
                     verify = reverse('account_email')
                     messages.error(request,
                                    "Primary email address must be <a href='%s' class='alert-link'>verified</a> before "
@@ -370,6 +377,8 @@ def vcf2hgvs(request):
                 form.fields['genome'].disabled = True
                 form.fields['email_address'].disabled = True
                 form.fields['gene_symbols'].disabled = True
+                form.fields['select_transcripts'].disabled = True
+                form.fields['options'].disabled = True
                 verify = reverse('account_email')
                 messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
                                         "before submitting VCF to HGVS jobs" % (verify))
@@ -401,9 +410,6 @@ def download_batch_res(request, job_id):
         for row in job.result:
             if "Metadata:" in str(row):
                 metaline = str(row)
-
-        print("\nMetaline is")
-        print(metaline)
 
         # Next parse the metaline to set the options
         # 'options': 'transcript|genomic|protein|refseqgene|lrg|vcf|gene_info|tx_name|alt_loci'
