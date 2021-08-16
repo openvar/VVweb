@@ -107,7 +107,7 @@ DATABASES = {
 #  3 | variantvalidator.org     | VariantValidator
 #  5 | www.variantvalidator.org | VariantValidator
 
-SITE_ID = 2
+SITE_ID = 1
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators

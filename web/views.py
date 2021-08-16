@@ -13,6 +13,7 @@ from configparser import ConfigParser
 from celery.result import AsyncResult
 from allauth.account.models import EmailAddress
 import logging
+import codecs
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 validator = VariantValidator.Validator()
@@ -121,8 +122,6 @@ def validate(request):
                 pdf_r = True
             elif pdf_r is "False":
                 pdf_r = False
-            print('Request pdf = ' + str(pdf_r))
-
             output = tasks.validate(variant, genome, validator=validator)
             output = services.process_result(output, validator)
             output['genome'] = genome
@@ -321,7 +320,17 @@ def vcf2hgvs(request):
                     jobs.append(str(res))
                 res = ', '.join(jobs)
             else:
-                res = tasks.vcf2hgvs.delay(
+                try:
+                    res = tasks.vcf2hgvs.delay(
+                        codecs.decode(request.FILES['vcf_file'].read(), 'UTF-8'),
+                        form.cleaned_data['genome'],
+                        form.cleaned_data['gene_symbols'],
+                        form.cleaned_data['email_address'],
+                        form.cleaned_data['select_transcripts'],
+                        form.cleaned_data['options']
+                    )
+                except TypeError:
+                    res = tasks.vcf2hgvs.delay(
                     request.FILES['vcf_file'].read(),
                     form.cleaned_data['genome'],
                     form.cleaned_data['gene_symbols'],
