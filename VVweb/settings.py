@@ -107,7 +107,7 @@ DATABASES = {
 #  3 | variantvalidator.org     | VariantValidator
 #  5 | www.variantvalidator.org | VariantValidator
 
-SITE_ID = 1
+SITE_ID = 2
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
@@ -202,7 +202,7 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'info.log'),
             'formatter': 'verbose'
