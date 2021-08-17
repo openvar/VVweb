@@ -39,7 +39,7 @@ def home(request):
 
 
 def about(request):
-    return render('https://github.com/openvar/variantValidator/blob/master/README.md')
+    return redirect('https://github.com/openvar/variantValidator/blob/master/README.md')
     # return render(request, 'about.html')
 
 
@@ -67,7 +67,8 @@ def nomenclature(request):
 
 
 def instructions(request):
-    return render(request, 'batch_instructions.html')
+    return redirect('https://github.com/openvar/VV_databases/blob/master/markdown/instructions.md')
+    # return render(request, 'batch_instructions.html')
 
 
 def faqs(request):
