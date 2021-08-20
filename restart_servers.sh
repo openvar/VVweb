@@ -3,6 +3,9 @@
 # Stop Apache
 sudo systemctl stop httpd
 
+# Start environment
+conda activate vvweb
+
 # Stop celery
 ps aux | grep celery | awk '{print $2}' | xargs kill
 

@@ -35,6 +35,7 @@ def process_result(val, validator):
         # print(k)
         # print('v')
         # print(v)
+
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)

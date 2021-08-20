@@ -50,7 +50,8 @@ class BatchValidateForm(forms.Form):
         attrs={'rows': '3', 'placeholder': 'One transcript id per line'}),
                                          required=False,
                                          label='Limit search, optionally, to specific transcripts (see our Genes to '
-                                         'Transcripts tool)'
+                                         'Transcripts tool). The batch instructions page contains further options '
+                                         'e.g. MANE select transcripts'
     )
     options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
         attrs={'checked': 'check_label'}),
@@ -101,7 +102,8 @@ class VCF2HGVSForm(forms.Form):
         attrs={'rows': '3', 'placeholder': 'One transcript id per line'}),
                                          required=False,
                                          label='Limit search, optionally, to specific transcripts (see our Genes to '
-                                         'Transcripts tool)'
+                                         'Transcripts tool). The batch instructions page contains further options '
+                                         'e.g. MANE select transcripts'
     )
     options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
         attrs={'checked': 'check_label'}),

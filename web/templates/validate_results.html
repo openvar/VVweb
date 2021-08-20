@@ -27,6 +27,8 @@
                       <th>Transcript Accession</th>
                       <th>Gene Accession</th>
                       <th>Latest Version</th>
+                      <th>MANE Select</th>
+                      <th>RefSeq Select</th>
                   </tr>
                   {% for each in output.results %}
                       <tr>
@@ -40,6 +42,20 @@
                           <td>{{ each.gene_ac }}</td>
                           <td class="text-center">
                               {% if each.latest %}
+                                  <span><i class="fas fa-check text-success"></i></span>
+                              {% else %}
+                                  <span><i class="fas fa-times text-danger"></i></span>
+                              {% endif %}
+                          </td>
+                          <td class="text-center">
+                              {% if each.annotations.mane_select %}
+                                  <span><i class="fas fa-check text-success"></i></span>
+                              {% else %}
+                                  <span><i class="fas fa-times text-danger"></i></span>
+                              {% endif %}
+                          </td>
+                          <td class="text-center">
+                              {% if each.annotations.refseq_select %}
                                   <span><i class="fas fa-check text-success"></i></span>
                               {% else %}
                                   <span><i class="fas fa-times text-danger"></i></span>
