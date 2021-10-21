@@ -481,7 +481,7 @@ def download_batch_res(request, job_id):
                     l = [row[9]]
                     output_these_elements = output_these_elements + l
                 if genomic_d is True:
-                    l = row[9:10]
+                    l = [row[10]]
                     output_these_elements = output_these_elements + l
                     l = [row[16]]
                     output_these_elements = output_these_elements + l
@@ -491,7 +491,7 @@ def download_batch_res(request, job_id):
                     l = row[17:21]
                     output_these_elements = output_these_elements + l
                 if gene_info_d is True:
-                    l = row[22:23]
+                    l = row[22:24]
                     output_these_elements = output_these_elements + l
                 if tx_name_d is True:
                     l = [row[24]]
