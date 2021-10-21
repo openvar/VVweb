@@ -469,35 +469,35 @@ def download_batch_res(request, job_id):
                 l = row[0:2]
                 output_these_elements = output_these_elements + l
                 if transcript_d is True:
-                    l = row[2:4]
+                    l = row[2:5]
                     output_these_elements = output_these_elements + l
                 if refseqgene_d is True:
-                    l = row[4:6]
+                    l = row[5:7]
                     output_these_elements = output_these_elements + l
                 if lrg_d is True:
-                    l = row[6:8]
+                    l = row[7:9]
                     output_these_elements = output_these_elements + l
                 if protein_d is True:
-                    l = [row[8]]
-                    output_these_elements = output_these_elements + l
-                if genomic_d is True:
                     l = [row[9]]
                     output_these_elements = output_these_elements + l
-                    l = [row[15]]
+                if genomic_d is True:
+                    l = [row[10:11]]
+                    output_these_elements = output_these_elements + l
+                    l = [row[16]]
                     output_these_elements = output_these_elements + l
                 if vcf_d is True:
-                    l = row[10:14]
+                    l = row[11:15]
                     output_these_elements = output_these_elements + l
-                    l = row[16:20]
+                    l = row[17:21]
                     output_these_elements = output_these_elements + l
                 if gene_info_d is True:
-                    l = row[21:22]
+                    l = row[22:23]
                     output_these_elements = output_these_elements + l
                 if tx_name_d is True:
-                    l = [row[23]]
+                    l = [row[24]]
                     output_these_elements = output_these_elements + l
                 if alt_loci_d is True:
-                    l = [row[24]]
+                    l = [row[25]]
                     output_these_elements = output_these_elements + l
             else:
                 output_these_elements = row
