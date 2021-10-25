@@ -32,7 +32,7 @@
                   <label for="variant_id">Variant Description:</label>
                   <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required {% if locked %} disabled {% endif %} {% if initial %} value="{{ initial }}" {% endif %}>
               </div>
-              <div class="form-group" id="genomeselect" name="validate">
+              <div class="form-group" id="genomeselect" name="validate-form">
                   <div class="custom-radio custom-control custom-control-inline">
                       <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if locked %} disabled {% endif %} {% if last == 'GRCh38' %}checked {% endif %}>
                       <label class="custom-control-label" for="grch38">GRCh38 (hg38, build38)</label>

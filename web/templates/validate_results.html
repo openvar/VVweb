@@ -368,11 +368,11 @@
                               <form method="post" id="pdf-validate-form" name="pdf-validate-form">
                                   {% csrf_token %}
                                   <div class="form-group">
-                                      <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.hgvs_transcript_variant }}">
+                                     <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.hgvs_transcript_variant }}">
                                   </div>
-                                  <div class="form-group" id="genomeselect">
+                                  <div class="form-group" id="pdf-genomeselect" name="pdf-validate-form">
                                       <div class="custom-radio custom-control custom-control-inline">
-                                          <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value={{ output.genome }}  checked>
+                                          <input class="custom-control-input" type="radio" name="genomebuild" value={{ output.genome }}  checked>
                                       </div>
                                   </div>
                                   <button id="pdf-validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
@@ -389,7 +389,7 @@
                                         <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}">
                                       {% endif %}
                                   </div>
-                                  <div class="form-group" id="genomeselect">
+                                  <div class="form-group" id="pdf-genomeselect" name="pdf-validate-form">
                                       <div class="custom-radio custom-control custom-control-inline">
                                           <input class="custom-control-input" type="radio" name="genomebuild" value={{ output.genome }} checked>
                                       </div>
