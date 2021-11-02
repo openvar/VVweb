@@ -13,7 +13,7 @@ from configparser import ConfigParser
 from celery.result import AsyncResult
 from allauth.account.models import EmailAddress
 import logging
-
+import codecs
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 validator = VariantValidator.Validator()
@@ -30,6 +30,7 @@ def home(request):
         'hgvs': vvhgvs.__version__,
         'uta': config['postgres']['version'],
         'seqrepo': config['seqrepo']['version'],
+        'vvdb': config['mysql']['version']
     }
 
     return render(request, 'home.html', {
@@ -38,7 +39,8 @@ def home(request):
 
 
 def about(request):
-    return render(request, 'about.html')
+    return redirect('https://github.com/openvar/variantValidator/blob/master/README.md')
+    # return render(request, 'about.html')
 
 
 def contact(request):
@@ -65,7 +67,8 @@ def nomenclature(request):
 
 
 def instructions(request):
-    return render(request, 'batch_instructions.html')
+    return redirect('https://github.com/openvar/VV_databases/blob/master/markdown/instructions.md')
+    # return render(request, 'batch_instructions.html')
 
 
 def faqs(request):
@@ -73,7 +76,6 @@ def faqs(request):
 
 
 def genes_to_transcripts(request):
-
     output = False
 
     if request.method == "POST":
@@ -85,7 +87,8 @@ def genes_to_transcripts(request):
         if 'transcripts' in output.keys():
             for trans in output['transcripts']:
                 if trans['reference'].startswith('LRG'):
-                    trans['url'] = 'http://ftp.ebi.ac.uk/pub/databases/lrgex/' + trans['reference'].split('t')[0] + '.xml'
+                    trans['url'] = 'http://ftp.ebi.ac.uk/pub/databases/lrgex/' + trans['reference'].split('t')[0
+                    ] + '.xml'
                 else:
                     trans['url'] = 'https://www.ncbi.nlm.nih.gov/nuccore/' + trans['reference']
 
@@ -120,8 +123,6 @@ def validate(request):
                 pdf_r = True
             elif pdf_r is "False":
                 pdf_r = False
-            print('Request pdf = ' + str(pdf_r))
-
             output = tasks.validate(variant, genome, validator=validator)
             output = services.process_result(output, validator)
             output['genome'] = genome
@@ -141,6 +142,7 @@ def validate(request):
                     'hgvs': vvhgvs.__version__,
                     'uta': config['postgres']['version'],
                     'seqrepo': config['seqrepo']['version'],
+                    'vvdb': config['mysql']['version']
                 }
                 context = {
                     'output': output,
@@ -177,18 +179,23 @@ def validate(request):
         if num < 5:
             if num == 4:
                 messages.warning(request,
-                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submission allowed. "
-                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>.</span>" % (
-                                         5 - num, login_page, here))
+                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> "
+                                 "more submission allowed. "
+                                 "For unlimited access please <a href='%s?next=%s' "
+                                 "class='alert-link'>login</a>.</span>" % (
+                                     5 - num, login_page, here))
             else:
                 messages.warning(request,
-                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submissions allowed. "
-                                 "For unlimited access please <a href='%s?next=%s' class='alert-link'>login</a>.</span>" % (
+                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submissions "
+                                 "allowed. "
+                                 "For unlimited access please <a href='%s?next=%s' "
+                                 "class='alert-link'>login</a>.</span>" % (
                                      5 - num, login_page, here))
         else:
             logger.debug("Unauthenticated user blocked from validator")
             messages.error(request,
-                           "<span id='msg-body'>Please <a href='%s?next=%s' class='alert-link'>login</a> to continue using this service</span>" % (
+                           "<span id='msg-body'>Please <a href='%s?next=%s' class='alert-link'>login</a> "
+                           "to continue using this service</span>" % (
                                login_page, here))
             locked = True
 
@@ -216,13 +223,14 @@ def batch_validate(request):
     if request.method == 'POST':
         form = forms.BatchValidateForm(request.POST)
         if form.is_valid():
-            print(form.cleaned_data)
 
             job = tasks.batch_validate.delay(
                 form.cleaned_data['input_variants'],
                 form.cleaned_data['genome'],
                 form.cleaned_data['email_address'],
-                form.cleaned_data['gene_symbols']
+                form.cleaned_data['gene_symbols'],
+                form.cleaned_data['select_transcripts'],
+                form.cleaned_data['options']
             )
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % job)
             services.send_initial_email(form.cleaned_data['email_address'], job, 'validation')
@@ -235,11 +243,14 @@ def batch_validate(request):
         if not request.user.is_authenticated:
             login_page = reverse('account_login')
             here = reverse('batch_validate')
-            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> to submit Validator Batch jobs" % (login_page, here))
+            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> "
+                                    "to submit Validator Batch jobs" % (login_page, here))
             form.fields['input_variants'].disabled = True
             form.fields['genome'].disabled = True
             form.fields['email_address'].disabled = True
             form.fields['gene_symbols'].disabled = True
+            form.fields['select_transcripts'].disabled = True
+            form.fields['options'].disabled = True
             locked = True
         else:
             form.fields['genome'].initial = last_genome
@@ -253,9 +264,12 @@ def batch_validate(request):
                     form.fields['genome'].disabled = True
                     form.fields['email_address'].disabled = True
                     form.fields['gene_symbols'].disabled = True
+                    form.fields['select_transcripts'].disabled = True
+                    form.fields['options'].disabled = True
                     verify = reverse('account_email')
                     messages.error(request,
-                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting a Batch Validator job" % (
+                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
+                                   "before submitting a Batch Validator job" % (
                                        verify))
                     locked = True
             else:
@@ -263,8 +277,11 @@ def batch_validate(request):
                 form.fields['genome'].disabled = True
                 form.fields['email_address'].disabled = True
                 form.fields['gene_symbols'].disabled = True
+                form.fields['select_transcripts'].disabled = True
+                form.fields['options'].disabled = True
                 verify = reverse('account_email')
-                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting a Batch Validator job" % (verify))
+                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
+                                        "before submitting a Batch Validator job" % verify)
                 locked = True
 
     return render(request, 'batch_validate.html', {
@@ -288,13 +305,39 @@ def vcf2hgvs(request):
             logger.debug("VCF to HGVS input: %s" % form.cleaned_data)
             # json_version = serialize('json', [form.cleaned_data['vcf_file']])
             # print(json_version)
-
-            res = tasks.vcf2hgvs.delay(
-                request.FILES['vcf_file'].read(),
-                form.cleaned_data['genome'],
-                form.cleaned_data['gene_symbols'],
-                form.cleaned_data['email_address']
-            )
+            if request.FILES['vcf_file'].multiple_chunks():
+                messages.info(request, 'Large file detected, multiple jobs will be submitted')
+                jobs = []
+                for chunk in request.FILES['vcf_file'].chunks():
+                    res = tasks.vcf2hgvs.delay(
+                        chunk,
+                        form.cleaned_data['genome'],
+                        form.cleaned_data['gene_symbols'],
+                        form.cleaned_data['email_address'],
+                        form.cleaned_data['select_transcripts'],
+                        form.cleaned_data['options']
+                    )
+                    jobs.append(str(res))
+                res = ', '.join(jobs)
+            else:
+                try:
+                    res = tasks.vcf2hgvs.delay(
+                        codecs.decode(request.FILES['vcf_file'].read(), 'UTF-8'),
+                        form.cleaned_data['genome'],
+                        form.cleaned_data['gene_symbols'],
+                        form.cleaned_data['email_address'],
+                        form.cleaned_data['select_transcripts'],
+                        form.cleaned_data['options']
+                    )
+                except TypeError:
+                    res = tasks.vcf2hgvs.delay(
+                    request.FILES['vcf_file'].read(),
+                    form.cleaned_data['genome'],
+                    form.cleaned_data['gene_symbols'],
+                    form.cleaned_data['email_address'],
+                    form.cleaned_data['select_transcripts'],
+                    form.cleaned_data['options']
+                )
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % res)
             services.send_initial_email(form.cleaned_data['email_address'], res, 'VCF to HGVS')
 
@@ -309,11 +352,14 @@ def vcf2hgvs(request):
         if not request.user.is_authenticated:
             login_page = reverse('account_login')
             here = reverse('vcf2hgvs')
-            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> to submit VCF to HGVS jobs" % (login_page, here))
+            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> "
+                                    "to submit VCF to HGVS jobs" % (login_page, here))
             form.fields['vcf_file'].disabled = True
             form.fields['genome'].disabled = True
             form.fields['email_address'].disabled = True
             form.fields['gene_symbols'].disabled = True
+            form.fields['select_transcripts'].disabled = True
+            form.fields['options'].disabled = True
             locked = True
         else:
             form.fields['genome'].initial = last_genome
@@ -327,9 +373,12 @@ def vcf2hgvs(request):
                     form.fields['genome'].disabled = True
                     form.fields['email_address'].disabled = True
                     form.fields['gene_symbols'].disabled = True
+                    form.fields['select_transcripts'].disabled = True
+                    form.fields['options'].disabled = True
                     verify = reverse('account_email')
                     messages.error(request,
-                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting VCF to HGVS jobs" % (
+                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before "
+                                   "submitting VCF to HGVS jobs" % (
                                        verify))
                     locked = True
             else:
@@ -337,8 +386,11 @@ def vcf2hgvs(request):
                 form.fields['genome'].disabled = True
                 form.fields['email_address'].disabled = True
                 form.fields['gene_symbols'].disabled = True
+                form.fields['select_transcripts'].disabled = True
+                form.fields['options'].disabled = True
                 verify = reverse('account_email')
-                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> before submitting VCF to HGVS jobs" % (verify))
+                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
+                                        "before submitting VCF to HGVS jobs" % (verify))
                 locked = True
 
     return render(request, 'vcf_to_hgvs.html', {
@@ -360,7 +412,98 @@ def download_batch_res(request, job_id):
     buffer = str()
     buffer += '# Job ID:%s\n' % job_id
     try:
+        # Modify the output based on the options selected by the user.
+
+        # First pass, collect the metadata line which has had the options embedded
+        metaline = ''
         for row in job.result:
+            if "Metadata:" in str(row):
+                metaline = str(row)
+
+        # Next parse the metaline to set the options
+        # 'options': 'transcript|genomic|protein|refseqgene|lrg|vcf|gene_info|tx_name|alt_loci'
+        if 'transcript' in metaline:
+            transcript_d = True
+        else:
+            transcript_d = False
+        if 'genomic' in metaline:
+            genomic_d = True
+        else:
+            genomic_d = False
+        if 'protein' in metaline:
+            protein_d = True
+        else:
+            protein_d = False
+        if 'refseqgene' in metaline:
+            refseqgene_d = True
+        else:
+            refseqgene_d = False
+        if 'lrg' in metaline:
+            lrg_d = True
+        else:
+            lrg_d = False
+        if 'vcf' in metaline:
+            vcf_d = True
+        else:
+            vcf_d = False
+        if 'gene_info' in metaline:
+            gene_info_d = True
+        else:
+            gene_info_d = False
+        if 'tx_name' in metaline:
+            tx_name_d = True
+        else:
+            tx_name_d = False
+        if 'alt_loci' in metaline:
+            alt_loci_d = True
+        else:
+            alt_loci_d = False
+
+        # Based on the option controls, add the correct list elements from job.result into the list my_results
+        my_results = []
+        for row in job.result:
+            if "# Metadata" not in row:
+                output_these_elements = []
+                # Add selected variant and warnings
+                l = row[0:2]
+                output_these_elements = output_these_elements + l
+                if transcript_d is True:
+                    l = row[2:5]
+                    output_these_elements = output_these_elements + l
+                if refseqgene_d is True:
+                    l = row[5:7]
+                    output_these_elements = output_these_elements + l
+                if lrg_d is True:
+                    l = row[7:9]
+                    output_these_elements = output_these_elements + l
+                if protein_d is True:
+                    l = [row[9]]
+                    output_these_elements = output_these_elements + l
+                if genomic_d is True:
+                    l = [row[10]]
+                    output_these_elements = output_these_elements + l
+                    l = [row[16]]
+                    output_these_elements = output_these_elements + l
+                if vcf_d is True:
+                    l = row[11:15]
+                    output_these_elements = output_these_elements + l
+                    l = row[17:21]
+                    output_these_elements = output_these_elements + l
+                if gene_info_d is True:
+                    l = row[22:24]
+                    output_these_elements = output_these_elements + l
+                if tx_name_d is True:
+                    l = [row[24]]
+                    output_these_elements = output_these_elements + l
+                if alt_loci_d is True:
+                    l = [row[25]]
+                    output_these_elements = output_these_elements + l
+            else:
+                output_these_elements = row
+            my_results.append(output_these_elements)
+
+        # String together the list into an output string for transfer into a text file (tab delimited "\n" newlines)
+        for row in my_results:
             if isinstance(row, list):
                 # The sql query returns null for some columns which is converted
                 # to a Python NoneType. In this case the join() was failing.
@@ -378,7 +521,6 @@ def download_batch_res(request, job_id):
         print(ex)
 
     # print(buffer)   # Jon Wakelin 17/Sep/2020
-
     response = HttpResponse(buffer, content_type='text/plain')
     response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
     logger.debug("Job %s results downloaded by user %s" % (job_id, request.user))
@@ -394,12 +536,6 @@ def bed_file(request):
 
     # Split up the input
     input_elements = info.split('|')
-#    variant = input_elements[0]
-#    chromosome = input_elements[1]  # 'NC_000017.11'
-#    build = input_elements[2]  # 'GRCh38'
-#    genomic = input_elements[3]
-#    vcf = input_elements[4]
-
     # Sort out URI encoding
     if '+' in str(input_elements[0]):
         input_elements = str(input_elements[0].replace(' ', '+'))
@@ -408,3 +544,20 @@ def bed_file(request):
 
     response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
     return response
+
+# <LICENSE>
+# Copyright (C) 2016-2021 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>

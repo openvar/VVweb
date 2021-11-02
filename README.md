@@ -11,24 +11,22 @@ git clone https://github.com/openvar/vvweb
 cd vvweb
 ```
 
-To install the python packages you should first create a python 3.6 virtual environment.
-
-```bash
-# if you have conda installed
-conda env create -f environment.yml
-conda activate vvweb
-pip install -r requirements.txt
-
-# otherwise
-module load python/gcc/3.6.4  # only if on SPECTRE
-python -m venv env
-source env/bin/activate
-pip install -r requirements.txt
-```
+To install the python packages you should first [install VariantValidator](https://github.com/openvar/variantValidator/blob/master/docs/INSTALLATION.md) including the VariantValidator enviromnent
 
 This will install the latest VariantValidator (master branch of GitHub repo). You'll need to make sure VariantValidator is
 working correctly before proceeding any further. See the [VV git repo](https://github.com/openvar/variantValidator) for help.
 
+
+Next, clone the environment to use with VVweb
+```bash
+conda create --name vvweb --clone vvenv
+```
+
+Finally install additional packages
+```bash
+conda activate vvweb
+pip install -r requirements.txt
+```
 
 ## Web Setup
 
@@ -64,7 +62,7 @@ DATABASES['default']['PASSWORD'] = 'password'
 
 # List of Admins, with their email address that will get emailed if an error is reported.
 ADMINS = [
-    ('Teri', 'trf5@le.ac.uk'),
+    ('Admin', 'admin@email.com'),
 ]
 
 RECAPTCHA_PUBLIC_KEY = 'key goes here'
@@ -86,21 +84,33 @@ of this username and password.
 python manage.py createsuperuser
 ```
 
+Next collect the static folders for Admin accounts
+```bash
+python manage.py collectstatic
+```
+
 Then, you should be able to launch the development server
 
 ```bash
 python manage.py runserver
 ```
 
-### APIs and social accounts
+Using th Django Admin interface add additional domain names to the following table
 
-For the user authentication and re-captcha to work, you need to set up the app with the appropriate sites.
+```sql
+vvweb=# SELECT * FROM django_site;
+id |          domain          |       name
+----+--------------------------+------------------
+  1 | example.com              | example.com
+  2 | www525.lamp.le.ac.uk     | login525
+  3 | variantvalidator.org     | VariantValidator
+  5 | www.variantvalidator.org | VariantValidator
+```
+Then in settings.py, select the line using the following 
+- This sets the row in Django table that the site uses by default. Site is initialised 
+- with example.com which is SITE_ID = 1
 
-For re-captcha, go to their site https://www.google.com/recaptcha/intro/v3.html and register the app. Create a 'v2 tickbox' recaptcha. This will 
-create a public and private key, both of which need to go in the `local_settings.py` file.
-
-The social account logins for GitHub, Google and ORCID are setup using django-allauth. Their [documentation](https://django-allauth.readthedocs.io/en/latest/providers.html)
-describes how to setup each one. You'll need to go to the admin site (http://localhost:8000/admin/) to save the public and private keys. 
+`SITE_ID = 2`
 
 ## Celery and RabbitMQ
 

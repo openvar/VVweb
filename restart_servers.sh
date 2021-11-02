@@ -1,17 +1,33 @@
-from django.db import models
-from django.utils import timezone
+#!/usr/bin/env bash
 
+# Stop Apache
+sudo systemctl stop httpd
 
-class Contact(models.Model):
-    nameval = models.CharField(max_length=100, verbose_name='Name')
-    emailval = models.EmailField(verbose_name='Email')
-    variant = models.CharField(max_length=100, null=True, blank=True)
-    question = models.TextField()
-    asked = models.DateTimeField(default=timezone.now)
-    answered = models.BooleanField(default=False)
+# Start environment
+conda activate vvweb
 
-    def __str__(self):
-        return "%s - %s (dealt with: %s)" % (self.nameval, self.asked.date(), self.answered)
+# Stop celery
+ps aux | grep celery | awk '{print $2}' | xargs kill
+
+# Purge the batch queue
+celery purge --force
+
+# Stop RabbitMQ
+sudo systemctl stop rabbitmq-server
+
+# Restart database servers
+sudo systemctl restart postgresql-11
+sudo systemctl restart mariadb
+
+# Start RabbitMQ
+sudo systemctl start rabbitmq-server
+
+# Start celery
+celery beat -A VVweb -l error --scheduler django_celery_beat.schedulers.DatabaseScheduler --detach --logfile logs/celery/beat.log --pidfile celerybeat.pid
+celery worker -A VVweb -l error --detach --logfile logs/celery/%n%I.log --pidfile celeryd.pid
+
+# Start Apache
+sudo systemctl start httpd
 
 # <LICENSE>
 # Copyright (C) 2016-2021 VariantValidator Contributors

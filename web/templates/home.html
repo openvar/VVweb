@@ -3,7 +3,11 @@
 
 {% block title %} - Home{% endblock %}
 {% block header_title %}VariantValidator{% endblock %}
-{% block subtitle %}Accurate validation, mapping and formatting of sequence variant descriptions{% endblock %}
+{% block subtitle %}Accurate validation, mapping and formatting of sequence variant descriptions
+    <br>
+    <br>
+<a target="_blank" title="find us on facebook" href="https://www.facebook.com/VariantValidator"><img alt="follow me on facebook" src="https://c866088.ssl.cf3.rackcdn.com/assets/facebook40x40.png" border=0></a>
+{% endblock %}
 
 {% block content %}
 
@@ -23,19 +27,22 @@
 {#        <a class="btn btn-primary btn-lg" href="#">Call to Action &raquo;</a>#}
       </div>
 
-      <div class="col-md-4 mb-5">
+      <div class="col-md-4 mb-4">
         <h2>Powered By</h2>
         <hr>
         <a class="font-weight-bold" href="http://github.com/openvar/variantvalidator/" target="_blank">VariantValidator</a>
-        <div class="ml-2">version {{ versions.VariantValidator }}</div>
+        <div class="ml-2"> {{ versions.VariantValidator }}</div>
         <a class="font-weight-bold" href="http://github.com/openvar/vv_hgvs/" target="_blank">vv_hgvs</a>
-        <div class="ml-2">version {{ versions.hgvs }}</div>
-        <a class="font-weight-bold" href="http://github.com/biocommons/uta/" target="_blank">UTA</a>
-        <div class="ml-2">release {{ versions.uta }}</div>
-        <a class="font-weight-bold" href="http://github.com/biocommons/seqrepo/" target="_blank">SeqRepo</a>
-        <div class="ml-2">release {{ versions.seqrepo }}</div>
+        <div class="ml-2"> {{ versions.hgvs }}</div>
+        <a class="font-weight-bold" href="https://www528.lamp.le.ac.uk/vvdata/validator/" target="_blank">VVDb</a>
+        <div class="ml-2"> {{ versions.vvdb }}</div>
+        <a class="font-weight-bold" href="https://www528.lamp.le.ac.uk/vvdata/vvta/" target="_blank">VVTA</a>
+        <div class="ml-2"> {{ versions.uta }}</div>
+        <a class="font-weight-bold" href="https://www528.lamp.le.ac.uk/vvdata/vv_seqrepo/" target="_blank">VVSeqRepo</a>
+        <div class="ml-2"> {{ versions.seqrepo }}</div>
       </div>
     </div>
+
     <!-- /.row -->
 
     <div class="row">

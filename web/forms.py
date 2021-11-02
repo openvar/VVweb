@@ -4,6 +4,18 @@ from allauth.account.forms import SignupForm, PasswordField
 from django.utils.translation import ugettext_lazy as _
 from captcha.fields import ReCaptchaField
 
+BATCH_FORM_OPTIONS = [
+    ('transcript', 'Transcript context descriptions'),
+    ('genomic', 'Genomic context descriptions'),
+    ('protein', 'Protein context descriptions'),
+    ('refseqgene', 'RefSeqGene context descriptions'),
+    ('lrg', 'LRG context descriptions'),
+    ('vcf', 'VCF coordinates'),
+    ('gene_info', 'Gene symbol and HGNC ID'),
+    ('tx_name', 'Transcript name'),
+    ('alt_loci', 'Alternate genomic reference sequences')
+]
+
 
 class ContactForm(forms.ModelForm):
     class Meta:
@@ -20,7 +32,6 @@ class ContactForm(forms.ModelForm):
 
     def clean(self):
         if self.data['name'] or self.data['email']:
-            print("Got spam")
             raise forms.ValidationError("Spam detected")
         return self.cleaned_data
 
@@ -29,13 +40,29 @@ class BatchValidateForm(forms.Form):
     input_variants = forms.CharField(widget=forms.Textarea(
         attrs={'placeholder': 'Variant descriptions must be separated by new lines, spaces or tabs.'}),
                                      label='Input Variant Descriptions'
-                                     )
+    )
     gene_symbols = forms.CharField(widget=forms.Textarea(
         attrs={'rows': '3', 'placeholder': 'One gene symbol per line'}),
                                    required=False,
-                                   label='Limit search, optionally, to specific genes (use HGNC gene symbols)')
+                                   label='Limit search, optionally, to specific genes (use HGNC gene symbols)'
+    )
+    select_transcripts = forms.CharField(widget=forms.Textarea(
+        attrs={'rows': '3', 'placeholder': 'One transcript id per line'}),
+                                         required=False,
+                                         label='Limit search, optionally, to specific transcripts (see our Genes to '
+                                         'Transcripts tool). The batch instructions page contains further options '
+                                         'e.g. MANE select transcripts'
+    )
+    options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
+        attrs={'checked': 'check_label'}),
+                                        choices=BATCH_FORM_OPTIONS,
+                                        required=False,
+                                        label='Customise the information returned in the output file'
+                                        )
+
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
+
     genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
                                widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
                                label='Select genome build')
@@ -52,13 +79,39 @@ class BatchValidateForm(forms.Form):
         symbols = self.cleaned_data['gene_symbols'].strip().split()
         return '|'.join(symbols)
 
+    def clean_select_transcripts(self):
+        transcripts = self.cleaned_data['select_transcripts'].strip().split()
+        if len(transcripts) == 0:
+            transcripts = ['all']
+        return '|'.join(transcripts)
+
+    def clean_options(self):
+        ops = self.cleaned_data['options']
+        return '|'.join(ops)
+
 
 class VCF2HGVSForm(forms.Form):
     vcf_file = forms.FileField(label='VCF file')
+
     gene_symbols = forms.CharField(widget=forms.Textarea(
         attrs={'rows': '3', 'placeholder': 'One gene symbol per line'}),
                                    required=False,
                                    label='Limit search, optionally, to specific genes (use HGNC gene symbols)')
+
+    select_transcripts = forms.CharField(widget=forms.Textarea(
+        attrs={'rows': '3', 'placeholder': 'One transcript id per line'}),
+                                         required=False,
+                                         label='Limit search, optionally, to specific transcripts (see our Genes to '
+                                         'Transcripts tool). The batch instructions page contains further options '
+                                         'e.g. MANE select transcripts'
+    )
+    options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
+        attrs={'checked': 'check_label'}),
+                                        choices=BATCH_FORM_OPTIONS,
+                                        required=False,
+                                        label='Customise the information returned in the output file'
+                                        )
+
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
     genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
@@ -68,6 +121,16 @@ class VCF2HGVSForm(forms.Form):
     def clean_gene_symbols(self):
         symbols = self.cleaned_data['gene_symbols'].strip().split()
         return '|'.join(symbols)
+
+    def clean_select_transcripts(self):
+        transcripts = self.cleaned_data['select_transcripts'].strip().split()
+        if len(transcripts) == 0:
+            transcripts = ['all']
+        return '|'.join(transcripts)
+
+    def clean_options(self):
+        ops = self.cleaned_data['options']
+        return '|'.join(ops)
 
 
 class UpdatedSignUpForm(SignupForm):
@@ -84,3 +147,20 @@ class UpdatedSignUpForm(SignupForm):
 
         # You must return the original result.
         return user
+
+# <LICENSE>
+# Copyright (C) 2016-2021 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>

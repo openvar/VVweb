@@ -22,6 +22,8 @@
                           <th>Coding Start</th>
                           <th>Coding End</th>
                           <th>Description</th>
+                          <th>MANE Select</th>
+                          <th>RefSeq Select</th>
                       </tr>
                       {% for trans in output.transcripts %}
                           <tr>
@@ -29,6 +31,20 @@
                               <td>{{ trans.coding_start }}</td>
                               <td>{{ trans.coding_end }}</td>
                               <td>{{ trans.description }}</td>
+                          <td class="text-center">
+                              {% if trans.annotations.mane_select %}
+                                  <span><i class="fas fa-check text-success"></i></span>
+                              {% else %}
+                                  <span><i class="fas fa-times text-danger"></i></span>
+                              {% endif %}
+                          </td>
+                          <td class="text-center">
+                              {% if trans.annotations.refseq_select %}
+                                  <span><i class="fas fa-check text-success"></i></span>
+                              {% else %}
+                                  <span><i class="fas fa-times text-danger"></i></span>
+                              {% endif %}
+                          </td>
                           </tr>
                       {% endfor %}
                   </table>

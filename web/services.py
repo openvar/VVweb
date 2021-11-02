@@ -35,6 +35,7 @@ def process_result(val, validator):
         # print(k)
         # print('v')
         # print(v)
+
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)
@@ -153,12 +154,8 @@ def process_result(val, validator):
             each.append(v)
             if "intergenic_variant" or "mitochondrial" or "validation_warning" in k:
                 warnings = v['validation_warnings']
-            # print('appended')
         else:
             warnings = v['validation_warnings']
-            # print('not appended')
-            # print(k)
-            # print(v)
 
     alloutputs = {
         'flag': flag,
@@ -169,12 +166,6 @@ def process_result(val, validator):
         'warnings': warnings,
     }
 
-    #import json
-    #print('\n')
-    #print(alloutputs['flag'])
-    #print(json.dumps(alloutputs, sort_keys=True, indent=4, separators=(',', ': ')))
-    #print('OK')
-    #print('\n')
     return alloutputs
 
 
@@ -463,3 +454,20 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
     bed_call = '\n'.join(bed_list)
     bed_call = bed_call + '\n'
     return bed_call
+
+# <LICENSE>
+# Copyright (C) 2016-2021 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>

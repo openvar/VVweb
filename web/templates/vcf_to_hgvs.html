@@ -16,12 +16,14 @@
               <li>Select genome build</li>
           </ol>
           <h5>Workflow</h5>
-          <p>
-              If gene(s) and transcript(s) are specified, only VCF calls which map within the boundaries of
-              specified transcript(s) will be retained.<br>
-              Results will be returned by the batch validator tool via email.<br>
-              VCF calls will be returned in the format chrX-12345-REF-ALT. The tool will process a maximum of {{ max|intcomma }} variants.
-          </p>
+          <ul>
+              <li>If gene(s) and transcript(s) are specified, only VCF calls which map within the boundaries of</li>
+              <li>specified transcript(s) will be retained.</li>
+              <li>Results will be returned by the batch validator tool via email.</li>
+              <li>VCF calls will be returned in the format chrX-12345-REF-ALT. The tool will process a maximum of {{ max|intcomma }} variants.</li>
+              <li>If you are unsure whether your gene(s) of interest are likely to produce multiple variants for each genomic (g.) variant, you can check the number of transcripts by submitting the gene symbol to <a href="{% url 'genes2trans' %}">Gene to Transcripts.</a></li>
+              <li>For more help and information see the instructions <a href="{% url 'batch_instructions' %}">here.</a></li>
+          </ul>
           <form method="POST" novalidate enctype="multipart/form-data">
               {% csrf_token %}
               {% for field in form %}
@@ -43,6 +45,8 @@
                                   {{ field.errors }}
                               </div>
                           </div>
+                      {% elif field.label == 'Customise the information returned in the output file' %}
+                            {{ field }}
                       {% elif field.label != 'Select genome build' %}
                           <label for="{{ field.id_for_label }}"><h4>{{ field.label }}</h4></label>
                           {% if form.is_bound %}

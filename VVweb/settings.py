@@ -24,7 +24,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEBUG = True
 DEBUG = TEMPLATE_DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['www525.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1']
 
 
 # Application definition
@@ -96,6 +96,17 @@ DATABASES = {
     }
 }
 
+# This sets the row in Django table that the site uses by default. Site is initialised 
+# with example.com which is SITE_ID = 1
+
+#vvweb=# SELECT * FROM django_site;
+#id |          domain          |       name
+#----+--------------------------+------------------
+#  1 | example.com              | example.com
+#  2 | www525.lamp.le.ac.uk     | login525
+#  3 | variantvalidator.org     | VariantValidator
+#  5 | www.variantvalidator.org | VariantValidator
+
 SITE_ID = 1
 
 # Password validation
@@ -158,14 +169,15 @@ CELERY_RESULT_BACKEND = 'django-db'
 CELERY_CACHE_BACKEND = 'django-cache'
 
 if DEBUG is True:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 DEFAULT_FROM_EMAIL = 'admin@variantValidator.org'
 EMAIL_SUBJECT_PREFIX = '[VVWeb] '
 SERVER_EMAIL = 'admin@variantValidator.org'
+ACCOUNT_EMAIL_SUBJECT_PREFIX = '[VVWeb] '
 
 # For VCF to HGVS conversion
-MAX_VCF = 50000
+MAX_VCF = 25000
 
 COUNTRIES_FIRST = ['GB', 'US']
 
@@ -190,7 +202,7 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'info.log'),
             'formatter': 'verbose'
@@ -229,3 +241,20 @@ try:
     from .local_settings import *
 except ImportError:
     pass
+
+# <LICENSE>
+# Copyright (C) 2016-2021 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>

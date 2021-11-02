@@ -27,6 +27,8 @@
                       <th>Transcript Accession</th>
                       <th>Gene Accession</th>
                       <th>Latest Version</th>
+                      <th>MANE Select</th>
+                      <th>RefSeq Select</th>
                   </tr>
                   {% for each in output.results %}
                       <tr>
@@ -40,6 +42,20 @@
                           <td>{{ each.gene_ac }}</td>
                           <td class="text-center">
                               {% if each.latest %}
+                                  <span><i class="fas fa-check text-success"></i></span>
+                              {% else %}
+                                  <span><i class="fas fa-times text-danger"></i></span>
+                              {% endif %}
+                          </td>
+                          <td class="text-center">
+                              {% if each.annotations.mane_select %}
+                                  <span><i class="fas fa-check text-success"></i></span>
+                              {% else %}
+                                  <span><i class="fas fa-times text-danger"></i></span>
+                              {% endif %}
+                          </td>
+                          <td class="text-center">
+                              {% if each.annotations.refseq_select %}
                                   <span><i class="fas fa-check text-success"></i></span>
                               {% else %}
                                   <span><i class="fas fa-times text-danger"></i></span>
@@ -193,6 +209,26 @@
                                  {% endif %}
                               {% endfor %}
                           </table>
+                          {% if each.variant_exonic_positions is not None %}
+                              <h5>Variant Exon/Intron positions</h5>
+                                  <table class="table table-bordered">
+                                      <tr>
+                                      <th>Genomic/Gene accession</th>
+                                      <th>Exon/Intron at variant start</th>
+                                      <th>Exon/Intron at variant end</th>
+                                      </tr>
+                                      {%  for genomic_ref, positions in  each.variant_exonic_positions.items %}
+                                          <tr>
+                                              <td>{{ genomic_ref }} </td>
+                                              {% for key, val in positions.items %}
+                                                  <td>{{ val }}</td>
+                                              {%  endfor %}
+                                          </tr>
+
+                                      {% endfor %}
+                                  </table>
+                          {%  endif %}
+
                           <br>
                           <h4>Recommended Variant Descriptions</h4>
                           <ol>
@@ -352,11 +388,11 @@
                               <form method="post" id="pdf-validate-form" name="pdf-validate-form">
                                   {% csrf_token %}
                                   <div class="form-group">
-                                      <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.hgvs_transcript_variant }}">
+                                     <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.hgvs_transcript_variant }}">
                                   </div>
-                                  <div class="form-group" id="genomeselect">
+                                  <div class="form-group" id="pdf-genomeselect" name="pdf-validate-form">
                                       <div class="custom-radio custom-control custom-control-inline">
-                                          <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value={{ output.genome }}  checked>
+                                          <input class="custom-control-input" type="radio" name="genomebuild" value={{ output.genome }}  checked>
                                       </div>
                                   </div>
                                   <button id="pdf-validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
@@ -373,7 +409,7 @@
                                         <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}">
                                       {% endif %}
                                   </div>
-                                  <div class="form-group" id="genomeselect">
+                                  <div class="form-group" id="pdf-genomeselect" name="pdf-validate-form">
                                       <div class="custom-radio custom-control custom-control-inline">
                                           <input class="custom-control-input" type="radio" name="genomebuild" value={{ output.genome }} checked>
                                       </div>
