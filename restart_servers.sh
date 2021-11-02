@@ -10,7 +10,7 @@ conda activate vvweb
 ps aux | grep celery | awk '{print $2}' | xargs kill
 
 # Purge the batch queue
-celery purge
+celery purge --force
 
 # Stop RabbitMQ
 sudo systemctl stop rabbitmq-server

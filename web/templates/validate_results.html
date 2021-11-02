@@ -209,6 +209,26 @@
                                  {% endif %}
                               {% endfor %}
                           </table>
+                          {% if each.variant_exonic_positions is not None %}
+                              <h5>Variant Exon/Intron positions</h5>
+                                  <table class="table table-bordered">
+                                      <tr>
+                                      <th>Genomic/Gene accession</th>
+                                      <th>Exon/Intron at variant start</th>
+                                      <th>Exon/Intron at variant end</th>
+                                      </tr>
+                                      {%  for genomic_ref, positions in  each.variant_exonic_positions.items %}
+                                          <tr>
+                                              <td>{{ genomic_ref }} </td>
+                                              {% for key, val in positions.items %}
+                                                  <td>{{ val }}</td>
+                                              {%  endfor %}
+                                          </tr>
+
+                                      {% endfor %}
+                                  </table>
+                          {%  endif %}
+
                           <br>
                           <h4>Recommended Variant Descriptions</h4>
                           <ol>
