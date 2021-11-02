@@ -305,7 +305,6 @@ def vcf2hgvs(request):
             logger.debug("VCF to HGVS input: %s" % form.cleaned_data)
             # json_version = serialize('json', [form.cleaned_data['vcf_file']])
             # print(json_version)
-
             if request.FILES['vcf_file'].multiple_chunks():
                 messages.info(request, 'Large file detected, multiple jobs will be submitted')
                 jobs = []
