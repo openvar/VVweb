@@ -14,6 +14,7 @@ from celery.result import AsyncResult
 from allauth.account.models import EmailAddress
 import logging
 import codecs
+import traceback
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 validator = VariantValidator.Validator()
@@ -519,6 +520,9 @@ def download_batch_res(request, job_id):
             buffer += '\n'
     except Exception as ex:
         # This will print errors to the Apache log
+        exc_type, exc_value, last_traceback = sys.exc_info()
+        logger.error(str(exc_type) + " " + str(exc_value))
+        traceback.print_tb(last_traceback, file=sys.stdout)
         print(ex)
 
     # print(buffer)   # Jon Wakelin 17/Sep/2020
