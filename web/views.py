@@ -14,6 +14,7 @@ from celery.result import AsyncResult
 from allauth.account.models import EmailAddress
 import logging
 import codecs
+import sys
 import traceback
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
@@ -466,6 +467,7 @@ def download_batch_res(request, job_id):
             if "# Metadata" not in row:
                 output_these_elements = []
                 # Add selected variant and warnings
+                row[2] = str(row[2])
                 l = row[0:2]
                 output_these_elements = output_these_elements + l
                 if transcript_d is True:
