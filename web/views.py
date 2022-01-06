@@ -488,9 +488,9 @@ def download_batch_res(request, job_id):
                     l = [row[16]]
                     output_these_elements = output_these_elements + l
                 if vcf_d is True:
-                    l = row[11:15]
+                    l = row[11:16]
                     output_these_elements = output_these_elements + l
-                    l = row[17:21]
+                    l = row[17:22]
                     output_these_elements = output_these_elements + l
                 if gene_info_d is True:
                     l = row[22:24]
