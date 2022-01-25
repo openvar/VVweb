@@ -43,8 +43,11 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
         if sym:
             returned_trans = gene2transcripts(sym, validator=validator)
             logger.info(returned_trans)
-            for trans in returned_trans['transcripts']:
-                transcript_list.append(trans['reference'])
+            try:
+                for trans in returned_trans['transcripts']:
+                    transcript_list.append(trans['reference'])
+            except KeyError:
+                continue
 
     if transcript_list is not []:
         transcripts = "|".join(transcript_list)
