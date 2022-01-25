@@ -40,8 +40,11 @@
               </div>
             </div> -->
             <div class="col">
-              <p>{% blocktrans with site.name as site_name %}If you've <a href="{{ signup_url }}">registered</a>
-                  for a {{ site_name }} account, sign in below:{% endblocktrans %}
+              <p>{% blocktrans with site.name as site_name %}If you haven't yet registered
+                  for a {{ site_name }} account <a href="{{ signup_url }}">click here</a>
+                  <br></br>
+                  Otherwise, sign in below
+              {% endblocktrans %}
               </p>
               <form class="login" method="POST" action="{% url 'account_login' %}">
                 {% csrf_token %}

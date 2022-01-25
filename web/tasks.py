@@ -36,12 +36,18 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
     if validator is None:
         validator = VariantValidator.Validator()
 
+    transcript_list = []
+    if transcripts != "all":
+        transcript_list = transcripts.split('|')
     for sym in gene_symbols.split('|'):
         if sym:
             returned_trans = gene2transcripts(sym, validator=validator)
             logger.info(returned_trans)
             for trans in returned_trans['transcripts']:
-                transcripts.append(trans['reference'])
+                transcript_list.append(trans['reference'])
+
+    if transcript_list is not []:
+        transcripts = "|".join(transcript_list)
 
     logger.info("Transcripts: %s" % transcripts)
     output = validator.validate(variant, genome, transcripts)
@@ -245,7 +251,7 @@ def delete_old_users():
     return {'deleted': num, 'detail': details}
 
 # <LICENSE>
-# Copyright (C) 2016-2021 VariantValidator Contributors
+# Copyright (C) 2016-2022 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
