@@ -39,6 +39,8 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
     transcript_list = []
     if transcripts != "all":
         transcript_list = transcripts.split('|')
+    else:
+        pass  # Keep it as 'all'
     for sym in gene_symbols.split('|'):
         if sym:
             returned_trans = gene2transcripts(sym, validator=validator)
@@ -49,8 +51,10 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
             except KeyError:
                 continue
 
-    if transcript_list is not []:
+    if transcript_list is not [] and 'all' not in transcripts:
         transcripts = "|".join(transcript_list)
+    else:
+        transcripts = "all"
 
     logger.info("Transcripts: %s" % transcripts)
     output = validator.validate(variant, genome, transcripts)
