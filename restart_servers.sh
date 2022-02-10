@@ -6,11 +6,11 @@ sudo systemctl stop httpd
 # Start environment
 conda activate vvweb
 
-# Stop celery
-ps aux | grep celery | awk '{print $2}' | xargs kill
-
 # Purge the batch queue
 celery purge --force
+
+# Stop celery
+ps aux | grep celery | awk '{print $2}' | xargs kill
 
 # Stop RabbitMQ
 sudo systemctl stop rabbitmq-server
