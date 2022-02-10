@@ -3,11 +3,11 @@
 # Start environment
 conda activate vvweb
 
-# Stop celery
-ps aux | grep celery | awk '{print $2}' | xargs kill
-
 # Purge the batch queue
 celery purge --force
+
+# Stop celery
+ps aux | grep celery | awk '{print $2}' | xargs kill
 
 # Start celery
 celery beat -A VVweb -l error --scheduler django_celery_beat.schedulers.DatabaseScheduler --detach --logfile logs/celery/beat.log --pidfile celerybeat.pid
