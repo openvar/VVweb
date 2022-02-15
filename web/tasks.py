@@ -37,10 +37,10 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
         validator = VariantValidator.Validator()
 
     transcript_list = []
-    if transcripts != "all":
+    if "all" not in transcripts and "select" not in transcripts:
         transcript_list = transcripts.split('|')
     else:
-        pass  # Keep it as 'all'
+        pass  # Keep it as 'all or a select'
     for sym in gene_symbols.split('|'):
         if sym:
             returned_trans = gene2transcripts(sym, validator=validator)
@@ -51,10 +51,10 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
             except KeyError:
                 continue
 
-    if transcript_list is not [] and 'all' not in transcripts:
+    if transcript_list is not [] and ('all' not in transcripts and "select" not in transcripts):
         transcripts = "|".join(transcript_list)
     else:
-        transcripts = "all"
+        transcripts = transcripts
 
     logger.info("Transcripts: %s" % transcripts)
     output = validator.validate(variant, genome, transcripts)
