@@ -140,7 +140,7 @@ $(document).ready(function() {
                     pdf_request: pdf,
                     csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
                 },
-                timeout: 30000,
+                timeout: 60000,
             success: function(res) {
                 console.log('Success!');
                 $('.overlay').hide();
