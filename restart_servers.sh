@@ -3,9 +3,6 @@
 # Stop Apache
 sudo systemctl stop httpd
 
-# Start environment
-conda activate vvweb
-
 # Restart database servers
 sudo systemctl restart postgresql-11
 sudo systemctl restart mariadb
