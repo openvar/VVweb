@@ -3,10 +3,6 @@
 # Stop celery
 ps aux | grep celery | awk '{print $2}' | xargs kill
 
-# Start celery
-celery beat -A VVweb -l error --scheduler django_celery_beat.schedulers.DatabaseScheduler --detach --logfile logs/celery/beat.log --pidfile celerybeat.pid
-celery worker -A VVweb -l error --detach --logfile logs/celery/%n%I.log --pidfile celeryd.pid
-
 # <LICENSE>
 # Copyright (C) 2016-2022 VariantValidator Contributors
 #
