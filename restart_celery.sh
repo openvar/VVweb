@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Start environment
-conda activate vvweb
-
 # Stop celery
 ps aux | grep celery | awk '{print $2}' | xargs kill
 
