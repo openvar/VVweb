@@ -13,7 +13,7 @@ logger = logging.getLogger('vv')
 
 
 @shared_task
-def validate(variant, genome, transcripts='all', validator=None):
+def validate(variant, genome, transcripts, validator=None):
     logger.info("Running validate task")
     if validator is None:
         validator = VariantValidator.Validator()

@@ -38,7 +38,8 @@ class ContactForm(forms.ModelForm):
 
 class BatchValidateForm(forms.Form):
     input_variants = forms.CharField(widget=forms.Textarea(
-        attrs={'placeholder': 'Variant descriptions must be separated by new lines, spaces or tabs.'}),
+        attrs={'placeholder': 'Variant descriptions must be separated by new lines, spaces or tabs. '
+                              'Please be considerate of other users and only submit one job at a time!'}),
                                      label='Input Variant Descriptions'
     )
     gene_symbols = forms.CharField(widget=forms.Textarea(
@@ -115,6 +116,7 @@ class VCF2HGVSForm(forms.Form):
 
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
+
     genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
                                widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
                                label='Select genome build')
