@@ -119,12 +119,16 @@
   <header class="bg-primary py-2">
     <div class="container h-25">
       <div class="row h-25 align-items-center">
-        <div class="col-9">
+        <div class="col-6">
           <h1 class="display-4 text-white mt-4 mb-2">{% block header_title %}VariantValidator{% endblock %}</h1>
           <p class="lead mb-0 text-white-75">{% block subtitle %}{% endblock %}</p>
         </div>
-      <div class="col-3 text-right">
-        <img src="{% static 'img/logos/VV_logo.png' %}" alt="VariantValidator Logo" class="img-fluid" style="max-height: 200px">
+      <div class="col-6 text-right">
+            <ul>
+                <li><img src="{% static 'img/logos/VV_logo.png' %}" alt="VariantValidator Logo" class="img-fluid" style="max-height: 150px"></li>
+                {% block twitter %}
+                {% endblock %}
+            </ul>
       </div>
       </div>
     </div>

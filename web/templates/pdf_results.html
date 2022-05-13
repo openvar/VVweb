@@ -19,7 +19,12 @@
                                   <li style='font-size:70%'>Map location: {{ each.chr_loc }}</li>
                               {% endif %}
                               {% if each.annotations.db_xref.select %}
-                                  <li style='font-size:70%'>Select transcript: {{ each.annotations.db_xref.select}}</li>
+                                  {% if "Plus" in each.annotations.db_xref.select %}
+                                      <li style='font-size:70%'>Transcript Flag: {{ each.annotations.db_xref.select}}</li>
+                                  {% endif %}
+                                  {% if not "Plus" in each.annotations.db_xref.select %}
+                                      <li style='font-size:70%'>Transcript Flag: {{ each.annotations.db_xref.select}} Select</li>
+                                  {% endif %}
                               {% endif %}
                               {% if each.annotations.db_xref.CCDS%}
                                   <li style='font-size:70%'>CCDS ID: <a href="https://www.ncbi.nlm.nih.gov/CCDS/CcdsBrowse.cgi?REQUEST=CCDS&DATA={{ each.annotations.db_xref.CCDS }}" target="_blank">{{ each.annotations.db_xref.CCDS }}</a></li>

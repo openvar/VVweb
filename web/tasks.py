@@ -203,9 +203,7 @@ def delete_old_jobs():
     """
     logger.info("Checking what job results can be deleted")
     timepoint = timezone.now() - timedelta(days=7)
-    print(timepoint)
     jobs = TaskResult.objects.filter(date_done__lte=timepoint)
-    print(jobs)
     num, details = jobs.delete()
     logger.info("Deleted %s task results" % num)
     return {'deleted': num, 'detail': details}
@@ -219,7 +217,6 @@ def email_old_users():
     :return:
     """
     timepoint = timezone.now() - timedelta(days=(365*2 - 30))
-    print(timepoint)
     users = User.objects.filter(last_login__lte=timepoint, profile__contacted_for_deletion=False)
     if users:
         logger.info("Sending deletion warning to %s" % users)
@@ -231,7 +228,6 @@ def email_old_users():
 
     # Check for users that have logged in since the email
     active_users = User.objects.filter(last_login__gt=timepoint, profile__contacted_for_deletion=True)
-    print(active_users)
     if active_users:
         logger.info("These users have logged back in since email was sent: %s" % active_users)
     for user in active_users:
@@ -250,7 +246,6 @@ def delete_old_users():
     :return:
     """
     timepoint = timezone.now() - timedelta(days=(365*2))
-    print(timepoint)
     users = User.objects.filter(last_login__lte=timepoint, profile__contacted_for_deletion=True)
 
     num, details = users.delete()

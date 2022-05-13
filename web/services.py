@@ -414,8 +414,8 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
     else:
         try:
             ori = validator.tx_exons(tx_ac=hgvs_coding.ac, alt_ac=chromosome, alt_aln_method='splign')
-        except Exception as e:
-            print(e)
+        except Exception:
+            pass
         orientation = int(ori[0]['alt_strand'])
         if orientation == -1:
             orientation = '-'
@@ -428,7 +428,7 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
         chr = to_chr_num_ucsc(c_genome_pos.ac, ucsc_build)
         start = str(c_genome_pos.posedit.pos.start.base - 1)
         end = str(c_genome_pos.posedit.pos.end.base)
-        edit = str(hgvs_coding)  # .posedit)
+        edit = str(hgvs_coding)
         c_bed_call = '\t'.join([chr, start, end, edit, '0', str(orientation)])
         bed_list.append(c_bed_call)
 
@@ -436,7 +436,7 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
     chr = to_chr_num_ucsc(g_genome_pos.ac, ucsc_build)
     start = str(g_genome_pos.posedit.pos.start.base - 1)
     end = str(g_genome_pos.posedit.pos.end.base)
-    edit = str(g_genome_pos)  # .posedit)
+    edit = str(g_genome_pos)
     g_bed_call = '\t'.join([chr, start, end, edit, '0', '+'])
     bed_list.append(g_bed_call)
     # map the vcf
