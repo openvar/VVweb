@@ -23,6 +23,7 @@
                           <th>Coding End</th>
                           <th>Description</th>
                           <th>MANE Select</th>
+                          <th>MANE PLus Clinical</th>
                           <th>RefSeq Select</th>
                       </tr>
                       {% for trans in output.transcripts %}
@@ -33,6 +34,13 @@
                               <td>{{ trans.description }}</td>
                           <td class="text-center">
                               {% if trans.annotations.mane_select %}
+                                  <span><i class="fas fa-check text-success"></i></span>
+                              {% else %}
+                                  <span><i class="fas fa-times text-danger"></i></span>
+                              {% endif %}
+                          </td>
+                          <td class="text-center">
+                              {% if trans.annotations.mane_plus_clinical %}
                                   <span><i class="fas fa-check text-success"></i></span>
                               {% else %}
                                   <span><i class="fas fa-times text-danger"></i></span>

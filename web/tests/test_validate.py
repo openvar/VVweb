@@ -50,7 +50,6 @@ class TestProcessResultService(UnitTestCase):
     def test_intergenic(self):
         val = self.vv.validate('19-15311794-A-G', 'GRCh37', 'all').format_as_dict()
         res = process_result(val, self.vv)
-        print(res)
         self.assertEqual(list(res.keys()), ['flag', 'meta', 'inputted', 'genomes', 'results', 'warnings'])
         self.assertEqual(res['flag'], 'intergenic')
         self.assertEqual(res['genomes'], {'grch37': '19-15311794-A-G', 'hg19': 'chr19-15311794-A-G',
@@ -64,7 +63,6 @@ class TestProcessResultService(UnitTestCase):
     def test_wrong_genome(self):
         val = self.vv.validate('17-50198002-C-A', 'GRCh37', 'all').format_as_dict()
         res = process_result(val, self.vv)
-        print(res)
         self.assertEqual(list(res.keys()), ['flag', 'meta', 'inputted', 'genomes', 'results', 'warnings'])
         self.assertEqual(res['flag'], 'warning')
         self.assertEqual(res['warnings'], ['NC_000017.10:g.50198002C>A: '

@@ -28,10 +28,21 @@
           </ul>
           <form method="post" id="validate-form" name="validate-form">
               {% csrf_token %}
-              <div class="form-group">
+              <div class="form-group" name="validate-form">
                   <label for="variant_id">Variant Description:</label>
-                  <input id="variant_id" name="variant" type="text" placeholder="<accession>.<version>:<type>.<variant description>" class="form-control" required {% if locked %} disabled {% endif %} {% if initial %} value="{{ initial }}" {% endif %}>
+                  <input id="variant_id" name="variant" type="text" placeholder="See above examples" class="form-control" required {% if locked %} disabled {% endif %} {% if initial %} value="{{ initial }}" {% endif %}>
               </div>
+              <div class="form-group" name="validate-form">
+                  <label for="select_transcripts">Select Transcripts for Genomic/Gene variants:</label>
+                  <input id="select_transcripts" name="transcripts" type="text" placeholder="Separate transcript IDs with '|' e.g.NM_1234.5|NM_65432.1, see gene2transcripts tool for transcript IDs" class="form-control" {% if locked %} disabled {% endif %} {% if initial %} value="{{ initial }}" {% endif %}>
+              </div>
+              Additional transcript selection options
+              <ul>
+                  <li>mane_select = MANE Select transcripts only</li>
+                  <li>mane = MANE Select and MANE Plus Clinical transcripts</li>
+                  <li>select = All select transcripts (MANE, RefSeq)</li>
+                  <li>refseq_select = RefSeq Select transcripts only</li>
+              </ul>
               <div class="form-group" id="genomeselect" name="validate-form">
                   <div class="custom-radio custom-control custom-control-inline">
                       <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if locked %} disabled {% endif %} {% if last == 'GRCh38' %}checked {% endif %}>
