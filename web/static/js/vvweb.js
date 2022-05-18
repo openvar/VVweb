@@ -101,6 +101,7 @@ $(document).ready(function() {
                 $('.alert.alert-warning').addClass('alert-danger');
                 $('#msg-body').html("Please <a href='/accounts/login/?next=/service/validate/' class='alert-link'>login</a> to continue using this service");
                 $('#variant_id').val('').attr('disabled', 'disabled');
+                $('#select_transcripts').val('').attr('disabled', 'disabled');
                 $('#grch37').attr('disabled', 'disabled');
                 $('#grch38').attr('disabled', 'disabled');
                 $('#validate-btn').attr('disabled', 'disabled');
@@ -117,6 +118,7 @@ $(document).ready(function() {
         let pdf_caught = document.getElementById("pdf-validate-form");
 
         let variant = $('#variant_id').val();
+        let transcripts = $('#select_transcripts').val();
         let genome = $('#genomeselect input:checked').val();
         console.log(variant);
         console.log(genome);
@@ -136,11 +138,12 @@ $(document).ready(function() {
                 url: '',
                 data: {
                     variant: variant,
+                    transcripts: transcripts,
                     genomebuild: genome,
                     pdf_request: pdf,
                     csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
                 },
-                timeout: 60000,
+                timeout: 120000,
             success: function(res) {
                 console.log('Success!');
                 $('.overlay').hide();

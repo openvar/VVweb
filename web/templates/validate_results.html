@@ -28,6 +28,7 @@
                       <th>Gene Accession</th>
                       <th>Latest Version</th>
                       <th>MANE Select</th>
+                      <th>MANE Plus Clinical</th>
                       <th>RefSeq Select</th>
                   </tr>
                   {% for each in output.results %}
@@ -49,6 +50,13 @@
                           </td>
                           <td class="text-center">
                               {% if each.annotations.mane_select %}
+                                  <span><i class="fas fa-check text-success"></i></span>
+                              {% else %}
+                                  <span><i class="fas fa-times text-danger"></i></span>
+                              {% endif %}
+                          </td>
+                          <td class="text-center">
+                              {% if each.annotations.mane_plus_clinical %}
                                   <span><i class="fas fa-check text-success"></i></span>
                               {% else %}
                                   <span><i class="fas fa-times text-danger"></i></span>
@@ -92,7 +100,12 @@
                               <li><h5>Map location: {{ each.chr_loc }}</h5></li>
                           {% endif %}
                           {% if each.annotations.db_xref.select %}
-                              <li><h5>Select transcript: {{ each.annotations.db_xref.select}}</h5></li>
+                              {% if "Plus" in each.annotations.db_xref.select %}
+                                  <li><h5>Transcript Flag: {{ each.annotations.db_xref.select}}</h5></li>
+                              {% endif %}
+                              {% if not "Plus" in each.annotations.db_xref.select %}
+                                  <li><h5>Transcript Flag: {{ each.annotations.db_xref.select}} Select</h5></li>
+                              {% endif %}
                           {% endif %}
                           {% if each.annotations.db_xref.CCDS%}
                               <li><h5>CCDS ID: <a href="https://www.ncbi.nlm.nih.gov/CCDS/CcdsBrowse.cgi?REQUEST=CCDS&DATA={{ each.annotations.db_xref.CCDS }}" target="_blank">{{ each.annotations.db_xref.CCDS }}</a></h5></li>

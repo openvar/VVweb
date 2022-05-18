@@ -120,12 +120,15 @@ def validate(request):
 
             variant = request.POST.get('variant')
             genome = request.POST.get('genomebuild', 'GRCh38')
+            select_transcripts = request.POST.get('transcripts')
             pdf_r = request.POST.get('pdf_request')
             if pdf_r is None:
                 pdf_r = True
             elif pdf_r is "False":
                 pdf_r = False
-            output = tasks.validate(variant, genome, validator=validator)
+            if select_transcripts is None or select_transcripts is '':
+                select_transcripts = 'all'
+            output = tasks.validate(variant, genome, select_transcripts, validator=validator)
             output = services.process_result(output, validator)
             output['genome'] = genome
 
@@ -524,7 +527,6 @@ def download_batch_res(request, job_id):
         exc_type, exc_value, last_traceback = sys.exc_info()
         logger.error(str(exc_type) + " " + str(exc_value))
         traceback.print_tb(last_traceback, file=sys.stdout)
-        print(ex)
 
     # print(buffer)   # Jon Wakelin 17/Sep/2020
     response = HttpResponse(buffer, content_type='text/plain')
