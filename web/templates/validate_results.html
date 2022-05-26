@@ -271,12 +271,6 @@
                                   <td>{{ each.primary_assembly_loci.grch38.hgvs_genomic_description }}</td>
                               </tr>
                               {%  endif %}
-                              {% if each.hgvs_lrg_variant %}
-                              <tr>
-                                  <td>LRG</td>
-                                  <td>{{ each.hgvs_lrg_variant }}</td>
-                              </tr>
-                              {%  endif %}
                           </table>
                           {% if not "Intergenic" in each.safe_hgvs_trans %}
                           <h5>Transcript and protein descriptions</h5>
@@ -303,12 +297,6 @@
                                   <td>{{ each.hgvs_transcript_variant }}</td>
                               </tr>
                               {% endif %}
-                              {% if each.hgvs_lrg_transcript_variant %}
-                              <tr>
-                                  <td>LRG Transcript</td>
-                                  <td>{{ each.hgvs_lrg_transcript_variant }}</td>
-                              </tr>
-                              {% endif %}
                               {% if each.hgvs_predicted_protein_consequence.slr  %}
                               <tr>
                                   <td>Protein single letter code</td>
@@ -321,19 +309,7 @@
                                   <td>{{ each.hgvs_predicted_protein_consequence.tlr }}</td>
                               </tr>
                               {% endif %}
-                              {% if each.hgvs_predicted_protein_consequence.lrg_slr  %}
-                              <tr>
-                                  <td>LRG Protein single letter code</td>
-                                  <td>{{ each.hgvs_predicted_protein_consequence.lrg_slr }}</td>
-                              </tr>
-                              {% endif %}
-                              {% if each.hgvs_predicted_protein_consequence.lrg_tlr  %}
-                                  <tr>
-                                  <td>LRG Protein three letter code</td>
-                                  <td>{{ each.hgvs_predicted_protein_consequence.lrg_tlr }}</td>
-                              </tr>
-                              </table>
-                              {% endif %}
+                          </table>
                           <br>
                           <h4>Gene Information</h4>
                           <table class="table table-bordered">
