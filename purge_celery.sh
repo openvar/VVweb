@@ -1,2 +1,3 @@
-# Purge the batch queue
+# Purge the batch queue manually
 celery purge --force
+
