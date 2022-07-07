@@ -42,7 +42,6 @@ def home(request):
 
 def about(request):
     return redirect('https://github.com/openvar/variantValidator/blob/master/README.md')
-    # return render(request, 'about.html')
 
 
 def contact(request):
@@ -113,8 +112,19 @@ def validate(request):
     num = int(request.session.get('validations', 0))
     last_genome = request.session.get('genome', None)
 
-    if request.method == 'POST':
+    if request.method == 'GET':
+        variant = request.GET.get('variant')
+        genome = request.GET.get('genomebuild', 'GRCh38')
+        select_transcripts = request.GET.get('transcripts')
 
+        return render(request, 'validate.html', {
+            'variant': variant,
+            'genome': genome,
+            'select_transcripts': select_transcripts,
+            'from_get': True
+        })
+
+    if request.method == 'POST':
         if request.user.is_authenticated or num < 5:
             logger.debug("Going to validate sequences")
             variant = request.POST.get('variant')
