@@ -294,6 +294,8 @@ def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
 
 def get_ucsc_link(validator, output):
 
+    print(output)
+
     try:
         if output['genome'] == 'GRCh37':
             ucsc_assembly = 'hg19'
@@ -315,6 +317,8 @@ def get_ucsc_link(validator, output):
         browser_end = str(hgvs_genomic.posedit.pos.end.base + 11)
         ucsc_browser_position = '%s:%s-%s' % (chromosome, browser_start, browser_end)
         coding = output['results'][0]['hgvs_transcript_variant']
+        if coding == "":
+            coding = "intergenic"
         current_site = Site.objects.get_current()
         ucsc_link = 'http://genome.ucsc.edu/cgi-bin/hgTracks?' \
                     'db=%s&position=%s&hgt.customText=http://%s/bed/?variant=%s|%s|%s|%s|%s' % \
@@ -377,7 +381,8 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
                                alt_aln_method=validator.alt_aln_method
                                )
     # In URL, + is translated to ' '
-    variant = variant.replace(' ', '+')
+    if variant != "":
+        variant = variant.replace(' ', '+')
 
     c_genome_pos = None
     if variant == 'intergenic':
