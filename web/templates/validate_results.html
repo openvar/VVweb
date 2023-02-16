@@ -1,15 +1,20 @@
 {% if output.flag == 'warning' %}
   <div class="row">
     <div class="col-md-12 mb-5">
+    {% if "Protein level variant descriptions are not fully supported due to redundancy in the genetic code" in output.warnings %}
+      <h1>Protein variant warnings</h1>
+      <ul>
+    {% endif %}
+    {% if "Protein level variant descriptions are not fully supported due to redundancy in the genetic code" not in output.warnings %}
       <h1>Error</h1>
       <p>Unable to validate the submitted variant <code>{{ output.inputted }}</code> against the {{ output.genome }} assembly. The following warnings were returned:</p>
       <ul>
+     {% endif %}
       {% for warning in output.warnings %}
         <li class="text-danger">{{ warning }}</li>
       {% endfor %}
       </ul>
       <p>
-        Please check your submission and re-submit.
         {% if 'does not agree with reference sequence' in output.warnings.0 %}
           Based on the error above you likely selected the wrong assembly.
         {% endif %}
