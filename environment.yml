@@ -4,13 +4,16 @@ channels:
   - bioconda
 dependencies:
   - pip
-  - python=3.6
-  - sqlite=3.28
-  - protobuf=3.5.1
+  - python=3.8
+  - sqlite
+  - protobuf
   - mysql-connector-python
-  - pysam
+  # - pysam
   - pyliftover>=0.3
   - numpy
   - httplib2>=0.9.0
   - configparser>=3.5.0
   - requests
+  - weasyprint
+  - cairo
+  - pango

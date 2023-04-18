@@ -4,10 +4,13 @@ sqlparse>=0.3.0
 django-celery-results>=1.1.2
 django-widget-tweaks>=1.4.5
 git+https://github.com/openvar/VariantValidator@master#egg=VariantValidator
+git+https://github.com/openvar/variantFormatter@master#egg=VariantFormatter
+git+https://github.com/openvar/vv_hgvs@master#egg=vvhgvs
 django-cookie-law
 django-allauth
 django-recaptcha
 django-countries
 django-celery-beat
-psycopg2==2.7.4
-WeasyPrint==52.4
+psycopg2 #==2.7.4
+# WeasyPrint==52.4
+pysam
