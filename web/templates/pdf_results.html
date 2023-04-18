@@ -46,10 +46,18 @@
     <div id="results" style="width:66%;">
           <div class="col-md-12 mb-2" style="width:100%;">
                   {% for each in output.results %}
-                          {% if each.validation_warnings %}
+                          {% if each.validation_warnings and not each.rna_variant_descriptions.usage_warnings %}
                           <h7>Warnings output during validation</h7>
                             <ul style="padding-left: 20px;">
                             {% for warning in each.validation_warnings %}
+                              <li style='font-size:60%; color: red;'>{{ warning }}</li>
+                            {% endfor %}
+                            </ul>
+                          {% endif %}
+                          {% if each.rna_variant_descriptions.usage_warnings %}
+                          <h7>Warnings output during validation</h7>
+                            <ul style="padding-left: 20px;">
+                            {% for warning in each.rna_variant_descriptions.usage_warnings %}
                               <li style='font-size:60%; color: red;'>{{ warning }}</li>
                             {% endfor %}
                             </ul>
@@ -92,6 +100,8 @@
                               {%  endif %} -->
                           </table>
                           {% if not "Intergenic" in each.safe_hgvs_trans %}
+
+                          {% if not each.rna_variant_descriptions.rna_variant%}
                               <h7>Transcript and protein descriptions</h7>
                             <table class="table table-sm" style='font-size:60%'>
                               <tr>
@@ -116,37 +126,48 @@
                                   <td>{{ each.hgvs_transcript_variant }}</td>
                               </tr>
                               {% endif %}
-                              <!-- {% if each.hgvs_lrg_transcript_variant %}
-                              <tr>
-                                  <td>LRG Transcript</td>
-                                  <td>{{ each.hgvs_lrg_transcript_variant }}</td>
-                              </tr>
-                              {% endif %} -->
-                              <!-- {% if each.hgvs_predicted_protein_consequence.slr  %}
-                              <tr>
-                                  <td>Protein single letter code</td>
-                                  <td>{{ each.hgvs_predicted_protein_consequence.slr }}</td>
-                              </tr>
-                              {% endif %} -->
                               {% if each.hgvs_predicted_protein_consequence.tlr  %}
                                   <tr>
                                   <td>Protein three letter code</td>
                                   <td>{{ each.hgvs_predicted_protein_consequence.tlr }}</td>
                               </tr>
                               {% endif %}
-                              <!-- {% if each.hgvs_predicted_protein_consequence.lrg_slr  %}
+                              {% if each.hgvs_predicted_protein_consequence.slr  %}
                               <tr>
-                                  <td>LRG Protein single letter code</td>
-                                  <td>{{ each.hgvs_predicted_protein_consequence.lrg_slr }}</td>
+                                  <td>Protein single letter code</td>
+                                  <td>{{ each.hgvs_predicted_protein_consequence.slr }}</td>
                               </tr>
-                              {% endif %} -->
-                              <!-- {% if each.hgvs_predicted_protein_consequence.lrg_tlr  %}
+                              {% endif %}
+                            </table>
+                          {% endif %}
+
+                           {% if each.rna_variant_descriptions.rna_variant %}
+                              <h7>Transcript and protein descriptions</h7>
+                            <table class="table table-sm" style='font-size:60%'>
+                              <tr>
+                                  <th style="width: 160px;">Reference Sequence Type</th>
+                                  <th>Variant Description</th>
+                              </tr>
+                              {% if each.rna_variant_descriptions.rna_variant %}
+                              <tr>
+                                  <td>Transcript</td>
+                                  <td>{{ each.rna_variant_descriptions.rna_variant}}</td>
+                              </tr>
+                              {% endif %}
+                              {% if each.rna_variant_descriptions.translation  %}
                                   <tr>
-                                  <td>LRG Protein three letter code</td>
-                                  <td>{{ each.hgvs_predicted_protein_consequence.lrg_tlr }}</td>
+                                  <td>Protein three letter code</td>
+                                  <td>{{ each.rna_variant_descriptions.translation }}</td>
                               </tr>
-                              {% endif %} -->
-                                  </table>
+                              {% endif %}
+                              {% if each.rna_variant_descriptions.translation_slr  %}
+                              <tr>
+                                  <td>Protein single letter code</td>
+                                  <td>{{ each.rna_variant_descriptions.translation_slr }}</td>
+                              </tr>
+                              {% endif %}
+                            </table>
+                          {% endif %}
 
                          <!-- <p style="page-break-before: always;"></p> -->
                           <h7>Gene Information</h7>

@@ -117,10 +117,18 @@
                           {% endif %}
                           </ul>
                           <br>
-                          {% if each.validation_warnings %}
+                          {% if each.validation_warnings and not each.rna_variant_descriptions.usage_warnings %}
                           <h5>Warnings output during validation</h5>
                             <ul>
                             {% for warning in each.validation_warnings %}
+                              <li class="text-danger">{{ warning }}</li>
+                            {% endfor %}
+                            </ul>
+                          {% endif %}
+                          {% if each.rna_variant_descriptions.usage_warnings%}
+                          <h5>Warnings output during validation</h5>
+                            <ul>
+                            {% for warning in each.rna_variant_descriptions.usage_warnings %}
                               <li class="text-danger">{{ warning }}</li>
                             {% endfor %}
                             </ul>
@@ -139,6 +147,15 @@
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.tx_ac }}" target="_blank">{{ each.tx_ac }}</a></td>
                               </tr>
                               {%  endif %}
+
+                              {% if each.rna_variant_descriptions.rna_variant%}
+                              <tr>
+                                  <td>Transcript (:r.)</td>
+                                  <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.rna_variant_descriptions.rna_variant }}</a></td>
+                                  <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.tx_ac }}" target="_blank">{{ each.tx_ac }}</a></td>
+                              </tr>
+                              {%  endif %}
+
                               {% if each.hgvs_lrg_transcript_variant %}
                               <tr>
                                   <td>Transcript (:c.)</td>
@@ -160,20 +177,36 @@
                                   <td><a href="{{ each.reference_sequence_records.lrg }}" target="_blank">{{ each.lrg_ac }}</a></td>
                               </tr>
                               {% endif %}
-                              {% if each.hgvs_predicted_protein_consequence.tlr  %}
+                              {% if each.hgvs_predicted_protein_consequence.tlr %}
                               <tr>
                                   <td>Protein (:p.)</td>
                                   <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_predicted_protein_consequence.tlr }}</a></td>
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
                               </tr>
                              {% endif %}
-                              {% if each.hgvs_predicted_protein_consequence.slr  %}
+                              {% if each.hgvs_predicted_protein_consequence.slr %}
                               <tr>
                                   <td>Protein (:p.)</td>
                                   <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.hgvs_predicted_protein_consequence.slr }}</a></td>
                                   <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
                               </tr>
                              {% endif %}
+
+                              {% if each.rna_variant_descriptions.translation  %}
+                              <tr>
+                                  <td>Protein (:p.) translated from r.</td>
+                                  <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.rna_variant_descriptions.translation }}</a></td>
+                                  <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
+                              </tr>
+                             {% endif %}
+                              {% if each.rna_variant_descriptions.translation_slr %}
+                              <tr>
+                                  <td>Protein (:p.) translated from r.</td>
+                                  <td><a class="variant-example" data-genome="{{ output.genome }}" href="#">{{ each.rna_variant_descriptions.translation_slr }}</a></td>
+                                  <td><a href="https://www.ncbi.nlm.nih.gov/nuccore/{{ each.prot_ac }}" target="_blank">{{ each.prot_ac }}</a></td>
+                              </tr>
+                             {% endif %}
+
                               {% if each.hgvs_predicted_protein_consequence.lrg_tlr  %}
                               <tr>
                                   <td>LRG Protein (:p.)</td>
@@ -278,6 +311,7 @@
                               {%  endif %}
                           </table>
                           {% if not "Intergenic" in each.safe_hgvs_trans %}
+                          {% if not each.rna_variant_descriptions.rna_variant %}
                           <h5>Transcript and protein descriptions</h5>
                           <table class="table table-bordered">
                               <tr>
@@ -315,6 +349,36 @@
                               </tr>
                               {% endif %}
                           </table>
+                          {% endif %}
+
+                          {% if each.rna_variant_descriptions.rna_variant %}
+                          <h5>Transcript and protein descriptions</h5>
+                          <table class="table table-bordered">
+                              <tr>
+                                  <th>Reference Sequence Type</th>
+                                  <th>Variant Description</th>
+                              </tr>
+                              {% if each.rna_variant_descriptions.rna_variant %}
+                              <tr>
+                                  <td>Transcript</td>
+                                  <td>{{ each.rna_variant_descriptions.rna_variant }}</td>
+                              </tr>
+                              {% endif %}
+                              {% if each.rna_variant_descriptions.translation  %}
+                              <tr>
+                                  <td>Protein single letter code</td>
+                                  <td>{{ each.rna_variant_descriptions.translation_slr }}</td>
+                              </tr>
+                              {% endif %}
+                              {% if each.rna_variant_descriptions.translation %}
+                                  <tr>
+                                  <td>Protein three letter code</td>
+                                  <td>{{ each.rna_variant_descriptions.translation }}</td>
+                              </tr>
+                              {% endif %}
+                          </table>
+                          {% endif %}
+
                           <br>
                           <h4>Gene Information</h4>
                           <table class="table table-bordered">
@@ -380,7 +444,12 @@
                               <form method="post" id="pdf-validate-form" name="pdf-validate-form">
                                   {% csrf_token %}
                                   <div class="form-group">
-                                     <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.hgvs_transcript_variant }}">
+                                     {% if not each.rna_variant_descriptions.rna_variant %}
+                                      <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.hgvs_transcript_variant }}">
+                                     {% endif %}
+                                      {% if each.rna_variant_descriptions.rna_variant %}
+                                      <input type="hidden" id="variant_id_pdf" name="variant" type="text" class="form-control" required value="{{ each.rna_variant_descriptions.rna_variant }}">
+                                     {% endif %}
                                   </div>
                                   <div class="form-group" id="pdf-genomeselect" name="pdf-validate-form">
                                       <div class="custom-radio custom-control custom-control-inline">
