@@ -322,7 +322,11 @@ def vcf2hgvs(request):
             if request.FILES['vcf_file'].multiple_chunks():
                 messages.info(request, 'Large file detected, multiple jobs will be submitted')
                 jobs = []
-                for chunk in request.FILES['vcf_file'].chunks():
+                try:
+                    vcf_file = codecs.decode(request.FILES['vcf_file'].read(), 'UTF-8')
+                except TypeError:
+                    vcf_file = request.FILES['vcf_file'].read()
+                for chunk in vcf_file.chunks():
                     res = tasks.vcf2hgvs.delay(
                         chunk,
                         form.cleaned_data['genome'],
