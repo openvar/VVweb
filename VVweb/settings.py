@@ -21,8 +21,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-DEBUG = TEMPLATE_DEBUG = True
+DEBUG = False
+DEBUG = TEMPLATE_DEBUG = False
 
 ALLOWED_HOSTS = ['www512.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1']
 
