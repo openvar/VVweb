@@ -320,22 +320,26 @@ def vcf2hgvs(request):
             logger.debug("VCF to HGVS input: %s" % form.cleaned_data)
             # json_version = serialize('json', [form.cleaned_data['vcf_file']])
             # print(json_version)
+
             if request.FILES['vcf_file'].multiple_chunks():
                 messages.info(request, 'Large file detected, multiple jobs will be submitted')
                 jobs = []
                 try:
-                    vcf_file = codecs.decode(request.FILES['vcf_file'].read(), 'UTF-8')
+                    for chunk in codecs.decode(request.FILES['vcf_file'].chunks(), 'UTF-8'):
+                        res = tasks.vcf2hgvs.delay(
+                            chunk,
+                            form.cleaned_data['genome'],
+                            form.cleaned_data['gene_symbols'],
+                            form.cleaned_data['email_address']
+                        )
                 except TypeError:
-                    vcf_file = request.FILES['vcf_file'].read()
-                for chunk in vcf_file.chunks():
-                    res = tasks.vcf2hgvs.delay(
-                        chunk,
-                        form.cleaned_data['genome'],
-                        form.cleaned_data['gene_symbols'],
-                        form.cleaned_data['email_address'],
-                        form.cleaned_data['select_transcripts'],
-                        form.cleaned_data['options']
-                    )
+                    for chunk in request.FILES['vcf_file'].chunks():
+                        res = tasks.vcf2hgvs.delay(
+                            chunk,
+                            form.cleaned_data['genome'],
+                            form.cleaned_data['gene_symbols'],
+                            form.cleaned_data['email_address']
+                        )
                     jobs.append(str(res))
                 res = ', '.join(jobs)
             else:
