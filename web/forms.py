@@ -48,7 +48,9 @@ class BatchValidateForm(forms.Form):
                                    label='Limit search, optionally, to specific genes (use HGNC gene symbols)'
     )
     select_transcripts = forms.CharField(widget=forms.Textarea(
-        attrs={'rows': '5', 'placeholder': 'One transcript id per line \n Or use one of: \n\tselect \n\t'
+        attrs={'rows': '5', 'placeholder': 'One transcript id per line \n Or use one of: \n\tall (all transcripts at '
+                                           'latest version) \n\traw (all transcripts at all versions)'
+                                           '\n\tselect \n\t'
                                            'refseq_select \n\tmane'}),
                                          required=False,
                                          label='Optional - limit to specific transcripts (see our Genes to '
@@ -105,7 +107,8 @@ class VCF2HGVSForm(forms.Form):
                                          required=False,
                                          label='Limit search, optionally, to specific transcripts (see our Genes to '
                                          'Transcripts tool). The batch instructions page contains further options '
-                                         'e.g. MANE select transcripts'
+                                         'e.g. raw (all transcripts at all versions) all (all transcripts at latest '
+                                         'version only) mane_select (MANE select transcripts)'
     )
     options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
         attrs={'checked': 'check_label'}),
