@@ -11,6 +11,6 @@ django-allauth
 django-recaptcha
 django-countries
 django-celery-beat
-psycopg2 #==2.7.4
+psycopg2==2.8.6
 # WeasyPrint==52.4
 pysam
