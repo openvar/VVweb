@@ -134,9 +134,9 @@ def validate(request):
             pdf_r = request.POST.get('pdf_request')
             if pdf_r is None:
                 pdf_r = True
-            elif pdf_r is "False":
+            elif pdf_r == "False":
                 pdf_r = False
-            if select_transcripts is None or select_transcripts is '':
+            if select_transcripts is None or select_transcripts == '':
                 select_transcripts = 'all'
             output = tasks.validate(variant, genome, select_transcripts, validator=validator)
             output = services.process_result(output, validator)
