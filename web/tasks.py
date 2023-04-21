@@ -71,7 +71,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
 
 @shared_task
 def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, validator=None):
-    logger.critical("Running vcf2hgvs task")
+    logger.info("Running vcf2hgvs task")
     if validator is None:
         validator = VariantValidator.Validator()
 
@@ -162,7 +162,7 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, valida
             # Warn admin so that we can resubmit - needs manual intervension
             warning = ("Processing failure in bug catcher 1 - job suspended: {}".format(error))
             logger.warning(warning)
-            logger.critical(error)
+            logger.error(error)
 
             # Assemble an error log
             # String the log into a single list
