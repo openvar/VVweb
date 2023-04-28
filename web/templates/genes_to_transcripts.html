@@ -63,11 +63,14 @@
   {% endif %}
   <div class="row">
       <div class="col-md-12 mb-5">
-          <h2>Input HGNC gene symbols or valid transcript accessions</h2>
+          <h2>Input HGNC gene symbols, valid transcript accessions, or HGNC gene IDs</h2>
           <form method="post">
               {% csrf_token %}
               <div class="form-group">
                   <input id="symbol_id" name="symbol" type="text" class="form-control" placeholder="e.g. COL1A1 (or NM_000088.3)" required>
+              </div>
+              <div class="form-group">
+                  <input id="select_transcripts" name="transcripts" type="text" class="form-control" placeholder="e.g. mane_select, mane, select">
               </div>
               <button class="btn btn-primary" id="g2t-btn" type="submit">Submit</button>
           </form>
