@@ -82,8 +82,11 @@ def genes_to_transcripts(request):
     if request.method == "POST":
         logger.debug("Gene2Trans submitted")
         symbol = request.POST.get('symbol')
+        select_transcripts = request.POST.get('transcripts')
+        if select_transcripts == "":
+            select_transcripts = "all"
 
-        output = tasks.gene2transcripts(symbol, validator)
+        output = tasks.gene2transcripts(symbol, validator=validator, select_transcripts=select_transcripts)
         logger.debug(output)
         if 'transcripts' in output.keys():
             for trans in output['transcripts']:
@@ -318,8 +321,6 @@ def vcf2hgvs(request):
         form = forms.VCF2HGVSForm(request.POST, request.FILES)
         if form.is_valid():
             logger.debug("VCF to HGVS input: %s" % form.cleaned_data)
-            # json_version = serialize('json', [form.cleaned_data['vcf_file']])
-            # print(json_version)
 
             if request.FILES['vcf_file'].multiple_chunks():
                 messages.info(request, 'Large file detected, multiple jobs will be submitted')

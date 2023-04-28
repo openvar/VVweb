@@ -22,11 +22,11 @@ def validate(variant, genome, transcripts, validator=None):
 
 
 @shared_task
-def gene2transcripts(symbol, validator=None):
+def gene2transcripts(symbol, validator=None, select_transcripts="all"):
     logger.info("Running gene2transcripts task")
     if validator is None:
         validator = VariantValidator.Validator()
-    output = validator.gene2transcripts(symbol)
+    output = validator.gene2transcripts(symbol, select_transcripts=select_transcripts)
     return output
 
 
