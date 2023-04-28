@@ -88,6 +88,7 @@ def genes_to_transcripts(request):
 
         output = tasks.gene2transcripts(symbol, validator=validator, select_transcripts=select_transcripts)
         logger.debug(output)
+
         if 'transcripts' in output.keys():
             for trans in output['transcripts']:
                 if trans['reference'].startswith('LRG'):
