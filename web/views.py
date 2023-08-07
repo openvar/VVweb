@@ -548,7 +548,6 @@ def download_batch_res(request, job_id):
 
 def bed_file(request):
     # Capture the incoming request
-
     info = request.GET.get('variant')
     if info is None:
         raise Http404("BED file does not exist without providing input variants")
