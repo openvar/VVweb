@@ -260,6 +260,10 @@
                                  {% endif %}
                               {% endfor %}
                           </table>
+                          {% if ucsc %}
+                              <h6>View in <a href="{{ ucsc }}|{{ each.hgvs_transcript_variant }}" target="_blank">UCSC Genome Browser</a></h6>
+                          {% endif %}
+                          <br>
                           {% if each.variant_exonic_positions is not None %}
                               <h5>Variant Exon/Intron positions</h5>
                                   <table class="table table-bordered">
@@ -504,9 +508,6 @@
               <h4>View variant in external resources</h4>
                {%  if ucsc or varsome %}
                <ul>
-                {% if ucsc %}
-                    <li><a href="{{ ucsc }}" target="_blank">UCSC Genome Browser</a></li>
-                {% endif %}
                 {% if varsome %}
                     <li><a href="{{ varsome }}" target="_blank">VarSome</a></li>
                 {%  endif %}

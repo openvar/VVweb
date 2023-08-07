@@ -24,7 +24,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEBUG = True
 DEBUG = TEMPLATE_DEBUG = True
 
-ALLOWED_HOSTS = ['www525.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1']
+ALLOWED_HOSTS = ['www525.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1', '127.0.0.1:8000']
 
 
 # Application definition
@@ -107,7 +107,7 @@ DATABASES = {
 #  3 | variantvalidator.org     | VariantValidator
 #  5 | www.variantvalidator.org | VariantValidator
 
-SITE_ID = 1
+SITE_ID = 2
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
