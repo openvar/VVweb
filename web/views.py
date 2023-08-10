@@ -538,7 +538,6 @@ def download_batch_res(request, job_id):
         logger.error(str(exc_type) + " " + str(exc_value))
         traceback.print_tb(last_traceback, file=sys.stdout)
 
-    # print(buffer)   # Jon Wakelin 17/Sep/2020
     response = HttpResponse(buffer, content_type='text/plain')
     response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
     logger.debug("Job %s results downloaded by user %s" % (job_id, request.user))
@@ -547,7 +546,6 @@ def download_batch_res(request, job_id):
 
 def bed_file(request):
     # Capture the incoming request
-
     info = request.GET.get('variant')
     if info is None:
         raise Http404("BED file does not exist without providing input variants")

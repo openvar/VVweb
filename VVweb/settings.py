@@ -24,11 +24,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEBUG = False
 DEBUG = TEMPLATE_DEBUG = False
 
-ALLOWED_HOSTS = ['www512.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1']
+ALLOWED_HOSTS = ['www525.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1', '127.0.0.1:8000']
 
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
