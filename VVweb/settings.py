@@ -21,14 +21,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-DEBUG = TEMPLATE_DEBUG = True
+DEBUG = False
+DEBUG = TEMPLATE_DEBUG = False
 
 ALLOWED_HOSTS = ['www525.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1', '127.0.0.1:8000']
 
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -202,13 +201,13 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level': 'DEBUG',
+            'level': 'ERROR',
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'info.log'),
             'formatter': 'verbose'
         },
         'console': {
-            'level': 'DEBUG',
+            'level': 'ERROR',
             'filters': ['require_debug_true'],
             'class': 'logging.StreamHandler',
             'formatter': 'simple'
@@ -221,7 +220,7 @@ LOGGING = {
     'loggers': {
         'vv': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'level': 'ERROR',
         },
         'django': {
             'handlers': ['console'],
