@@ -419,7 +419,10 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf, version
             ori = validator.tx_exons(tx_ac=hgvs_coding.ac, alt_ac=chromosome, alt_aln_method='splign')
         except Exception:
             pass
-        orientation = int(ori[0]['alt_strand'])
+        try:
+            orientation = int(ori[0]['alt_strand'])
+        except UnboundLocalError:
+            orientation = "."
         if orientation == -1:
             orientation = '-'
         else:
