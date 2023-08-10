@@ -131,7 +131,6 @@ def validate(request):
     if request.method == 'POST':
         if request.user.is_authenticated or num < 5:
             logger.debug("Going to validate sequences")
-
             variant = request.POST.get('variant')
             genome = request.POST.get('genomebuild', 'GRCh38')
             select_transcripts = request.POST.get('transcripts')
