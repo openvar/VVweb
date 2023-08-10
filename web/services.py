@@ -294,8 +294,6 @@ def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
 
 def get_ucsc_link(validator, output):
 
-    print(output)
-
     try:
         if output['genome'] == 'GRCh37':
             ucsc_assembly = 'hg19'
@@ -372,7 +370,7 @@ def get_gnomad_link(output):
         pass
 
 
-def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
+def create_bed_file(validator, variant, chromosome, build, genomic, vcf, version):
 
     # Create local normalizer
     hn = normalizer.Normalizer(validator.hdp,
@@ -381,8 +379,8 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf):
                                alt_aln_method=validator.alt_aln_method
                                )
     # In URL, + is translated to ' '
-    if variant != "":
-        variant = variant.replace(' ', '+')
+    if version != "":
+        variant = version.replace(' ', '+')
 
     c_genome_pos = None
     if variant == 'intergenic':
