@@ -311,8 +311,8 @@ def get_ucsc_link(validator, output):
             vcf_components[0] = chromosome
             if len(vcf_components[3]) > 10:
                 vcf_components[3] = "<ref_bases>"
-            if len(vcf_components[3]) > 10:
-                vcf_components[3] = "<alt_bases>"
+            if len(vcf_components[4]) > 10:
+                vcf_components[4] = "<alt_bases>"
             vcf_varsome = '-'.join(vcf_components)
 
         browser_start = str(hgvs_genomic.posedit.pos.start.base - 11)
