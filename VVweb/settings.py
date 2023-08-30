@@ -238,8 +238,8 @@ LOGGING = {
 
 try:
     from .local_settings import *
-except ImportError:
-    pass
+except ImportError as e:
+    print(e)
 
 # <LICENSE>
 # Copyright (C) 2016-2023 VariantValidator Contributors

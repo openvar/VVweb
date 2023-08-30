@@ -19,7 +19,7 @@ working correctly before proceeding any further. See the [VV git repo](https://g
 
 Next, clone the environment to use with VVweb
 ```bash
-conda create --name vvweb --clone vvenv
+conda env create -f environment.yml
 ```
 
 Finally install additional packages
