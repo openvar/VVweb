@@ -54,7 +54,7 @@ psycopg2==2.9.7
 psycopg2-binary==2.9.7
 ptyprocess==0.7.0
 pyee==8.2.2
-Pygments==2.5.2
+Pygments==2.15.0
 PyJWT==2.8.0
 pyliftover==0.4
 pyppeteer==1.0.2
