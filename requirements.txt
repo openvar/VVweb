@@ -2,7 +2,7 @@ vvhgvs@git+https://github.com/openvar/vv_hgvs@master
 VariantFormatter@git+https://github.com/openvar/variantFormatter@master
 VariantValidator@git+https://github.com/openvar/variantValidator@master
 django==3.2.20
-celery==4.4.7
+celery==4.4.6
 django-celery-results
 django-celery-beat
 amqp==2.6.1
