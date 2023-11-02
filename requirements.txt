@@ -20,7 +20,7 @@ cssselect2==0.2.1
 Cython==3.0.2
 decorator==5.1.1
 defusedxml==0.7.1
-Django==3.2.20
+Django==3.2.23
 django-allauth==0.55.0
 django-celery-beat==2.0.0
 django-celery-results==2.0.0
