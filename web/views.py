@@ -116,8 +116,8 @@ def validate(request):
     num = int(request.session.get('validations', 0))
     last_genome = request.session.get('genome', None)
 
-    if request.method == 'GET':
 
+    if request.method == 'GET':
         variant = request.GET.get('variant')
         genome = request.GET.get('genomebuild', 'GRCh38')
         select_transcripts = request.GET.get('transcripts')

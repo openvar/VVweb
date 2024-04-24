@@ -48,8 +48,9 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarResponsive">
         <ul class="navbar-nav ml-auto">
+            {% if request.resolver_match.url_name != 'home' %}
             <li>
-                <form class="form-inline" method="post" id="validate-form" name="validate-form">
+                <form class="form-inline" method="post" id="validate-form" name="validate-form-nav">
                     {% csrf_token %}
                     <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 65%; margin: 5px;">
                     <input class="form-control mr-sm-2" id="select_transcripts" name="transcripts" type="text" placeholder="Select Transcripts" {% if select_transcripts %} value="{{ select_transcripts }}" {% endif %} style="width: 30%;margin: 5px;">
@@ -67,6 +68,7 @@
                     <button class="btn btn-outline-success my-2 my-sm-0" type="submit" {% if locked %} disabled {% endif %} style="width: 20%; margin: 5px; float: right;">Submit </button>
                 </form>
             </li>
+            {% endif %}
             <li class="nav-item {% if request.resolver_match.url_name == 'home' %}active {% endif %}">
                 <a class="nav-link" href="{% url 'home' %}">Home</a>
             </li>

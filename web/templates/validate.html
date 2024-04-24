@@ -118,12 +118,12 @@
     </div>
   </div>
     
-    {% if autosubmit == "true" %}
-    <script>
-        window.onload = function() {
-            document.getElementById('validate-form').submit();
-        }
-    </script>
-    {% endif %}
+{% if autosubmit == "true" %}
+<script>
+    window.addEventListener('load', function() {
+        document.getElementById('validate-form').submit();
+    });
+</script>
+{% endif %}
 
 {% endblock %}
