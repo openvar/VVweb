@@ -50,10 +50,10 @@
         <ul class="navbar-nav ml-auto">
             {% if request.resolver_match.url_name == 'validate' %}
             <li>
-                <form class="form-inline" method="post" id="validate-form" name="validate-form">
+                <form class="form-inline" method="post" id="validate-form-nav" name="validate-form-nav">
                     {% csrf_token %}
-                    <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 65%; margin: 5px;">
-                    <input class="form-control mr-sm-2" id="select_transcripts" name="transcripts" type="text" placeholder="Select Transcripts" {% if select_transcripts %} value="{{ select_transcripts }}" {% endif %} style="width: 30%;margin: 5px;">
+                    <input class="form-control mr-sm-2" id="variant_id_nav" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 65%; margin: 5px;">
+                    <input class="form-control mr-sm-2" id="select_transcripts_nav" name="transcripts" type="text" placeholder="Select Transcripts" {% if select_transcripts %} value="{{ select_transcripts }}" {% endif %} style="width: 30%;margin: 5px;">
                   <div class="form-group" id="genomeselect" name="validate-form">
                       <div class="custom-radio custom-control custom-control-inline">
                           <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if genome == 'GRCh38' %}checked {% endif %}style="margin: 5px;">
