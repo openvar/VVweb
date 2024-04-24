@@ -12,7 +12,6 @@ attrs==20.3.0
 beautifulsoup4==4.9.3
 billiard==3.6.4.0
 biocommons-seqrepo==0.6.3
-biopython==1.79
 biotools==1.2.12
 bioutils==0.5.2.post3
 bs4==0.0.1
