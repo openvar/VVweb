@@ -48,10 +48,29 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarResponsive">
         <ul class="navbar-nav ml-auto">
-          <li class="nav-item {% if request.resolver_match.url_name == 'home' %}active {% endif %}">
-            <a class="nav-link" href="{% url 'home' %}">Home</a>
-          </li>
-          <li class="nav-item dropdown {% if 'service' in request.resolver_match.route %}active {% endif %}">
+            <li>
+                <form class="form-inline" method="post" id="validate-form" name="validate-form">
+                    {% csrf_token %}
+                    <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 65%; margin: 5px;">
+                    <input class="form-control mr-sm-2" id="select_transcripts" name="transcripts" type="text" placeholder="Select Transcripts" {% if select_transcripts %} value="{{ select_transcripts }}" {% endif %} style="width: 30%;margin: 5px;">
+                  <div class="form-group" id="genomeselect" name="validate-form">
+                      <div class="custom-radio custom-control custom-control-inline">
+                          <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if genome == 'GRCh38' %}checked {% endif %}style="margin: 5px;">
+                          <label class="custom-control-label" for="grch38">GRCh38 (hg38)</label>
+                      </div>
+                      <div class="custom-radio custom-control custom-control-inline">
+                          <input class="custom-control-input" type="radio" name="genomebuild" id="grch37" value="GRCh37" {% if genome == 'GRCh37' %}checked {% endif %}style="margin: 5px;">
+                          <label class="custom-control-label" for="grch37">GRCh37 (hg19)</label>
+                      </div>
+                  </div>
+                    <input type="hidden" name="pdf_request" value="False">
+                    <button class="btn btn-outline-success my-2 my-sm-0" type="submit" {% if locked %} disabled {% endif %} style="width: 20%; margin: 5px; float: right;">Submit </button>
+                </form>
+            </li>
+            <li class="nav-item {% if request.resolver_match.url_name == 'home' %}active {% endif %}">
+                <a class="nav-link" href="{% url 'home' %}">Home</a>
+            </li>
+            <li class="nav-item dropdown {% if 'service' in request.resolver_match.route %}active {% endif %}">
             <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">Tools</a>
               <div class="dropdown-menu" aria-labelledby="navbarDropdown">
                 <a class="dropdown-item" href="{% url 'validate' %}">Validator</a>
@@ -60,8 +79,8 @@
                 <!-- <a class="dropdown-item" href="{% url 'vcf2hgvs' %}">VCF to HGVS</a> -->
                 <a class="dropdown-item" href="https://rest.variantvalidator.org/">REST API</a>
               </div>
-          </li>
-          <li class="nav-item dropdown {% if 'help' in request.resolver_match.route %}active {% endif %}">
+            </li>
+            <li class="nav-item dropdown {% if 'help' in request.resolver_match.route %}active {% endif %}">
             <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">Information</a>
               <div class="dropdown-menu dropleft" aria-labelledby="navbarDropdown">
                 <a class="dropdown-item" href="https://github.com/openvar/variantValidator/blob/master/README.md">About</a>
@@ -91,7 +110,7 @@
                       <a class="dropdown-item" href="https://mutalyzer.nl/" target="_blank">Mutalyzer</a>
                   </div>
               </div>
-          </li>
+            </li>
           {% if user.is_authenticated %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">
@@ -162,7 +181,7 @@
           </a>
         </div>
         <div class="col col-lg-6">
-          <p class="m-0 text-center text-dark">Copyright &copy; 2016-2023 VariantValidator Contributors</p>
+          <p class="m-0 text-center text-dark">Copyright &copy; 2016-2024 VariantValidator Contributors</p>
         </div>
         <div class="col col-lg-3">
           <a href="http://le.ac.uk" target="_blank">

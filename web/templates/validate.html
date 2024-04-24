@@ -8,7 +8,7 @@
     <div class="loading spinner-border text-primary" role="status">
       <span class="sr-only">Loading...</span>
     </div>
-  <div id="validate-results"></div>
+    <div id="validate-results"></div>
   <div class="row">
       <div class="col-md-12 mb-5">
           <h2>Input Variant Description</h2>
@@ -55,6 +55,7 @@
                           <label class="custom-control-label" for="grch37">GRCh37 (hg19, build19)</label>
                       </div>
                   </div>
+                  <input type="hidden" name="pdf_request" value="False">
                   <button id="validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
                     Submit
                   </button>
@@ -88,6 +89,7 @@
                           <label class="custom-control-label" for="grch37">GRCh37 (hg19, build19)</label>
                       </div>
                   </div>
+                    <input type="hidden" name="pdf_request" value="False">
                   <button id="validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
                     Submit
                   </button>
@@ -115,4 +117,13 @@
       </div>
     </div>
   </div>
+    
+    {% if autosubmit == "true" %}
+    <script>
+        window.onload = function() {
+            document.getElementById('validate-form').submit();
+        }
+    </script>
+    {% endif %}
+
 {% endblock %}

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # echo "test" |mail -s "$HOSTNAME VVweb restart test STARTED" peter.j.freeman@manchester.ac.uk
-source /local/miniconda3/bin/activate vvweb  
+source /local/miniconda3/bin/activate vvweb_v2  
 out=$(/local/VVweb/check_celery_status.sh |grep -A2 ^ActiveTasks |tail -1)
 test=$(echo $out | grep -c "\- empty \-")
 
@@ -10,7 +10,7 @@ then
    ps aux | grep celery | awk '{print $2}' | xargs kill
    # echo "test" |mail -s "$HOSTNAME VVWeb CELERY KILLED" peter.j.freeman@manchester.ac.uk
    sleep 30
-   source /local/miniconda3/bin/activate vvweb
+   source /local/miniconda3/bin/activate vvweb_v2
    cd /local/VVweb
    ./run_celery.sh
    echo "test" |mail -s "$HOSTNAME VVWeb CELERY test and restart script complete" peter.j.freeman@manchester.ac.uk

@@ -117,15 +117,18 @@ def validate(request):
     last_genome = request.session.get('genome', None)
 
     if request.method == 'GET':
+
         variant = request.GET.get('variant')
         genome = request.GET.get('genomebuild', 'GRCh38')
         select_transcripts = request.GET.get('transcripts')
+        autosubmit = request.GET.get('autosubmit', 'false')
 
         return render(request, 'validate.html', {
             'variant': variant,
             'genome': genome,
             'select_transcripts': select_transcripts,
-            'from_get': True
+            'from_get': True,
+            'autosubmit': autosubmit,
         })
 
     if request.method == 'POST':
@@ -135,6 +138,7 @@ def validate(request):
             genome = request.POST.get('genomebuild', 'GRCh38')
             select_transcripts = request.POST.get('transcripts')
             pdf_r = request.POST.get('pdf_request')
+
             if pdf_r is None:
                 pdf_r = True
             elif pdf_r == "False":
@@ -562,7 +566,7 @@ def bed_file(request):
     return response
 
 # <LICENSE>
-# Copyright (C) 2016-2023 VariantValidator Contributors
+# Copyright (C) 2016-2024 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

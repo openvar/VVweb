@@ -1,4 +1,4 @@
-name: vvweb
+name: vvweb_v2
 channels:
   - conda-forge
   - bioconda
@@ -7,11 +7,19 @@ dependencies:
   - python=3.10
   - sqlite
   - mysql-connector-python
-  - pyliftover>=0.3
+  - configparser
+  - certifi
+  - cffi
+  - curl
+  - fontconfig==2.13.1
+  - freetype
+  - icu
+  - krb5
+  - ncurses
   - numpy
-  - httplib2>=0.9.0
-  - configparser>=3.5.0
-  - requests
-  - weasyprint
-  - cairo
-  - pango
+  - protobuf
+  - pyliftover
+  - pysam
+  - readline
+  - libffi
+
