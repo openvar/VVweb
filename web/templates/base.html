@@ -48,7 +48,7 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarResponsive">
         <ul class="navbar-nav ml-auto">
-            {% if request.resolver_match.url_name != 'home' %}
+            {% if request.resolver_match.url_name == 'validate' %}
             <li>
                 <form class="form-inline" method="post" id="validate-form" name="validate-form-nav">
                     {% csrf_token %}
