@@ -5,6 +5,7 @@
 {% block subtitle %}{% if output %}Submitted {{ output.inputted }}{% endif %}{% endblock %}
 
 {% block content %}
+    
     <div class="loading spinner-border text-primary" role="status">
       <span class="sr-only">Loading...</span>
     </div>
@@ -117,13 +118,4 @@
       </div>
     </div>
   </div>
-    
-{% if autosubmit == "true" %}
-<script>
-    window.addEventListener('load', function() {
-        document.getElementById('validate-form').submit();
-    });
-</script>
-{% endif %}
-
 {% endblock %}
