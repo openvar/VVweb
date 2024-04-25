@@ -27,14 +27,7 @@
               <li><a class="variant-example" href="#" data-genome="GRCh38">chr17:g.50198002C>A</a></li>
               <li><a class="variant-example" href="#" data-genome="GRCh38">chr17(GRCh38):g.50198002C>A</a></li>
           </ul>
-          Additional transcript selection options
-                  <ul>
-                      <li>mane_select = MANE Select transcripts only</li>
-                      <li>mane = MANE Select and MANE Plus Clinical transcripts</li>
-                      <li>select = All select transcripts (MANE, RefSeq)</li>
-                      <li>refseq_select = RefSeq Select transcripts only</li>
-                  </ul>
-      
+
           {% if from_get %}
               <form method="post" id="validate-form" name="validate-form">
                   {% csrf_token %}
