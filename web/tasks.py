@@ -33,13 +33,17 @@ def gene2transcripts(symbol, validator=None, select_transcripts="all"):
 
 @shared_task
 def batch_validate(variant, genome, email, gene_symbols, transcripts, options, validator=None):
-    logger.info("Running batch_validate task")
+    logger.error("Running batch_validate task")
     if validator is None:
         validator = VariantValidator.Validator()
 
     # Convert inputs to JSON arrays
     variant = input_formatting.format_input(variant)
     transcripts = input_formatting.format_input(transcripts)
+
+    logging.error("initial transcripts: %s" % transcripts)
+    logging.error("initial variant: %s" % variant)
+
     if "all" in transcripts:
         transcripts = "all"
     if transcripts == '["raw"]':
