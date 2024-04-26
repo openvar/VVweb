@@ -40,7 +40,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
     # Convert inputs to JSON arrays
     variant = input_formatting.format_input(variant)
     transcripts = input_formatting.format_input(transcripts)
-    if transcripts == '["all"]':
+    if "all" in transcripts:
         transcripts = "all"
     if transcripts == '["raw"]':
         transcripts = "raw"
@@ -62,9 +62,9 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
     else:
         transcripts = input_formatting.format_input(transcripts)
 
-    logger.info("Transcripts: %s" % transcripts)
-    logger.info("Gene Symbols: %s" % gene_symbols)
-    logger.info("Variant: %s" % variant)
+    logger.error("Transcripts: %s" % transcripts)
+    logger.error("Gene Symbols: %s" % gene_symbols)
+    logger.error("Variant: %s" % variant)
     output = validator.validate(variant, genome, transcripts)
     # Convert to a table
     res = output.format_as_table()
