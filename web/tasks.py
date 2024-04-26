@@ -65,7 +65,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
             except KeyError:
                 continue
 
-    if transcript_list is not []:  # and ('all' not in transcripts and "select" not in transcripts):
+    if len(transcript_list) >= 1:  # and ('all' not in transcripts and "select" not in transcripts):
         print("TRC")
         print(transcript_list)
         transcripts = "|".join(transcript_list)
