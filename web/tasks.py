@@ -62,9 +62,9 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
     else:
         transcripts = input_formatting.format_input(transcripts)
 
-    logger.critical("Transcripts: %s" % transcripts)
-    logger.critical("Gene Symbols: %s" % gene_symbols)
-    logger.critical("Variant: %s" % variant)
+    logger.error("Transcripts: %s" % transcripts)
+    logger.error("Gene Symbols: %s" % gene_symbols)
+    logger.error("Variant: %s" % variant)
     output = validator.validate(variant, genome, transcripts)
     # Convert to a table
     res = output.format_as_table()
