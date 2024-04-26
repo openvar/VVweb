@@ -54,7 +54,9 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
 
     transcript_list = []
     for sym in gene_symbols.split('|'):
+        print("Gene symbol: %s" % sym)
         if sym:
+            print("Gene symbol 2: %s" % sym)
             returned_trans = gene2transcripts(sym, validator=validator)
             logger.info(returned_trans)
             try:
@@ -68,7 +70,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         transcripts = input_formatting.format_input(transcripts)
 
     print("Transcripts 3: %s" % transcripts)
-    print("Variant: %s 3" % variant)
+    print("Variant 3: %s" % variant)
 
 
     output = validator.validate(variant, genome, transcripts)
