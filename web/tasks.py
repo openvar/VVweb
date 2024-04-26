@@ -66,7 +66,8 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
                 continue
 
     if transcript_list is not []:  # and ('all' not in transcripts and "select" not in transcripts):
-        print("TRC)")
+        print("TRC")
+        print(transcript_list)
         transcripts = "|".join(transcript_list)
         transcripts = input_formatting.format_input(transcripts)
 
