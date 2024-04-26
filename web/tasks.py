@@ -44,6 +44,9 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
     logging.error("initial transcripts: %s" % transcripts)
     logging.error("initial variant: %s" % variant)
 
+    print("initial transcripts: %s" % transcripts)
+    print("initial variant: %s" % variant)
+
     if "all" in transcripts:
         transcripts = "all"
     if transcripts == '["raw"]':
@@ -69,6 +72,10 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
     logger.error("Transcripts: %s" % transcripts)
     logger.error("Gene Symbols: %s" % gene_symbols)
     logger.error("Variant: %s" % variant)
+
+    print("Transcripts: %s" % transcripts)
+    print("Variant: %s" % variant)
+
     output = validator.validate(variant, genome, transcripts)
     # Convert to a table
     res = output.format_as_table()
