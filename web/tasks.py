@@ -37,9 +37,6 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
     if validator is None:
         validator = VariantValidator.Validator()
 
-    print("initial transcripts: %s" % transcripts)
-    print("initial variant: %s" % variant)
-
     # Convert inputs to JSON arrays
     variant = input_formatting.format_input(variant)
     transcripts = input_formatting.format_input(transcripts)
@@ -49,14 +46,9 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
     if transcripts == '["raw"]':
         transcripts = "raw"
 
-    print("Transcripts 2: %s" % transcripts)
-    print("Variant 2: %s" % variant)
-
     transcript_list = []
     for sym in gene_symbols.split('|'):
-        print("Gene symbol: %s" % sym)
         if sym:
-            print("Gene symbol 2: %s" % sym)
             returned_trans = gene2transcripts(sym, validator=validator)
             logger.info(returned_trans)
             try:
@@ -66,14 +58,8 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
                 continue
 
     if len(transcript_list) >= 1:  # and ('all' not in transcripts and "select" not in transcripts):
-        print("TRC")
-        print(transcript_list)
         transcripts = "|".join(transcript_list)
         transcripts = input_formatting.format_input(transcripts)
-
-    print("Transcripts 3: %s" % transcripts)
-    print("Variant 3: %s" % variant)
-
 
     output = validator.validate(variant, genome, transcripts)
     # Convert to a table
