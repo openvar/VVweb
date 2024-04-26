@@ -45,12 +45,6 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
     if transcripts == '["raw"]':
         transcripts = "raw"
 
-
-    # if "all" not in transcripts and "select" not in transcripts:
-    #     transcript_list = transcripts.split('|')
-    # else:
-    #     pass  # Keep it as 'all or a select'
-
     transcript_list = []
     for sym in gene_symbols.split('|'):
         if sym:
@@ -62,7 +56,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
             except KeyError:
                 continue
 
-    if transcript_list is not []: # and ('all' not in transcripts and "select" not in transcripts):
+    if transcript_list is not []:  # and ('all' not in transcripts and "select" not in transcripts):
         transcripts = "|".join(transcript_list)
         transcripts = input_formatting.format_input(transcripts)
     else:
