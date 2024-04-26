@@ -32,7 +32,7 @@ def gene2transcripts(symbol, validator=None, select_transcripts="all"):
 
 
 @shared_task
-def batch_validate(variant, genome, email, gene_symbols, transcripts, options, validator=None):
+def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[], validator=None):
     logger.error("Running batch_validate task")
     if validator is None:
         validator = VariantValidator.Validator()
