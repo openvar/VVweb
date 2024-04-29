@@ -61,6 +61,9 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         transcripts = "|".join(transcript_list)
         transcripts = input_formatting.format_input(transcripts)
 
+    if transcripts == []:
+        transcripts = "all"
+
     output = validator.validate(variant, genome, transcripts)
     # Convert to a table
     res = output.format_as_table()
