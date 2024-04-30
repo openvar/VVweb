@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 from django.conf import settings
 from celery import shared_task
 import VariantValidator
+from . import input_formatting
 from . import services
 import logging
 from django_celery_results.models import TaskResult
@@ -31,16 +32,21 @@ def gene2transcripts(symbol, validator=None, select_transcripts="all"):
 
 
 @shared_task
-def batch_validate(variant, genome, email, gene_symbols, transcripts, options, validator=None):
-    logger.info("Running batch_validate task")
+def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[], validator=None):
+    logger.error("Running batch_validate task")
     if validator is None:
         validator = VariantValidator.Validator()
 
+    # Convert inputs to JSON arrays
+    variant = input_formatting.format_input(variant)
+    transcripts = input_formatting.format_input(transcripts)
+
+    if "all" in transcripts:
+        transcripts = "all"
+    if transcripts == '["raw"]':
+        transcripts = "raw"
+
     transcript_list = []
-    if "all" not in transcripts and "select" not in transcripts:
-        transcript_list = transcripts.split('|')
-    else:
-        pass  # Keep it as 'all or a select'
     for sym in gene_symbols.split('|'):
         if sym:
             returned_trans = gene2transcripts(sym, validator=validator)
@@ -51,12 +57,13 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options, v
             except KeyError:
                 continue
 
-    if transcript_list is not [] and ('all' not in transcripts and "select" not in transcripts):
+    if len(transcript_list) >= 1:  # and ('all' not in transcripts and "select" not in transcripts):
         transcripts = "|".join(transcript_list)
-    else:
-        transcripts = transcripts
+        transcripts = input_formatting.format_input(transcripts)
 
-    logger.info("Transcripts: %s" % transcripts)
+    if transcripts == []:
+        transcripts = "all"
+
     output = validator.validate(variant, genome, transcripts)
     # Convert to a table
     res = output.format_as_table()
