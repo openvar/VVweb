@@ -52,7 +52,7 @@
             <li>
                 <form class="form-inline" method="post" id="validate-form" name="validate-form">
                     {% csrf_token %}
-                    <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 60%; margin: 5px;">
+                    <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 95%; margin: 5px;">
                     <input type="hidden" id="select_transcripts_hidden" name="transcripts">
                     <div class="dropdown">
                         <input class="form-control dropdown-toggle mr-sm-2" type="text" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" placeholder="Select Transcripts" style="width: 95%;margin: 5px;">
