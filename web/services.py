@@ -32,7 +32,7 @@ def process_result(val, validator):
         if k == 'flag' or k == 'metadata':
             continue
         # print('k')
-        #print("K", k)
+        # print("K", k)
         # print('v')
         # print("V", v)
 

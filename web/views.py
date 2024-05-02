@@ -127,6 +127,7 @@ def validate(request):
             'variant': variant,
             'genome': genome,
             'select_transcripts': select_transcripts,
+            'transcripts': select_transcripts,
             'from_get': True,
             'autosubmit': autosubmit,
         })

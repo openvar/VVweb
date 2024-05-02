@@ -111,17 +111,14 @@ $(document).ready(function() {
 
 
     $('#validate-form').on('submit', function(evt) {
-        console.log('HTML');
         evt.preventDefault();
 
         let html_caught = document.getElementById("validate-form");
         let pdf_caught = document.getElementById("pdf-validate-form");
 
         let variant = $('#variant_id').val();
-        let transcripts = $('#select_transcripts').val();
         let genome = $('#genomeselect input:checked').val();
-        console.log(variant);
-        console.log(genome);
+        let transcripts = $('#transcripts').val() || $('#transcripts-select').val() || 'transcripts';
 
         let pdf = null
 
