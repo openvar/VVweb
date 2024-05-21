@@ -20,16 +20,16 @@ $(document).ready(function() {
     $('#validate-btn .spinner-border').hide();
 
     $('#validate-btn').on("click", function() {
+        console.log("Clicked validate button");
         if ($('#variant_id').val()){
-            console.log("Clicked validate button");
             $('.overlay').show();
             $('.loading').show();
         }
     });
 
     $('#g2t-btn').on("click", function() {
+        console.log("Clicked g2t button");
         if ($('#symbol_id').val()){
-            console.log("Clicked g2t button");
             $('.overlay').show();
             $('.loading').show();
         }
