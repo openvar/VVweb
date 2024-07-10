@@ -264,8 +264,8 @@ def batch_validate(request):
                 form.cleaned_data['email_address'],
                 form.cleaned_data['gene_symbols'],
                 form.cleaned_data['select_transcripts'],
-                form.cleaned_data['options'],
-                form.cleaned_data['refsource']
+                options=form.cleaned_data['options'],
+                transcript_set=form.cleaned_data['refsource']
             )
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % job)
             services.send_initial_email(form.cleaned_data['email_address'], job, 'validation')
