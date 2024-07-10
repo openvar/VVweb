@@ -73,7 +73,8 @@ class BatchValidateForm(forms.Form):
 
     refsource = forms.ChoiceField(choices=(('refseq', 'refseq'), ('ensembl', 'ensembl')),
                                   widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
-                                  label='Select reference sequence source')
+                                  label='Select reference sequence source',
+                                  initial='refseq')
 
     def clean_input_variants(self):
         vars = self.cleaned_data['input_variants'].strip().split()
