@@ -14,25 +14,26 @@ logger = logging.getLogger('vv')
 
 
 @shared_task
-def validate(variant, genome, transcripts, validator=None):
+def validate(variant, genome, transcripts, validator=None, transcript_set="refseq"):
     logger.info("Running validate task")
     if validator is None:
         validator = VariantValidator.Validator()
-    output = validator.validate(variant, genome, transcripts)
+    output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set)
     return output.format_as_dict()
 
 
 @shared_task
-def gene2transcripts(symbol, validator=None, select_transcripts="all"):
+def gene2transcripts(symbol, validator=None, select_transcripts="all", transcript_set="refseq"):
     logger.info("Running gene2transcripts task")
     if validator is None:
         validator = VariantValidator.Validator()
-    output = validator.gene2transcripts(symbol, select_transcripts=select_transcripts)
+    output = validator.gene2transcripts(symbol, select_transcripts=select_transcripts, transcript_set=transcript_set)
     return output
 
 
 @shared_task
-def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[], validator=None):
+def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[], transcript_set="refseq",
+                   validator=None):
     logger.error("Running batch_validate task")
     if validator is None:
         validator = VariantValidator.Validator()
@@ -49,7 +50,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
     transcript_list = []
     for sym in gene_symbols.split('|'):
         if sym:
-            returned_trans = gene2transcripts(sym, validator=validator)
+            returned_trans = gene2transcripts(sym, validator=validator, transcript_set=transcript_set)
             logger.info(returned_trans)
             try:
                 for trans in returned_trans['transcripts']:
@@ -64,7 +65,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
     if transcripts == []:
         transcripts = "all"
 
-    output = validator.validate(variant, genome, transcripts)
+    output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set)
     # Convert to a table
     res = output.format_as_table()
     # Add options to the metadata dictionary

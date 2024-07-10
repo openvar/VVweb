@@ -14,7 +14,13 @@
     {% endblock %}
 
 {% block content %}
-
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+    
+    <strong>New Feature:</strong> We now support Ensembl reference sequences. This is an experimental feature. If you face issues when validating Ensembl based variant descriptions, please contact admin (https://variantvalidator.org/help/contact/).
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>  
   <div class="row">
       <div class="col-md-8 mb-5">
         <h2>What We Do</h2>
@@ -30,7 +36,7 @@
         </p>
 {#        <a class="btn btn-primary btn-lg" href="#">Call to Action &raquo;</a>#}
       </div>
-
+      
       <div class="col-md-4 mb-4">
         <h2>Powered By</h2>
         <hr>

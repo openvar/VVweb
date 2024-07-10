@@ -71,6 +71,10 @@ class BatchValidateForm(forms.Form):
                                widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
                                label='Select genome build')
 
+    refsource = forms.ChoiceField(choices=(('refseq', 'refseq'), ('ensembl', 'ensembl')),
+                                  widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
+                                  label='Select reference sequence source')
+
     def clean_input_variants(self):
         vars = self.cleaned_data['input_variants'].strip().split()
         if len(vars) == 0:

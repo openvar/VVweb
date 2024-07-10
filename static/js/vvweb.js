@@ -112,6 +112,7 @@ $(document).ready(function() {
 
     $('#validate-form').on('submit', function(evt) {
         evt.preventDefault();
+        console.log("Form submitted B")
 
         let html_caught = document.getElementById("validate-form");
         let pdf_caught = document.getElementById("pdf-validate-form");
@@ -119,6 +120,8 @@ $(document).ready(function() {
         let variant = $('#variant_id').val();
         let genome = $('#genomeselect input:checked').val();
         let transcripts = $('#transcripts').val() || $('#transcripts-select').val() || 'transcripts';
+        let source = $('#refsource').val();
+        console.log(source);
 
         let pdf = null
 
@@ -138,6 +141,7 @@ $(document).ready(function() {
                     transcripts: transcripts,
                     genomebuild: genome,
                     pdf_request: pdf,
+                    refsource: source,
                     csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
                 },
                 timeout: 120000,
