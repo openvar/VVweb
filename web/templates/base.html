@@ -52,20 +52,20 @@
             <li>
                 <form class="form-inline" method="post" id="validate-form" name="validate-form">
                     {% csrf_token %}
-                    <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 60%; margin: 5px;">
-                    <input type="hidden" id="select_transcripts_hidden" name="transcripts">
-                    <div class="dropdown">
-                        <input class="form-control dropdown-toggle mr-sm-2" type="text" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" placeholder="Select Transcripts" style="width: 95%;margin: 5px;">
-                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                            <h6 class="dropdown-header">Common Options</h6>
-                            <a class="dropdown-item" href="#" data-value="all" data-toggle="tooltip" title="All transcripts at their latest version">all</a>
-                            <a class="dropdown-item" href="#" data-value="mane" data-toggle="tooltip" title="MANE and MANE Plus Clinical transcripts">mane</a>
-                            <a class="dropdown-item" href="#" data-value="mane_select" data-toggle="tooltip" title=" MANE Select transcript">mane_select</a>
-                            <a class="dropdown-item" href="#" data-value="select" data-toggle="tooltip" title="All select transcripts (including MANE Select)">select</a>
-                            <a class="dropdown-item" href="#" data-value="raw" data-toggle="tooltip" title="All transcripts at all versions which we have in our dataset">raw</a>
-                            <a class="dropdown-item" disabled href="#" data-value="text" data-toggle="tooltip" title="Type in transcripts by ID in the format NM_000088.3 for a single transcript or NM_000088.3|NM_000088.4 for multiple transcripts">Type transcript ID(s)</a>
-                        </div>
-                    </div>
+                    <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 100%; margin: 5px;">
+                    
+                    <select class="custom-select my-1 mr-sm-2" id="transcripts-select" name="dropdown-transcripts" style="width: 40%; margin: 5px;">
+                        <option value="" disabled selected>Select transcript options</option>
+                        <option value="mane_select" title="MANE Select transcript">mane_select</option>
+                        <option value="mane" title="MANE and MANE Plus Clinical transcripts">mane</option>
+                        <option value="select" title="All select transcripts (including MANE Select)">select</option>
+                        <option value="all" title="All transcripts at their latest version">all</option>
+                        <option value="raw" title="All transcripts at all versions which we have in our dataset">raw</option>
+                        <option value="">Deselect</option>
+                    </select>
+                
+                    <input id="transcripts" name="select_transcripts" type="text" placeholder="Or type transcript IDs separated by '|' e.g.NM_1234.5|NM_65432.1" class="form-control" {% if transcripts %} value="{{ transcripts }}" {% endif %} style="width: 55%; margin: 5px;">
+                        
                     <div class="form-group" id="genomeselect" name="validate-form">
                         <div class="custom-radio custom-control custom-control-inline">
                             <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if genome == 'GRCh38' %}checked {% endif %}style="margin: 5px;">
@@ -76,8 +76,19 @@
                             <label class="custom-control-label" for="grch37">GRCh37 (hg19)</label>
                         </div>
                     </div>
+                    <div class="form-group" id="refsource" name="validate-form">
+                        <div class="custom-radio custom-control custom-control-inline">
+                            <input class="custom-control-input" type="radio" name="refsource" id="refseq" value="refseq" {% if source == 'refseq' %}checked {% endif %}style="margin: 5px;">
+                            <label class="custom-control-label" for="refseq">RefSeq</label>
+                        </div>
+                        <div class="custom-radio custom-control custom-control-inline">
+                            <input class="custom-control-input" type="radio" name="refsource" id="ensembl" value="ensembl" {% if source == 'ensembl' %}checked {% endif %}style="margin: 5px;">
+                            <label class="custom-control-label" for="ensembl">Ensembl</label>
+                            <span style="color: red;"> (Experimental feature)</span>
+                        </div>
+                    </div>
                     <input type="hidden" name="pdf_request" value="False">
-                    <button class="btn btn-outline-success my-2 my-sm-0" type="submit" {% if locked %} disabled {% endif %} style="width: 20%; margin: 5px; float: right;">Submit </button>
+                    <button class="btn btn-outline-success my-2 my-sm-0" type="submit" id="validate-btn" {% if locked %} disabled {% endif %} style="width: 20%; margin: 5px; float: right;">Submit </button>
                 </form>
             </li>
             {% endif %}
@@ -255,21 +266,16 @@
   </script>
 
   <script>
-    $(function () {
+  $(function () {
       $('[data-toggle="tooltip"]').tooltip()
-
-      // Set the value of the dropdown input field to the select_transcripts value when the page loads
-      var select_transcripts = "{{ select_transcripts }}";
-      if (select_transcripts && select_transcripts !== 'None' && select_transcripts !== '') {
-        $('#dropdownMenuButton').val(select_transcripts);
-        $('#select_transcripts_hidden').val(select_transcripts);
-      }
-
-      // Set the value of the hidden input field when a dropdown item is clicked
-      $('.dropdown-item').click(function() {
-        $('#dropdownMenuButton').val($(this).text());
-        $('#select_transcripts_hidden').val($(this).data('value'));
-      });
+  });
+  </script>
+  
+  <script>
+      $('#transcripts-select').on('change', function() {
+        if ($(this).val() === '') {
+            $(this).val(null);
+        }
     });
   </script>
 

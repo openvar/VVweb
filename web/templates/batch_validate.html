@@ -20,7 +20,7 @@
               {% csrf_token %}
               {% for field in form %}
                   <div class="form-group">
-                      {% if field.label != 'Select genome build' %}
+                      {% if field.label != 'Select genome build' and field.label != 'Select reference sequence source' %}
                           <label for="{{ field.id_for_label }}"><h4>{{ field.label }}</h4></label>
                           {% if field.label == 'Customise the information returned in the output file' %}
                             {{ field }}

@@ -32,9 +32,9 @@ def process_result(val, validator):
         if k == 'flag' or k == 'metadata':
             continue
         # print('k')
-        # print(k)
+        # print("K", k)
         # print('v')
-        # print(v)
+        # print("V", v)
 
         counter += 1
         input_str = v['submitted_variant']
@@ -100,33 +100,8 @@ def process_result(val, validator):
         v['latest'] = latest
 
         for genome in v['primary_assembly_loci']:
-            vcfdict = v['primary_assembly_loci'][genome]['vcf']
-            vcfstr = "%s:%s:%s:%s:%s" % (
-                genome.replace('grch', 'GRCh'),
-                vcfdict['chr'],
-                vcfdict['pos'],
-                vcfdict['ref'],
-                vcfdict['alt']
-            )
-            vcfstr_alt = "%s-%s-%s-%s" % (
-                vcfdict['chr'],
-                vcfdict['pos'],
-                vcfdict['ref'],
-                vcfdict['alt']
-            )
-            v['primary_assembly_loci'][genome]['vcfstr'] = vcfstr
-            v['primary_assembly_loci'][genome]['vcfstr_alt'] = vcfstr_alt
-            genomes[genome] = vcfstr_alt
-            v['primary_assembly_loci'][genome]['ac'] = \
-                v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
-            if 'grc' in genome:
-                v['primary_assembly_loci'][genome]['genome'] = genome.replace('grch', 'GRCh')
-            else:
-                v['primary_assembly_loci'][genome]['genome'] = genome
-
-        for alt in v['alt_genomic_loci']:
-            for genome in alt:
-                vcfdict = alt[genome]['vcf']
+            try:
+                vcfdict = v['primary_assembly_loci'][genome]['vcf']
                 vcfstr = "%s:%s:%s:%s:%s" % (
                     genome.replace('grch', 'GRCh'),
                     vcfdict['chr'],
@@ -140,9 +115,44 @@ def process_result(val, validator):
                     vcfdict['ref'],
                     vcfdict['alt']
                 )
-                alt[genome]['vcfstr'] = vcfstr
-                alt[genome]['vcfstr_alt'] = vcfstr_alt
+                v['primary_assembly_loci'][genome]['vcfstr'] = vcfstr
+                v['primary_assembly_loci'][genome]['vcfstr_alt'] = vcfstr_alt
                 genomes[genome] = vcfstr_alt
+
+            except Exception:
+                pass
+
+            v['primary_assembly_loci'][genome]['ac'] = \
+                v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
+            if 'grc' in genome:
+                v['primary_assembly_loci'][genome]['genome'] = genome.replace('grch', 'GRCh')
+            else:
+                v['primary_assembly_loci'][genome]['genome'] = genome
+
+
+        for alt in v['alt_genomic_loci']:
+            for genome in alt:
+                try:
+                    vcfdict = alt[genome]['vcf']
+                    vcfstr = "%s:%s:%s:%s:%s" % (
+                        genome.replace('grch', 'GRCh'),
+                        vcfdict['chr'],
+                        vcfdict['pos'],
+                        vcfdict['ref'],
+                        vcfdict['alt']
+                    )
+                    vcfstr_alt = "%s-%s-%s-%s" % (
+                        vcfdict['chr'],
+                        vcfdict['pos'],
+                        vcfdict['ref'],
+                        vcfdict['alt']
+                    )
+                    alt[genome]['vcfstr'] = vcfstr
+                    alt[genome]['vcfstr_alt'] = vcfstr_alt
+                    genomes[genome] = vcfstr_alt
+                except Exception:
+                    pass
+            
                 alt[genome]['ac'] = \
                     alt[genome]['hgvs_genomic_description'].split(':')[0]
                 if 'grc' in genome:

@@ -111,18 +111,16 @@ $(document).ready(function() {
 
 
     $('#validate-form').on('submit', function(evt) {
-        console.log('HTML');
+        console.log("Form submitted A")
         evt.preventDefault();
 
         let html_caught = document.getElementById("validate-form");
         let pdf_caught = document.getElementById("pdf-validate-form");
 
         let variant = $('#variant_id').val();
-        let transcripts = $('#select_transcripts').val();
         let genome = $('#genomeselect input:checked').val();
-        console.log(variant);
-        console.log(genome);
-
+        let transcripts = $('#transcripts').val() || $('#transcripts-select').val() || 'transcripts';
+        let source = $('#refsource input:checked').val();
         let pdf = null
 
         if ( html_caught == null && pdf_caught != null) {
@@ -141,6 +139,7 @@ $(document).ready(function() {
                     transcripts: transcripts,
                     genomebuild: genome,
                     pdf_request: pdf,
+                    refsource: source,
                     csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
                 },
                 timeout: 120000,
