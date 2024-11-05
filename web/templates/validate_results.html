@@ -461,6 +461,11 @@
                                           <input class="custom-control-input" type="radio" name="genomebuild" value={{ output.genome }}  checked>
                                       </div>
                                   </div>
+                                  <div class="form-group" id="pdf-refsource" name="pdf-validate-form">
+                                      <div class="custom-radio custom-control custom-control-inline">
+                                          <input class="custom-control-input" type="radio" name="refsource" value={{ output.source }}  checked>
+                                      </div>
+                                  </div>
                                   <button id="pdf-validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
                                     Print pdf
                                   </button>
@@ -479,6 +484,12 @@
                                       <div class="custom-radio custom-control custom-control-inline">
                                           <input class="custom-control-input" type="radio" name="genomebuild" value={{ output.genome }} checked>
                                       </div>
+                                  </div>
+                                  <div class="form-group" id="pdf-refsource" name="pdf-validate-form">
+                                      <div class="custom-radio custom-control custom-control-inline">
+                                          <input class="custom-control-input" type="radio" name="refsource" value={{ output.source }}  checked>
+                                      </div>
+                                  </div>
                                   <button id="pdf-validate-btn" type="submit" class="btn btn-primary" {% if locked %} disabled {% endif %}>
                                     Print pdf
                                   </button>

@@ -72,6 +72,17 @@
               <div class="form-group">
                   <input id="select_transcripts" name="transcripts" type="text" class="form-control" placeholder="e.g. mane_select, mane, select">
               </div>
+              <div class="form-group" id="refsource" name="source">
+                  <div class="custom-radio custom-control custom-control-inline">
+                      <input class="custom-control-input" type="radio" name="refsource" id="refseq" value="refseq" checked style="margin: 5px;">
+                      <label class="custom-control-label" for="refseq">RefSeq</label>
+                  </div>
+                  <div class="custom-radio custom-control custom-control-inline">
+                      <input class="custom-control-input" type="radio" name="refsource" id="ensembl" value="ensembl" style="margin: 5px;">
+                      <label class="custom-control-label" for="ensembl">Ensembl</label>
+                      <span style="color: red;"> (Experimental feature)</span>
+                  </div>
+              </div>
               <button class="btn btn-primary" id="g2t-btn" type="submit">Submit</button>
           </form>
       </div>

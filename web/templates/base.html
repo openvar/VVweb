@@ -76,6 +76,17 @@
                             <label class="custom-control-label" for="grch37">GRCh37 (hg19)</label>
                         </div>
                     </div>
+                    <div class="form-group" id="refsource" name="validate-form">
+                        <div class="custom-radio custom-control custom-control-inline">
+                            <input class="custom-control-input" type="radio" name="refsource" id="refseq" value="refseq" {% if source == 'refseq' %}checked {% endif %}style="margin: 5px;">
+                            <label class="custom-control-label" for="refseq">RefSeq</label>
+                        </div>
+                        <div class="custom-radio custom-control custom-control-inline">
+                            <input class="custom-control-input" type="radio" name="refsource" id="ensembl" value="ensembl" {% if source == 'ensembl' %}checked {% endif %}style="margin: 5px;">
+                            <label class="custom-control-label" for="ensembl">Ensembl</label>
+                            <span style="color: red;"> (Experimental feature)</span>
+                        </div>
+                    </div>
                     <input type="hidden" name="pdf_request" value="False">
                     <button class="btn btn-outline-success my-2 my-sm-0" type="submit" id="validate-btn" {% if locked %} disabled {% endif %} style="width: 20%; margin: 5px; float: right;">Submit </button>
                 </form>
