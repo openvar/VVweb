@@ -117,17 +117,24 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, valida
             # REMOVE METADATA
             if var_call.startswith('#'):
                 continue
-            var_call = var_call.strip()
-            variant_data = var_call.split()
-            logger.info(variant_data)
+            else:
+                # Stringify
+                # var_call = var_call.decode()
+                var_call = var_call.strip()
+                # Log var_call
 
-            try:
-                chr = str(variant_data[0])
-                pos = str(variant_data[1])
-                ref = str(variant_data[3])
-                alt = str(variant_data[4])
-            except:
-                continue
+                # Split the VCF components into a list
+                variant_data = var_call.split()
+                logger.info(variant_data)
+
+                try:
+                    # Gather the call data
+                    chr = str(variant_data[0])
+                    pos = str(variant_data[1])
+                    ref = str(variant_data[3])
+                    alt = str(variant_data[4])
+                except:
+                    continue
 
             # Create an unambiguous call for VCF 4.0
             if ref == '.' or ref == '' or ref == '-':
