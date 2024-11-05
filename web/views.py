@@ -19,7 +19,6 @@ import sys
 import traceback
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
-# validator = VariantValidator.Validator()
 
 logger = logging.getLogger('vv')
 
@@ -84,13 +83,16 @@ def genes_to_transcripts(request):
         logger.debug("Gene2Trans submitted")
         symbol = request.POST.get('symbol')
         select_transcripts = request.POST.get('transcripts')
+        reference_source = request.POST.get('refsource', 'refseq')
         if select_transcripts == "":
             select_transcripts = "all"
 
         # Get object from pool
         validator = g2t_object_pool.get_object()
 
-        output = tasks.gene2transcripts(symbol, validator=validator, select_transcripts=select_transcripts)
+        output = tasks.gene2transcripts(symbol, validator=validator, select_transcripts=select_transcripts,
+                                        transcript_set=reference_source)
+
         logger.debug(output)
 
         # Return object to pool
@@ -122,12 +124,14 @@ def validate(request):
     locked = False
     num = int(request.session.get('validations', 0))
     last_genome = request.session.get('genome', None)
+    last_source = request.session.get('refsource', None)
 
 
     if request.method == 'GET':
         variant = request.GET.get('variant')
         genome = request.GET.get('genomebuild', 'GRCh38')
         select_transcripts = request.GET.get('transcripts')
+        source = request.GET.get('refsource', 'refseq')
         autosubmit = request.GET.get('autosubmit', 'false')
 
         return render(request, 'validate.html', {
@@ -137,6 +141,7 @@ def validate(request):
             'transcripts': select_transcripts,
             'from_get': True,
             'autosubmit': autosubmit,
+            'source': source,
         })
 
     if request.method == 'POST':
@@ -144,6 +149,7 @@ def validate(request):
             logger.debug("Going to validate sequences")
             variant = request.POST.get('variant')
             genome = request.POST.get('genomebuild', 'GRCh38')
+            source = request.POST.get('refsource', 'refseq')
             select_transcripts = request.POST.get('transcripts')
             pdf_r = request.POST.get('pdf_request')
 
@@ -157,11 +163,13 @@ def validate(request):
             # Get object from pool
             validator = vval_object_pool.get_object()
 
-            output = tasks.validate(variant, genome, select_transcripts, validator=validator)
+            output = tasks.validate(variant, genome, select_transcripts, validator=validator, transcript_set=source)
             output = services.process_result(output, validator)
             output['genome'] = genome
+            output['source'] = source
 
             request.session['genome'] = genome
+            request.session['source'] = source
 
             ucsc_link = services.get_ucsc_link(validator, output)
             varsome_link = services.get_varsome_link(output)
@@ -239,11 +247,13 @@ def validate(request):
     initial = request.GET.get('variant')
     if initial:
         last_genome = request.GET.get('genome', 'GRCh38')
+        last_source = request.GET.get('refsource', 'refseq')
 
     return render(request, 'validate.html', {
         'output': output,
         'locked': locked,
         'last': last_genome,
+        'source': last_source,
         'initial': initial,
     })
 
@@ -267,7 +277,8 @@ def batch_validate(request):
                 form.cleaned_data['email_address'],
                 form.cleaned_data['gene_symbols'],
                 form.cleaned_data['select_transcripts'],
-                form.cleaned_data['options']
+                options=form.cleaned_data['options'],
+                transcript_set=form.cleaned_data['refsource']
             )
             messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % job)
             services.send_initial_email(form.cleaned_data['email_address'], job, 'validation')
@@ -288,6 +299,7 @@ def batch_validate(request):
             form.fields['gene_symbols'].disabled = True
             form.fields['select_transcripts'].disabled = True
             form.fields['options'].disabled = True
+            form.fields['refsource'].disabled = True
             locked = True
         else:
             form.fields['genome'].initial = last_genome
@@ -303,6 +315,7 @@ def batch_validate(request):
                     form.fields['gene_symbols'].disabled = True
                     form.fields['select_transcripts'].disabled = True
                     form.fields['options'].disabled = True
+                    form.fields['refsource'].disabled = True
                     verify = reverse('account_email')
                     messages.error(request,
                                    "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
@@ -316,6 +329,7 @@ def batch_validate(request):
                 form.fields['gene_symbols'].disabled = True
                 form.fields['select_transcripts'].disabled = True
                 form.fields['options'].disabled = True
+                form.fields['refsource'].disabled = True
                 verify = reverse('account_email')
                 messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
                                         "before submitting a Batch Validator job" % verify)
