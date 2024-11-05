@@ -23,7 +23,7 @@
   <link href="{% static 'css/vvweb.css' %}" rel="stylesheet">
   <link href="{% static 'cookielaw/css/cookielaw.css' %}" rel="stylesheet">
 
-  <script src="https://kit.fontawesome.com/ff8a38ffc2.js" crossorigin="anonymous"></script>
+  <!-- <script src="https://kit.fontawesome.com/81e2c5cfce.js" crossorigin="anonymous"></script> -->
 
   <!-- Favicon -->
   <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon/apple-touch-icon.png' %}">
@@ -53,7 +53,7 @@
                 <form class="form-inline" method="post" id="validate-form" name="validate-form">
                     {% csrf_token %}
                     <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 100%; margin: 5px;">
-                    
+
                     <select class="custom-select my-1 mr-sm-2" id="transcripts-select" name="dropdown-transcripts" style="width: 40%; margin: 5px;">
                         <option value="" disabled selected>Select transcript options</option>
                         <option value="mane_select" title="MANE Select transcript">mane_select</option>
@@ -63,9 +63,9 @@
                         <option value="raw" title="All transcripts at all versions which we have in our dataset">raw</option>
                         <option value="">Deselect</option>
                     </select>
-                
+
                     <input id="transcripts" name="select_transcripts" type="text" placeholder="Or type transcript IDs separated by '|' e.g.NM_1234.5|NM_65432.1" class="form-control" {% if transcripts %} value="{{ transcripts }}" {% endif %} style="width: 55%; margin: 5px;">
-                        
+
                     <div class="form-group" id="genomeselect" name="validate-form">
                         <div class="custom-radio custom-control custom-control-inline">
                             <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if genome == 'GRCh38' %}checked {% endif %}style="margin: 5px;">
@@ -259,7 +259,7 @@
       $('[data-toggle="tooltip"]').tooltip()
   });
   </script>
-  
+
   <script>
       $('#transcripts-select').on('change', function() {
         if ($(this).val() === '') {

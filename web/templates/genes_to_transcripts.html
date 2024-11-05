@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 
+{% load static %}  <!-- Add this line to load static template tag -->
 {% block title %} - Genes to Transcripts{% endblock %}
 {% block header_title %}Genes to Transcripts{% endblock %}
 
@@ -23,7 +24,7 @@
                           <th>Coding End</th>
                           <th>Description</th>
                           <th>MANE Select</th>
-                          <th>MANE PLus Clinical</th>
+                          <th>MANE Plus Clinical</th>
                           <th>RefSeq Select</th>
                       </tr>
                       {% for trans in output.transcripts %}
@@ -32,27 +33,27 @@
                               <td>{{ trans.coding_start }}</td>
                               <td>{{ trans.coding_end }}</td>
                               <td>{{ trans.description }}</td>
-                          <td class="text-center">
-                              {% if trans.annotations.mane_select %}
-                                  <span><i class="fas fa-check text-success"></i></span>
-                              {% else %}
-                                  <span><i class="fas fa-times text-danger"></i></span>
-                              {% endif %}
-                          </td>
-                          <td class="text-center">
-                              {% if trans.annotations.mane_plus_clinical %}
-                                  <span><i class="fas fa-check text-success"></i></span>
-                              {% else %}
-                                  <span><i class="fas fa-times text-danger"></i></span>
-                              {% endif %}
-                          </td>
-                          <td class="text-center">
-                              {% if trans.annotations.refseq_select %}
-                                  <span><i class="fas fa-check text-success"></i></span>
-                              {% else %}
-                                  <span><i class="fas fa-times text-danger"></i></span>
-                              {% endif %}
-                          </td>
+                              <td class="text-center">
+                                  {% if trans.annotations.mane_select %}
+                                      <img src="{% static 'img/tick-green-20x15.png' %}" alt="Tick" width="20" height="15">
+                                  {% else %}
+                                      <img src="{% static 'img/cross-red-15x15.png' %}" alt="Cross" width="15" height="15">
+                                  {% endif %}
+                              </td>
+                              <td class="text-center">
+                                  {% if trans.annotations.mane_plus_clinical %}
+                                      <img src="{% static 'img/tick-green-20x15.png' %}" alt="Tick" width="20" height="15">
+                                  {% else %}
+                                      <img src="{% static 'img/cross-red-15x15.png' %}" alt="Cross" width="15" height="15">
+                                  {% endif %}
+                              </td>
+                              <td class="text-center">
+                                  {% if trans.annotations.refseq_select %}
+                                      <img src="{% static 'img/tick-green-20x15.png' %}" alt="Tick" width="20" height="15">
+                                  {% else %}
+                                      <img src="{% static 'img/cross-red-15x15.png' %}" alt="Cross" width="15" height="15">
+                                  {% endif %}
+                              </td>
                           </tr>
                       {% endfor %}
                   </table>
@@ -78,4 +79,3 @@
   </div>
 
 {% endblock %}
-
