@@ -77,6 +77,7 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
     except Exception as e:
         logger.error(f"{variant} {genome} {transcripts} failed with exception {e}")
         batch_object_pool.return_object(validator)
+        services.send_fail_email(email, batch_validate.request.id, variant, genome, transcripts, transcript_set)
         raise
 
     # Return the object to the pool
@@ -143,16 +144,8 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, valida
                 alt = 'del'
 
             # Create the pseudo VCF inclusive of reference check
-            try:
-                pvd = services.vcf2psuedo(chr, pos, ref, alt, genome, validator)
-                logger.debug(pvd)
-            except Exception as e:
-                logger.error(f"{chr} {pos} {ref} {alt} failed with exception {e}")
-                batch_object_pool.return_object(validator)
-                raise
-
-            # Return the object to the pool
-            batch_object_pool.return_object(validator)
+            pvd = services.vcf2psuedo(chr, pos, ref, alt, genome, validator)
+            logger.debug(pvd)
 
             if pvd['valid'] == 'pass':
                 pseudo_vcf = '%s-%s-%s-%s' % (chr, pos, ref, alt)

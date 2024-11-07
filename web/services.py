@@ -8,6 +8,7 @@ from VariantValidator.modules.seq_data import to_accession, to_chr_num_ucsc
 from VariantValidator.modules.utils import valstr
 from vvhgvs import normalizer
 import logging
+import json
 
 logger = logging.getLogger('vv')
 
@@ -207,6 +208,43 @@ def send_result_email(email, job_id):
     html_msg = render_to_string('email/report.html', {'job_id': job_id, 'domain': current_site.domain})
 
     send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
+
+
+def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set):
+    logger.debug("Sending batch validation fail email")
+
+    # Define the subject for the email
+    subject = "Batch Validation Failed"
+
+    # Get the current site (to dynamically include domain in the email)
+    current_site = Site.objects.get_current()
+
+    # Convert JSON arrays to string for email formatting (if needed)
+    variant_str = json.dumps(variant, indent=2) if isinstance(variant, list) else str(variant)
+    transcripts_str = json.dumps(transcripts, indent=2) if isinstance(transcripts, list) else str(transcripts)
+
+    # Update the message and html_msg by passing additional context variables
+    message = render_to_string('email/report.txt', {
+        'job_id': job_id,
+        'domain': current_site.domain,
+        'variant': variant_str,
+        'genome': genome,
+        'transcripts': transcripts_str,
+        'transcript_set': transcript_set,
+    })
+
+    html_msg = render_to_string('email/report.html', {
+        'job_id': job_id,
+        'domain': current_site.domain,
+        'variant': variant_str,
+        'genome': genome,
+        'transcripts': transcripts_str,
+        'transcript_set': transcript_set,
+    })
+
+    # Send the email with the updated content
+    send_mail(subject, message, 'admin@variantValidator.org',
+              [email, 'admin@variantValidator.org'], html_message=html_msg)
 
 
 def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
