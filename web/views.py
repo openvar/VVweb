@@ -589,7 +589,9 @@ def bed_file(request):
     if '+' in str(input_elements[0]):
         input_elements = str(input_elements[0].replace(' ', '+'))
 
+    validator = vval_object_pool.get_object()
     bed_call = services.create_bed_file(validator, *input_elements)
+    vval_object_pool.return_object(validator)
 
     response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
     return response
