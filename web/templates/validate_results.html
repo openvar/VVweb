@@ -1,3 +1,4 @@
+{% load static %}  <!-- Add this line to load static template tag -->
 {% if output.flag == 'warning' %}
   <div class="row">
     <div class="col-md-12 mb-5">
@@ -48,23 +49,23 @@
                           <td>{{ each.gene_ac }}</td>
                           <td class="text-center">
                               {% if each.latest %}
-                                  <span><i class="fas fa-check text-success"></i></span>
+                                  <img src="{% static 'img/tick-green-20x15.png' %}" alt="Tick" width="20" height="15">
                               {% else %}
-                                  <span><i class="fas fa-times text-danger"></i></span>
+                                  <img src="{% static 'img/cross-red-15x15.png' %}" alt="Cross" width="15" height="15">
                               {% endif %}
                           </td>
                           <td class="text-center">
                               {% if each.annotations.mane_select %}
-                                  <span><i class="fas fa-check text-success"></i></span>
+                                  <img src="{% static 'img/tick-green-20x15.png' %}" alt="Tick" width="20" height="15">
                               {% else %}
-                                  <span><i class="fas fa-times text-danger"></i></span>
+                                  <img src="{% static 'img/cross-red-15x15.png' %}" alt="Cross" width="15" height="15">
                               {% endif %}
                           </td>
                           <td class="text-center">
                               {% if each.annotations.mane_plus_clinical %}
-                                  <span><i class="fas fa-check text-success"></i></span>
+                                  <img src="{% static 'img/tick-green-20x15.png' %}" alt="Tick" width="20" height="15">
                               {% else %}
-                                  <span><i class="fas fa-times text-danger"></i></span>
+                                  <img src="{% static 'img/cross-red-15x15.png' %}" alt="Cross" width="15" height="15">
                               {% endif %}
                           </td>
                           <td class="text-center">

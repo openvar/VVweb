@@ -19,13 +19,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-DEBUG = TEMPLATE_DEBUG = True
+DEBUG = False
+DEBUG = TEMPLATE_DEBUG = False
 
 ALLOWED_HOSTS = ['www512.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1', '127.0.0.1:8000']
-
 
 # Application definition
 INSTALLED_APPS = [
@@ -95,7 +93,7 @@ DATABASES = {
     }
 }
 
-# This sets the row in Django table that the site uses by default. Site is initialised 
+# This sets the row in Django table that the site uses by default. Site is initialised
 # with example.com which is SITE_ID = 1
 
 #vvweb=# SELECT * FROM django_site;
@@ -164,18 +162,23 @@ MEDIA_URL = '/media/'
 
 # Celery settings
 CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
-
 CELERY_RESULT_BACKEND = 'django-db'
-
 CELERY_CACHE_BACKEND = 'django-cache'
 
-if DEBUG is True:
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
+# Email settings
 DEFAULT_FROM_EMAIL = 'admin@variantValidator.org'
 EMAIL_SUBJECT_PREFIX = '[VVWeb] '
 SERVER_EMAIL = 'admin@variantValidator.org'
 ACCOUNT_EMAIL_SUBJECT_PREFIX = '[VVWeb] '
+
+# Local email debugging configuration
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'localhost'
+    EMAIL_PORT = 1025
+    EMAIL_USE_TLS = False
+    EMAIL_HOST_USER = ''
+    EMAIL_HOST_PASSWORD = ''
 
 # For VCF to HGVS conversion
 MAX_VCF = 25000
@@ -236,7 +239,6 @@ LOGGING = {
         },
     },
 }
-
 
 try:
     from .local_settings import *

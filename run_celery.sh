@@ -22,4 +22,3 @@ celery worker -A VVweb -l error --detach --logfile logs/celery/%n%I.log --pidfil
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # </LICENSE>
-

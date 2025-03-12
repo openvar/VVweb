@@ -5,6 +5,7 @@ from django.http import HttpResponse, Http404
 from . import forms
 from . import tasks
 from . import services
+from .object_pool import vval_object_pool, g2t_object_pool, batch_object_pool
 from .utils import render_to_pdf
 import VariantValidator
 from VariantValidator import settings as vvsettings
@@ -18,7 +19,6 @@ import sys
 import traceback
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
-validator = VariantValidator.Validator()
 
 logger = logging.getLogger('vv')
 
@@ -87,9 +87,16 @@ def genes_to_transcripts(request):
         if select_transcripts == "":
             select_transcripts = "all"
 
+        # Get object from pool
+        validator = g2t_object_pool.get_object()
+
         output = tasks.gene2transcripts(symbol, validator=validator, select_transcripts=select_transcripts,
                                         transcript_set=reference_source)
+
         logger.debug(output)
+
+        # Return object to pool
+        g2t_object_pool.return_object(validator)
 
         if 'transcripts' in output.keys():
             for trans in output['transcripts']:
@@ -153,6 +160,9 @@ def validate(request):
             if select_transcripts is None or select_transcripts == '' or select_transcripts == 'transcripts':
                 select_transcripts = 'all'
 
+            # Get object from pool
+            validator = vval_object_pool.get_object()
+
             output = tasks.validate(variant, genome, select_transcripts, validator=validator, transcript_set=source)
             output = services.process_result(output, validator)
             output['genome'] = genome
@@ -164,6 +174,9 @@ def validate(request):
             ucsc_link = services.get_ucsc_link(validator, output)
             varsome_link = services.get_varsome_link(output)
             gnomad_link = services.get_gnomad_link(output)
+
+            # Return object to pool
+            vval_object_pool.return_object(validator)
 
             if pdf_r is True:
                 # Render the template into pdf
@@ -576,7 +589,9 @@ def bed_file(request):
     if '+' in str(input_elements[0]):
         input_elements = str(input_elements[0].replace(' ', '+'))
 
+    validator = vval_object_pool.get_object()
     bed_call = services.create_bed_file(validator, *input_elements)
+    vval_object_pool.return_object(validator)
 
     response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
     return response
