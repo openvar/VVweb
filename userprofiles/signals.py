@@ -39,7 +39,7 @@ def set_email_confirmed(request, **kwargs):
     return
 
 # <LICENSE>
-# Copyright (C) 2016-2024 VariantValidator Contributors
+# Copyright (C) 2016-2025 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
