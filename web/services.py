@@ -224,7 +224,7 @@ def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set)
     transcripts_str = json.dumps(transcripts, indent=2) if isinstance(transcripts, list) else str(transcripts)
 
     # Update the message and html_msg by passing additional context variables
-    message = render_to_string('email/report.txt', {
+    message = render_to_string('email/fail_report.txt', {
         'job_id': job_id,
         'domain': current_site.domain,
         'variant': variant_str,
@@ -233,7 +233,7 @@ def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set)
         'transcript_set': transcript_set,
     })
 
-    html_msg = render_to_string('email/report.html', {
+    html_msg = render_to_string('email/fail_report.html', {
         'job_id': job_id,
         'domain': current_site.domain,
         'variant': variant_str,
