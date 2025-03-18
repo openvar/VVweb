@@ -1,0 +1,13 @@
+Batch Validation Failed for job id: {{job_id}}
+
+Please forward this email to admin@variantvalidator.org so that we can identify the issues and solve them
+as quickly as possible
+
+Regards,
+
+VariantValidator Admin
+
+Failed variant = {{variant}}
+Genome build = {{genome}}
+select_transcripts = {{transcripts}}
+transcript_set = {{transcript_set}}
