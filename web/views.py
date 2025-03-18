@@ -270,7 +270,6 @@ def batch_validate(request):
     if request.method == 'POST':
         form = forms.BatchValidateForm(request.POST)
         if form.is_valid():
-
             job = tasks.batch_validate.delay(
                 form.cleaned_data['input_variants'],
                 form.cleaned_data['genome'],

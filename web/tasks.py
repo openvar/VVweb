@@ -70,9 +70,6 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         transcripts = "|".join(transcript_list)
         transcripts = input_formatting.format_input(transcripts)
 
-    if transcripts == []:
-        transcripts = "mane_select"
-
     try:
         output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set)
     except Exception as e:
