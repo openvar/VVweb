@@ -54,6 +54,12 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         transcripts = "all"
     if transcripts == '["raw"]':
         transcripts = "raw"
+    if transcripts == '["mane"]':
+        transcripts = "mane"
+    if transcripts == '["mane_select"]' or "mane_select" in transcripts:
+        transcripts = "mane_select"
+    if transcripts == '["select"]':
+        transcripts = "select"
 
     transcript_list = []
     for sym in gene_symbols.split('|'):
