@@ -10,6 +10,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.models import User
 import time
+import traceback
 
 logger = logging.getLogger('vv')
 
@@ -80,8 +81,9 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set)
     except Exception as e:
         logger.error(f"{variant} {genome} {transcripts} failed with exception {e}")
+        trace = traceback.format_exc()
         batch_object_pool.return_object(validator)
-        services.send_fail_email(email, batch_validate.request.id, variant, genome, transcripts, transcript_set)
+        services.send_fail_email(email, batch_validate.request.id, variant, genome, transcripts, transcript_set, trace)
         raise
 
     # Return the object to the pool

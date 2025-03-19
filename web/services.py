@@ -210,7 +210,7 @@ def send_result_email(email, job_id):
     send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
 
 
-def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set):
+def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set, trace):
     logger.debug("Sending batch validation fail email")
 
     # Define the subject for the email
@@ -231,6 +231,7 @@ def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set)
         'genome': genome,
         'transcripts': transcripts_str,
         'transcript_set': transcript_set,
+        'trace': trace,
     })
 
     html_msg = render_to_string('email/fail_report.html', {
@@ -240,6 +241,7 @@ def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set)
         'genome': genome,
         'transcripts': transcripts_str,
         'transcript_set': transcript_set,
+        'trace': trace,
     })
 
     # Send the email with the updated content
