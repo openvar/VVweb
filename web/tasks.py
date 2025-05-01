@@ -25,12 +25,12 @@ def validate(variant, genome, transcripts, validator=None, transcript_set="refse
 
 
 @shared_task
-def gene2transcripts(symbol, validator=None, select_transcripts="all", transcript_set="refseq"):
+def gene2transcripts(symbol, validator=None, select_transcripts="all", transcript_set="refseq", lovd_syntax_check=True):
     logger.info("Running gene2transcripts task")
     if validator is None:
         validator = g2t_object_pool.get_object()
     output = validator.gene2transcripts(symbol, select_transcripts=select_transcripts, transcript_set=transcript_set,
-                                        bypass_genomic_spans=True)
+                                        bypass_genomic_spans=True, lovd_syntax_check=lovd_syntax_check)
     return output
 
 
