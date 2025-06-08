@@ -20,8 +20,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
-DEBUG = TEMPLATE_DEBUG = False
+DEBUG = True
+DEBUG = TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = ['www512.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1', '127.0.0.1:8000']
 
@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.orcid',
     'userprofiles',
-    'captcha',
+    'django_recaptcha',
     'django_countries',
     'django_celery_beat',
 ]
@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'VVweb.urls'

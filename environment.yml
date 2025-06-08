@@ -4,22 +4,17 @@ channels:
   - bioconda
 dependencies:
   - pip
-  - python=3.10
-  - sqlite
-  - mysql-connector-python
-  - configparser
-  - certifi
+  - python=3.13
   - cffi
   - curl
-  - fontconfig==2.13.1
+  - fontconfig
   - freetype
   - icu
   - krb5
   - ncurses
-  - numpy
-  - protobuf
-  - pyliftover
-  - pysam
   - readline
   - libffi
+  - libprotobuf
+  - glib
+  - pango
 

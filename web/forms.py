@@ -1,8 +1,8 @@
 from django import forms
 from . import models
 from allauth.account.forms import SignupForm, PasswordField
-from django.utils.translation import ugettext_lazy as _
-from captcha.fields import ReCaptchaField
+from django.utils.translation import gettext_lazy as _
+from django_recaptcha.fields import ReCaptchaField
 
 BATCH_FORM_OPTIONS = [
     ('transcript', 'Transcript context descriptions'),
