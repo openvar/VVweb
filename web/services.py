@@ -32,11 +32,6 @@ def process_result(val, validator):
     for k, v in val.items():
         if k == 'flag' or k == 'metadata':
             continue
-        # print('k')
-        # print("K", k)
-        # print('v')
-        # print("V", v)
-
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)
@@ -100,36 +95,37 @@ def process_result(val, validator):
 
         v['latest'] = latest
 
-        for genome in v['primary_assembly_loci']:
-            try:
-                vcfdict = v['primary_assembly_loci'][genome]['vcf']
-                vcfstr = "%s:%s:%s:%s:%s" % (
-                    genome.replace('grch', 'GRCh'),
-                    vcfdict['chr'],
-                    vcfdict['pos'],
-                    vcfdict['ref'],
-                    vcfdict['alt']
-                )
-                vcfstr_alt = "%s-%s-%s-%s" % (
-                    vcfdict['chr'],
-                    vcfdict['pos'],
-                    vcfdict['ref'],
-                    vcfdict['alt']
-                )
-                v['primary_assembly_loci'][genome]['vcfstr'] = vcfstr
-                v['primary_assembly_loci'][genome]['vcfstr_alt'] = vcfstr_alt
-                genomes[genome] = vcfstr_alt
+        try:
+            for genome in v['primary_assembly_loci']:
+                try:
+                    vcfdict = v['primary_assembly_loci'][genome]['vcf']
+                    vcfstr = "%s:%s:%s:%s:%s" % (
+                        genome.replace('grch', 'GRCh'),
+                        vcfdict['chr'],
+                        vcfdict['pos'],
+                        vcfdict['ref'],
+                        vcfdict['alt']
+                    )
+                    vcfstr_alt = "%s-%s-%s-%s" % (
+                        vcfdict['chr'],
+                        vcfdict['pos'],
+                        vcfdict['ref'],
+                        vcfdict['alt']
+                    )
+                    v['primary_assembly_loci'][genome]['vcfstr'] = vcfstr
+                    v['primary_assembly_loci'][genome]['vcfstr_alt'] = vcfstr_alt
+                    genomes[genome] = vcfstr_alt
 
-            except Exception:
-                pass
-
-            v['primary_assembly_loci'][genome]['ac'] = \
-                v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
-            if 'grc' in genome:
-                v['primary_assembly_loci'][genome]['genome'] = genome.replace('grch', 'GRCh')
-            else:
-                v['primary_assembly_loci'][genome]['genome'] = genome
-
+                except Exception:
+                    pass
+                v['primary_assembly_loci'][genome]['ac'] = \
+                    v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
+                if 'grc' in genome:
+                    v['primary_assembly_loci'][genome]['genome'] = genome.replace('grch', 'GRCh')
+                else:
+                    v['primary_assembly_loci'][genome]['genome'] = genome
+        except Exception:
+            pass
 
         for alt in v['alt_genomic_loci']:
             for genome in alt:
@@ -210,7 +206,7 @@ def send_result_email(email, job_id):
     send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
 
 
-def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set):
+def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set, trace):
     logger.debug("Sending batch validation fail email")
 
     # Define the subject for the email
@@ -224,22 +220,24 @@ def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set)
     transcripts_str = json.dumps(transcripts, indent=2) if isinstance(transcripts, list) else str(transcripts)
 
     # Update the message and html_msg by passing additional context variables
-    message = render_to_string('email/report.txt', {
+    message = render_to_string('email/fail_report.txt', {
         'job_id': job_id,
         'domain': current_site.domain,
         'variant': variant_str,
         'genome': genome,
         'transcripts': transcripts_str,
         'transcript_set': transcript_set,
+        'trace': trace,
     })
 
-    html_msg = render_to_string('email/report.html', {
+    html_msg = render_to_string('email/fail_report.html', {
         'job_id': job_id,
         'domain': current_site.domain,
         'variant': variant_str,
         'genome': genome,
         'transcripts': transcripts_str,
         'transcript_set': transcript_set,
+        'trace': trace,
     })
 
     # Send the email with the updated content
@@ -514,7 +512,7 @@ def create_bed_file(validator, variant, chromosome, build, genomic, vcf, version
     return bed_call
 
 # <LICENSE>
-# Copyright (C) 2016-2024 VariantValidator Contributors
+# Copyright (C) 2016-2025 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

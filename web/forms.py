@@ -51,7 +51,7 @@ class BatchValidateForm(forms.Form):
         attrs={'rows': '5', 'placeholder': 'One transcript id per line \n Or use one of: \n\tall (all transcripts at '
                                            'latest version) \n\traw (all transcripts at all versions)'
                                            '\n\tselect \n\t'
-                                           'refseq_select \n\tmane'}),
+                                           'mane \n\tmane_select'}),
                                          required=False,
                                          label='Optional - limit to specific transcripts (see our Genes to '
                                          'Transcripts tool). '
@@ -91,7 +91,7 @@ class BatchValidateForm(forms.Form):
     def clean_select_transcripts(self):
         transcripts = self.cleaned_data['select_transcripts'].strip().split()
         if len(transcripts) == 0:
-            transcripts = ['all']
+            transcripts = ['mane_select']
         return '|'.join(transcripts)
 
     def clean_options(self):
@@ -160,7 +160,7 @@ class UpdatedSignUpForm(SignupForm):
         return user
 
 # <LICENSE>
-# Copyright (C) 2016-2024 VariantValidator Contributors
+# Copyright (C) 2016-2025 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

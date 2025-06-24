@@ -270,7 +270,6 @@ def batch_validate(request):
     if request.method == 'POST':
         form = forms.BatchValidateForm(request.POST)
         if form.is_valid():
-
             job = tasks.batch_validate.delay(
                 form.cleaned_data['input_variants'],
                 form.cleaned_data['genome'],
@@ -597,7 +596,7 @@ def bed_file(request):
     return response
 
 # <LICENSE>
-# Copyright (C) 2016-2024 VariantValidator Contributors
+# Copyright (C) 2016-2025 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

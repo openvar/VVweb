@@ -10,6 +10,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.models import User
 import time
+import traceback
 
 logger = logging.getLogger('vv')
 
@@ -19,16 +20,17 @@ def validate(variant, genome, transcripts, validator=None, transcript_set="refse
     logger.info("Running validate task")
     if validator is None:
         validator = vval_object_pool.get_object()
-    output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set)
+    output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set, lovd_syntax_check=True)
     return output.format_as_dict()
 
 
 @shared_task
-def gene2transcripts(symbol, validator=None, select_transcripts="all", transcript_set="refseq"):
+def gene2transcripts(symbol, validator=None, select_transcripts="all", transcript_set="refseq", lovd_syntax_check=True):
     logger.info("Running gene2transcripts task")
     if validator is None:
         validator = g2t_object_pool.get_object()
-    output = validator.gene2transcripts(symbol, select_transcripts=select_transcripts, transcript_set=transcript_set)
+    output = validator.gene2transcripts(symbol, select_transcripts=select_transcripts, transcript_set=transcript_set,
+                                        bypass_genomic_spans=True, lovd_syntax_check=lovd_syntax_check)
     return output
 
 
@@ -53,6 +55,12 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         transcripts = "all"
     if transcripts == '["raw"]':
         transcripts = "raw"
+    if transcripts == '["mane"]':
+        transcripts = "mane"
+    if transcripts == '["mane_select"]' or "mane_select" in transcripts:
+        transcripts = "mane_select"
+    if transcripts == '["select"]':
+        transcripts = "select"
 
     transcript_list = []
     for sym in gene_symbols.split('|'):
@@ -69,15 +77,13 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         transcripts = "|".join(transcript_list)
         transcripts = input_formatting.format_input(transcripts)
 
-    if transcripts == []:
-        transcripts = "mane_select"
-
     try:
-        output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set)
+        output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set, lovd_syntax_check=True)
     except Exception as e:
         logger.error(f"{variant} {genome} {transcripts} failed with exception {e}")
+        trace = traceback.format_exc()
         batch_object_pool.return_object(validator)
-        services.send_fail_email(email, batch_validate.request.id, variant, genome, transcripts, transcript_set)
+        services.send_fail_email(email, batch_validate.request.id, variant, genome, transcripts, transcript_set, trace)
         raise
 
     # Return the object to the pool
@@ -275,7 +281,7 @@ def delete_old_users():
     return {'deleted': num, 'detail': details}
 
 # <LICENSE>
-# Copyright (C) 2016-2024 VariantValidator Contributors
+# Copyright (C) 2016-2025 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

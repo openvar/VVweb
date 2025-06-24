@@ -11,8 +11,17 @@
   {% if output %}
       <div class="row">
           <div class="col-md-12 mb-3">
+              {% if output.requested_symbol %}
+                  <h3>Submitted symbol: {{ output.requested_symbol }}</h3>
+              {% endif %}
+              {% if output.lovd_messages %}
+                  <h3 class="text-danger">LOVD HGVS Syntax Checker messages:</h3>
+                  {% for key, val in output.lovd_messages.items %}
+                      <ul><h6 class="text-danger">{{ key }}: {{ val }}</h6></ul>
+                  {% endfor %}
+              {% endif %}
               {% if output.error %}
-                  <h3 class="text-danger">{{ output.error }}</h3>
+                  <h3 class="text-danger">Error: {{ output.error }}</h3>
               {% else %}
                   <h2>{{ output.current_symbol }} ({{ output.current_name }})</h2>
                   <br>
@@ -70,6 +79,7 @@
               <div class="form-group">
                   <input id="symbol_id" name="symbol" type="text" class="form-control" placeholder="e.g. COL1A1 (or NM_000088.3)" required>
               </div>
+              <h4>Limit the transcripts returned</h4>
               <div class="form-group">
                   <input id="select_transcripts" name="transcripts" type="text" class="form-control" placeholder="e.g. mane_select, mane, select">
               </div>
