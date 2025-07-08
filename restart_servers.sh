@@ -4,7 +4,7 @@
 sudo systemctl stop httpd
 
 # Restart database servers
-sudo systemctl restart postgresql-11
+sudo systemctl restart postgresql-17
 sudo systemctl restart mariadb
 
 # Restart RabbitMQ
