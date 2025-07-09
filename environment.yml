@@ -18,4 +18,5 @@ dependencies:
   - glib
   - pango
   - rabbitmq-server
+  - supervisor
 

@@ -1,10 +1,9 @@
-from __future__ import absolute_import, unicode_literals
-
-# This will make sure the app is always imported when
-# Django starts so that shared_task will use this app.
+# This ensures the Celery app is loaded when Django starts,
+# so that @shared_task decorators use the correct app.
 from .celery import app as celery_app
 
-__all__ = ('celery_app',)
+__all__ = ("celery_app",)
+
 
 # <LICENSE>
 # Copyright (C) 2016-2025 VariantValidator Contributors
