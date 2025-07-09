@@ -18,6 +18,7 @@ SUPERVISORD_CONF="$PROJECT_ROOT/supervisord.conf"
 
 echo "Starting supervisord with config: $SUPERVISORD_CONF"
 
-# Start supervisord in foreground so you can see logs and ctrl-c to stop
-# Use -n option to run in foreground (no daemonize)
-supervisord -n -c "$SUPERVISORD_CONF"
+# Start supervisord daemonized (no -n)
+supervisord -c "$SUPERVISORD_CONF"
+
+echo "Supervisord started in background."
