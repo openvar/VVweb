@@ -17,4 +17,5 @@ dependencies:
   - libprotobuf
   - glib
   - pango
+  - rabbitmq-server
 

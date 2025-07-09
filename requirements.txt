@@ -12,3 +12,4 @@ django-recaptcha
 django_countries
 jwt
 weasyprint
+mod_wsgi
