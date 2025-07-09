@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 #
-# 2021-08-05 (Liam) Removed --detach option as there's a bug in Celery 4.4.7.
-# These are the hashed lines and celery was set to 4.4.6
+# Updated for Celery 5+ syntax and no --detach (run in foreground or background yourself)
 
-celery beat -A VVweb -l error --scheduler django_celery_beat.schedulers.DatabaseScheduler --detach --logfile logs/celery/beat.log --pidfile celerybeat.pid
-celery worker -A VVweb -l error --detach --logfile logs/celery/%n%I.log --pidfile celeryd.pid
+# Start beat (use & to run in background)
+celery -A VVweb beat -l error --scheduler django_celery_beat.schedulers.DatabaseScheduler --logfile logs/celery/beat.log --pidfile celerybeat.pid &
+
+# Start worker (run in background)
+celery -A VVweb worker -l error --logfile logs/celery/%n%I.log --pidfile celeryd.pid &
 
 # <LICENSE>
 # Copyright (C) 2016-2025 VariantValidator Contributors
