@@ -19,8 +19,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-DEBUG = TEMPLATE_DEBUG = True
+DEBUG = False
+DEBUG = TEMPLATE_DEBUG = False
 
 ALLOWED_HOSTS = [
     'www182.lamp.le.ac.uk',
@@ -111,7 +111,17 @@ DATABASES = {
 
 # This sets the row in Django table that the site uses by default. Site is initialised
 # with example.com which is SITE_ID = 1
-SITE_ID = 1
+# This sets the row in Django table that the site uses by default. Site is initialised
+# with example.com which is SITE_ID = 1
+
+#vvweb=# SELECT * FROM django_site;
+#id |          domain          |       name
+#----+--------------------------+------------------
+#  1 | example.com              | example.com
+#  2 | www525.lamp.le.ac.uk     | login525
+#  3 | variantvalidator.org     | VariantValidator
+#  5 | www.variantvalidator.org | VariantValidator
+SITE_ID = 2
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
