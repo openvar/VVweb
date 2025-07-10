@@ -20,12 +20,7 @@ def validate(variant, genome, transcripts, validator=None, transcript_set="refse
     logger.info("Running validate task")
     if validator is None:
         validator = vval_object_pool.get_object()
-    try:
-        output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set, lovd_syntax_check=True)
-    except Exception as e:
-        logger.error(f"{variant} {genome} {transcripts} failed with exception {e}")
-        vval_object_pool.return_object(validator)
-        raise
+    output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set, lovd_syntax_check=True)
     return output.format_as_dict()
 
 
