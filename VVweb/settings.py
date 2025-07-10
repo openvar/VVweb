@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEBUG = True
 DEBUG = TEMPLATE_DEBUG = True
 
-ALLOWED_HOSTS = ['www512.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1', '127.0.0.1:8000']
+ALLOWED_HOSTS = ['www182.lamp.le.ac.uk', 'www512.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1', '127.0.0.1:8000']
 
 # Application definition
 INSTALLED_APPS = [
