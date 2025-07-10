@@ -109,18 +109,6 @@ DATABASES = {
     }
 }
 
-# This sets the row in Django table that the site uses by default. Site is initialised
-# with example.com which is SITE_ID = 1
-# This sets the row in Django table that the site uses by default. Site is initialised
-# with example.com which is SITE_ID = 1
-
-#vvweb=# SELECT * FROM django_site;
-#id |          domain          |       name
-#----+--------------------------+------------------
-#  1 | example.com              | example.com
-#  2 | www525.lamp.le.ac.uk     | login525
-#  3 | variantvalidator.org     | VariantValidator
-#  5 | www.variantvalidator.org | VariantValidator
 SITE_ID = 2
 
 # Password validation
@@ -148,7 +136,14 @@ AUTHENTICATION_BACKENDS = (
 LOGIN_REDIRECT_URL = 'profile-home'
 
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
-ACCOUNT_LOGIN_METHODS = {'username', 'email'}
+
+# Corrected login method to allow login via username or email
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email'  # <-- Added
+
+# Enforce unique email addresses for allauth
+ACCOUNT_EMAIL_REQUIRED = True  # <-- Added
+ACCOUNT_UNIQUE_EMAIL = True  # <-- Added
+
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
 ACCOUNT_FORMS = {'signup': 'web.forms.UpdatedSignUpForm'}
 
