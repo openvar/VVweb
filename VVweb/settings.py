@@ -137,8 +137,8 @@ AUTHENTICATION_BACKENDS = (
 
 LOGIN_REDIRECT_URL = 'profile-home'
 
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
 ACCOUNT_FORMS = {'signup': 'web.forms.UpdatedSignUpForm'}
 
@@ -242,6 +242,8 @@ LOGGING = {
         },
     },
 }
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 try:
     from .local_settings import *
