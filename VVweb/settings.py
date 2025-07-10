@@ -15,7 +15,6 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
@@ -23,7 +22,25 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEBUG = True
 DEBUG = TEMPLATE_DEBUG = True
 
-ALLOWED_HOSTS = ['www182.lamp.le.ac.uk', 'www512.lamp.le.ac.uk', 'variantvalidator.org', 'www.variantvalidator.org', '127.0.0.1', '127.0.0.1:8000']
+ALLOWED_HOSTS = [
+    'www182.lamp.le.ac.uk',
+    'www512.lamp.le.ac.uk',
+    'variantvalidator.org',
+    'www.variantvalidator.org',
+    '127.0.0.1',
+    '127.0.0.1:8000'
+]
+
+# CSRF trusted origins for HTTPS requests (especially under Apache + mod_wsgi)
+CSRF_TRUSTED_ORIGINS = [
+    'https://www182.lamp.le.ac.uk',
+    'https://www512.lamp.le.ac.uk',
+    'https://variantvalidator.org',
+    'https://www.variantvalidator.org',
+]
+
+# Ensures Django respects forwarded Host headers when behind reverse proxy
+USE_X_FORWARDED_HOST = True
 
 # Application definition
 INSTALLED_APPS = [
@@ -83,10 +100,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'VVweb.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -96,20 +111,10 @@ DATABASES = {
 
 # This sets the row in Django table that the site uses by default. Site is initialised
 # with example.com which is SITE_ID = 1
-
-#vvweb=# SELECT * FROM django_site;
-#id |          domain          |       name
-#----+--------------------------+------------------
-#  1 | example.com              | example.com
-#  2 | www525.lamp.le.ac.uk     | login525
-#  3 | variantvalidator.org     | VariantValidator
-#  5 | www.variantvalidator.org | VariantValidator
-
 SITE_ID = 1
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -134,24 +139,16 @@ LOGIN_REDIRECT_URL = 'profile-home'
 
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
-
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
-
 ACCOUNT_FORMS = {'signup': 'web.forms.UpdatedSignUpForm'}
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_L10N = True
-
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
