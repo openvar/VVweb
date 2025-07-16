@@ -109,7 +109,7 @@ DATABASES = {
     }
 }
 
-SITE_ID = 2
+SITE_ID = 4
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
