@@ -24,6 +24,7 @@ DEBUG = TEMPLATE_DEBUG = False
 
 ALLOWED_HOSTS = [
     'www182.lamp.le.ac.uk',
+    'www180.lamp.le.ac.uk',
     'www512.lamp.le.ac.uk',
     'variantvalidator.org',
     'www.variantvalidator.org',
@@ -34,6 +35,7 @@ ALLOWED_HOSTS = [
 # CSRF trusted origins for HTTPS requests (especially under Apache + mod_wsgi)
 CSRF_TRUSTED_ORIGINS = [
     'https://www182.lamp.le.ac.uk',
+    'https://www180.lamp.le.ac.uk',
     'https://www512.lamp.le.ac.uk',
     'https://variantvalidator.org',
     'https://www.variantvalidator.org',

@@ -44,6 +44,7 @@ ALTER ROLE myprojectuser SET client_encoding TO 'utf8';
 ALTER ROLE myprojectuser SET default_transaction_isolation TO 'read committed';
 ALTER ROLE myprojectuser SET timezone TO 'UTC';
 GRANT ALL PRIVILEGES ON DATABASE myproject TO myprojectuser;
+GRANT USAGE, CREATE ON SCHEMA public TO myprojectuser;
 ```
 
 ### Settings
@@ -84,6 +85,39 @@ of this username and password.
 python manage.py createsuperuser
 ```
 
+Transferring an existing database (Optional)
+Dump the old database
+```bash
+pg_dump -U <user> -h localhost -F c -b -v -f vvweb.backup vvweb
+```
+
+Transfer to new server and load into a backup database
+```bash
+createdb -U <user> vvweb_temp
+pg_restore -U <user> -d vvweb_temp vvweb.backup
+```
+
+Then dump the backup database into raw SQL which allows insert statements and avoids existing key conflicts
+```bash
+pg_dump -U <user> --data-only --inserts -d vvweb_temp > temp_data.sql
+```
+
+Set to ignore conflicts in email addresses etc
+```bash 
+sed -E '                                                               
+# Special cases first
+/^INSERT INTO auth_user / s/;\s*$/ ON CONFLICT (email) DO NOTHING;/
+/^INSERT INTO django_session / s/;\s*$/ ON CONFLICT (session_key) DO NOTHING;/
+# General case for all others
+/^INSERT INTO / s/;\s*$/ ON CONFLICT (id) DO NOTHING;/
+' temp_data.sql > temp_data_conflict.sql
+```
+
+Then load 
+```bash
+psql -U <USER> -d vvweb < temp_data_conflict.sql
+```
+ 
 Next collect the static folders for Admin accounts
 ```bash
 python manage.py collectstatic
