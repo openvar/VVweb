@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
 
-# Stop celery
-ps aux | grep celery | awk '{print $2}' | xargs kill
+# Stop Celery worker and beat managed by supervisord gracefully
+
+SUPERVISOR_CONF="/local/VVweb/supervisord.conf"
+
+echo "Stopping Celery worker..."
+supervisorctl -c "$SUPERVISOR_CONF" stop celery_worker
+
+echo "Stopping Celery beat..."
+supervisorctl -c "$SUPERVISOR_CONF" stop celery_beat
+
+echo "All Celery processes stopped."
+
+# Optional: check status after stopping
+supervisorctl -c "$SUPERVISOR_CONF" status celery_worker celery_beat
 
 # <LICENSE>
 # Copyright (C) 2016-2025 VariantValidator Contributors

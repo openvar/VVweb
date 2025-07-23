@@ -1,26 +1,26 @@
-from __future__ import absolute_import, unicode_literals
 import os
 from celery import Celery
 
-# set the default Django settings module for the 'celery' program.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'VVweb.settings')
+# Set the default Django settings module for Celery
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "VVweb.settings")
 
-app = Celery('VVweb')
+# Create the Celery app instance
+app = Celery("VVweb")
 
-# Using a string here means the worker doesn't have to serialize
-# the configuration object to child processes.
-# - namespace='CELERY' means all celery-related configuration keys
-#   should have a `CELERY_` prefix.
-app.config_from_object('django.conf:settings', namespace='CELERY')
+# Load Celery config from Django settings using CELERY_ namespace
+app.config_from_object("django.conf:settings", namespace="CELERY")
+
+# Optional: Increase argument string size for AMQP logging (if needed)
 app.amqp.argsrepr_maxsize = 10485760
 
-# Load task modules from all registered Django app configs.
+# Discover tasks from all registered Django apps
 app.autodiscover_tasks()
 
 
 @app.task(bind=True)
 def debug_task(self):
-    print('Request: {0!r}'.format(self.request))
+    print(f"Request: {self.request!r}")
+
 
 # <LICENSE>
 # Copyright (C) 2016-2025 VariantValidator Contributors

@@ -1,8 +1,9 @@
 from django import forms
 from . import models
 from allauth.account.forms import SignupForm, PasswordField
-from django.utils.translation import ugettext_lazy as _
-from captcha.fields import ReCaptchaField
+from django.utils.translation import gettext_lazy as _
+from django_recaptcha.fields import ReCaptchaField
+from django.contrib.auth.models import User
 
 BATCH_FORM_OPTIONS = [
     ('transcript', 'Transcript context descriptions'),
@@ -149,15 +150,28 @@ class UpdatedSignUpForm(SignupForm):
     password2 = PasswordField(label=_("Password (again)"))
     captcha = ReCaptchaField()
 
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(_("This email address is already in use. Please supply a different email."))
+        return email
+
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError(_("This username is already taken. Please choose another."))
+        return username
+
     def save(self, request):
         # Ensure you call the parent class's save.
         # .save() returns a User object.
         user = super(UpdatedSignUpForm, self).save(request)
 
-        # Add your own processing here.
+        # Add your own processing here if needed.
 
         # You must return the original result.
         return user
+
 
 # <LICENSE>
 # Copyright (C) 2016-2025 VariantValidator Contributors

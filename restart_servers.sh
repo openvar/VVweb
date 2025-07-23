@@ -4,12 +4,14 @@
 sudo systemctl stop httpd
 
 # Restart database servers
-sudo systemctl restart postgresql-11
+sudo systemctl restart postgresql-17
 sudo systemctl restart mariadb
 
 # Restart RabbitMQ
-sudo systemctl stop rabbitmq-server
-sudo systemctl start rabbitmq-server
+# sudo systemctl stop rabbitmq-server
+rabbitmqctl stop
+# sudo systemctl start rabbitmq-server
+rabbitmq-server -detached
 
 # Start Apache
 sudo systemctl start httpd
