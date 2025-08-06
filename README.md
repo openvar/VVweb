@@ -146,6 +146,50 @@ Then in settings.py, select the line using the following
 
 `SITE_ID = 2`
 
+You can check this configuration by running
+```python
+from django.contrib.sites.models import Site
+from django.conf import settings
+
+# Print all sites
+print("🗂️  All Sites in the Database:")
+print("-" * 45)
+for site in Site.objects.all():
+    print(f"[ID: {site.id}] domain: {site.domain} — name: {site.name}")
+
+print("\n✅ Current Site Based on settings.SITE_ID")
+print("-" * 45)
+try:
+    current_site = Site.objects.get(id=settings.SITE_ID)
+    print(f"📌 SITE_ID: {settings.SITE_ID}")
+    print(f"Domain: {current_site.domain}")
+    print(f"Name:   {current_site.name}")
+except Site.DoesNotExist:
+    print(f"❌ No Site entry found for SITE_ID={settings.SITE_ID}")
+```
+
+To add a site ID run the following
+```python
+from django.contrib.sites.models import Site
+
+def add_site(domain, name):
+    site, created = Site.objects.get_or_create(
+        domain=domain,
+        defaults={'name': name}
+    )
+    if created:
+        print(f"✅ Created new Site:\n  ID: {site.id}\n  Domain: {site.domain}\n  Name: {site.name}")
+    else:
+        print(f"ℹ️ Site already exists:\n  ID: {site.id}\n  Domain: {site.domain}\n  Name: {site.name}")
+    return site
+
+# Example usage:
+domain_input = input("Enter domain (e.g. www.example.com): ").strip()
+name_input = input("Enter name (e.g. Example Site): ").strip()
+
+add_site(domain_input, name_input)
+```
+
 ## Celery and RabbitMQ
 
 To run the batch processes, you'll need to install and setup [RabbitMQ](https://www.rabbitmq.com/download.html) and [Celery](http://docs.celeryproject.org/en/latest/index.html).
