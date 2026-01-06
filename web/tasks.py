@@ -284,7 +284,7 @@ def delete_old_users():
     return {'deleted': num, 'detail': details}
 
 # <LICENSE>
-# Copyright (C) 2016-2025 VariantValidator Contributors
+# Copyright (C) 2016-2026 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

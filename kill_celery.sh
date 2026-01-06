@@ -16,7 +16,7 @@ echo "All Celery processes stopped."
 supervisorctl -c "$SUPERVISOR_CONF" status celery_worker celery_beat
 
 # <LICENSE>
-# Copyright (C) 2016-2025 VariantValidator Contributors
+# Copyright (C) 2016-2026 VariantValidator Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
