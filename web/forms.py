@@ -4,6 +4,7 @@ from allauth.account.forms import SignupForm, PasswordField
 from django.utils.translation import gettext_lazy as _
 from django_recaptcha.fields import ReCaptchaField
 from django.contrib.auth.models import User
+from django.conf import settings
 
 BATCH_FORM_OPTIONS = [
     ('transcript', 'Transcript context descriptions'),
@@ -40,7 +41,7 @@ class ContactForm(forms.ModelForm):
 class BatchValidateForm(forms.Form):
     input_variants = forms.CharField(widget=forms.Textarea(
         attrs={'placeholder': 'Variant descriptions must be separated by new lines, spaces or tabs. '
-                              'Please be considerate of other users and only submit one job at a time!'}),
+                              f"Maximum submission {settings.MAX_VCF} variants"}),
                                      label='Input Variant Descriptions'
     )
     gene_symbols = forms.CharField(widget=forms.Textarea(
@@ -81,6 +82,9 @@ class BatchValidateForm(forms.Form):
         vars = self.cleaned_data['input_variants'].strip().split()
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
+        elif len(vars) > settings.MAX_VCF:
+            raise forms.ValidationError(f"Invalid input, submitted variants exceeds cutoff of {settings.MAX_VCF}",
+                                        code='invalid')
 
         var_str = '|'.join(vars)
         return var_str

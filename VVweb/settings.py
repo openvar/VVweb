@@ -188,7 +188,7 @@ if DEBUG:
     EMAIL_HOST_PASSWORD = ''
 
 # For VCF to HGVS conversion
-MAX_VCF = 25000
+MAX_VCF = 20000
 
 COUNTRIES_FIRST = ['GB', 'US']
 
