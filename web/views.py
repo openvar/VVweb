@@ -337,6 +337,7 @@ def batch_validate(request):
     return render(request, 'batch_validate.html', {
         'form': form,
         'locked': locked,
+        'settings': settings,
     })
 
 
