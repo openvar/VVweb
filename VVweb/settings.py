@@ -166,11 +166,13 @@ CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_CACHE_BACKEND = 'django-cache'
 
-
 # Celery serialization settings
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+# Keep Celery task results for 30 days
+CELERY_TASK_RESULT_EXPIRES = 30 * 24 * 60 * 60  # 30 days in seconds
 
 # Email settings
 DEFAULT_FROM_EMAIL = 'admin@variantValidator.org'
