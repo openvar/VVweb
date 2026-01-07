@@ -172,6 +172,9 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
+# Keep Celery task results for 30 days
+CELERY_TASK_RESULT_EXPIRES = 30 * 24 * 60 * 60  # 30 days in seconds
+
 # Email settings
 DEFAULT_FROM_EMAIL = 'admin@variantValidator.org'
 EMAIL_SUBJECT_PREFIX = '[VVWeb] '
