@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGET_USER="wwwrun"
+# Export ERLANG_COOKIE for RabbitMQ if needed
+export ERLANG_COOKIE="$HOME/.erlang.cookie"
 
+# Show running Celery processes
 echo "Celery processes:"
-sudo -u "$TARGET_USER" ps aux | grep '[c]elery'
+ps aux | grep celery | grep -v grep || echo "No Celery processes found."
 
-echo
-echo "ActiveTasks:"
-sudo -u "$TARGET_USER" celery inspect active || echo "Celery workers not reachable"
+# Inspect tasks
+echo -e "\nActiveTasks"
+celery -A VVweb inspect active || echo "Could not inspect active tasks."
 
-echo
-echo "ReservedTasks:"
-sudo -u "$TARGET_USER" celery inspect reserved || echo "Celery workers not reachable"
+echo -e "\nReservedTasks"
+celery -A VVweb inspect reserved || echo "Could not inspect reserved tasks."
 
-echo
-echo "ScheduledTasks:"
-sudo -u "$TARGET_USER" celery inspect scheduled || echo "Celery workers not reachable"
+echo -e "\nScheduledTasks"
+celery -A VVweb inspect scheduled || echo "Could not inspect scheduled tasks."
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

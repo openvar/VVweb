@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_ROOT="/local/VVweb"
-COOKIE_FILE="$PROJECT_ROOT/.erlang.cookie"
-NODE_NAME="rabbit@$(hostname -s)"
+# --- RabbitMQ config ---
+COOKIE_FILE="$HOME/.erlang.cookie"
 
-# Ensure environment matches the running RabbitMQ node
-export HOME="$PROJECT_ROOT"
+# Export ERLANG_COOKIE for this session
 export ERLANG_COOKIE="$COOKIE_FILE"
 
 # Check RabbitMQ status
-if rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
-    echo "RabbitMQ node $NODE_NAME is running."
-    rabbitmqctl --node "$NODE_NAME" status
+if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+    echo "RabbitMQ is running."
+    rabbitmqctl status
 else
-    echo "RabbitMQ node $NODE_NAME is not running."
+    echo "RabbitMQ is not running."
 fi
 
 # <LICENSE>
@@ -31,4 +29,5 @@ fi
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# alo
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>
