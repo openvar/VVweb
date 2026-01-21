@@ -18,7 +18,7 @@ if ! nc -z "$RABBIT_HOST" "$RABBIT_PORT" >/dev/null 2>&1; then
   rabbitmq-server -detached
 
   echo "Waiting for RabbitMQ to become ready..."
-  for i in {1..30}; do
+  for i in {1..120}; do
     if nc -z "$RABBIT_HOST" "$RABBIT_PORT" >/dev/null 2>&1; then
       echo "RabbitMQ is up."
       break
