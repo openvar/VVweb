@@ -13,7 +13,8 @@ COOKIE_FILE="$PROJECT_ROOT/.erlang.cookie"
 if [ ! -f "$COOKIE_FILE" ]; then
   echo "Generating RabbitMQ cookie..."
   head -c 20 /dev/urandom | base64 > "$COOKIE_FILE"
-  chmod 400 "$COOKIE_FILE"
+  # make it readable/writable by owner and group, readable by others
+  chmod 664 "$COOKIE_FILE"
 fi
 
 # Export environment for this script only
