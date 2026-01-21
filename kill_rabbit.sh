@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Check RabbitMQ status
+# Stop RabbitMQ if it’s running
 if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
-    echo "RabbitMQ is running."
-    rabbitmqctl status
+    echo "Stopping RabbitMQ..."
+    rabbitmqctl stop
+    echo "RabbitMQ stopped."
 else
     echo "RabbitMQ is not running."
 fi
