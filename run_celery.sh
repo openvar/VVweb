@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
+set -x  # <<< Trace all commands
 
 PROJECT_ROOT="/local/VVweb"
 SUPERVISORD_CONF="$PROJECT_ROOT/supervisord.conf"
 
 # --- RabbitMQ config ---
-COOKIE_FILE="$HOME/.erlang.cookie"
+COOKIE_FILE="$PROJECT_ROOT/.erlang.cookie"
 
-# Create cookie if missing
+# Create cookie if missing (owner-only)
 if [ ! -f "$COOKIE_FILE" ]; then
-  echo "Generating RabbitMQ cookie in $HOME..."
+  echo "Generating RabbitMQ cookie in $PROJECT_ROOT..."
   head -c 20 /dev/urandom | base64 > "$COOKIE_FILE"
   chmod 400 "$COOKIE_FILE"
 fi
@@ -17,10 +18,22 @@ fi
 # Export ERLANG_COOKIE for this session
 export ERLANG_COOKIE="$COOKIE_FILE"
 
-# --- Start RabbitMQ if not running ---
+# --- RabbitMQ debug paths ---
+export RABBITMQ_MNESIA_BASE="$PROJECT_ROOT/mnesia"
+export RABBITMQ_LOG_BASE="$PROJECT_ROOT/logs/rabbitmq"
+mkdir -p "$RABBITMQ_MNESIA_BASE" "$RABBITMQ_LOG_BASE"
+
+# Start RabbitMQ if not running (debug mode)
 if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
   echo "RabbitMQ not running, starting..."
-  rabbitmq-server -detached
+
+  # Run RabbitMQ in foreground with debug log
+  rabbitmq-server -detached -kernel error_logger '{file,"'$PROJECT_ROOT'/logs/rabbit_debug.log"}' \
+    -mnesia dir "$RABBITMQ_MNESIA_BASE" || {
+        echo "ERROR: RabbitMQ failed to start!"
+        tail -n 50 "$PROJECT_ROOT/logs/rabbit_debug.log"
+        exit 1
+    }
 
   echo "Waiting for RabbitMQ to become fully ready..."
   for i in {1..90}; do
@@ -32,38 +45,9 @@ if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
   done
 
   if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
-    echo "WARNING: RabbitMQ did not become fully ready within timeout. Continuing..."
+    echo "WARNING: RabbitMQ did not become fully ready within timeout. Check logs:"
+    tail -n 50 "$PROJECT_ROOT/logs/rabbit_debug.log"
   fi
 else
   echo "RabbitMQ already running."
 fi
-
-# --- Start supervisord / Celery ---
-if pgrep -f "supervisord.*$SUPERVISORD_CONF" >/dev/null; then
-  echo "Supervisord already running."
-  echo "Restarting celery_worker and celery_beat..."
-  supervisorctl -c "$SUPERVISORD_CONF" restart celery_worker celery_beat
-else
-  echo "Starting supervisord with config: $SUPERVISORD_CONF"
-  supervisord -c "$SUPERVISORD_CONF"
-  echo "Supervisord started."
-fi
-
-echo "=== Done ==="
-
-# <LICENSE>
-# Copyright (C) 2016-2026 VariantValidator Contributors
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-# </LICENSE>

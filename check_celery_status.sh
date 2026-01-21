@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Export ERLANG_COOKIE for RabbitMQ if needed
-export ERLANG_COOKIE="$HOME/.erlang.cookie"
+# --- RabbitMQ config ---
+COOKIE_FILE="/local/VVweb/.erlang.cookie"  # or "$HOME/.erlang.cookie" if writable
+
+# Export ERLANG_COOKIE for this session
+export ERLANG_COOKIE="$COOKIE_FILE"
 
 # Show running Celery processes
 echo "Celery processes:"
