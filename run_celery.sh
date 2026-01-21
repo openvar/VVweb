@@ -5,37 +5,35 @@ PROJECT_ROOT="/local/VVweb"
 SUPERVISORD_CONF="$PROJECT_ROOT/supervisord.conf"
 
 # --- RabbitMQ config ---
-RABBIT_HOST="localhost"
-RABBIT_PORT="5672"
 COOKIE_FILE="$PROJECT_ROOT/.erlang.cookie"
+NODE_NAME="rabbit@$(hostname -s)"
 
-# Create cookie if missing
+# Create cookie if missing (owner-only)
 if [ ! -f "$COOKIE_FILE" ]; then
   echo "Generating RabbitMQ cookie..."
   head -c 20 /dev/urandom | base64 > "$COOKIE_FILE"
-  # make it readable/writable by owner and group, readable by others
   chmod 400 "$COOKIE_FILE"
 fi
 
-# Export environment for this script only
+# Export environment for this run only
 export ERLANG_COOKIE="$(cat "$COOKIE_FILE")"
 export HOME="$PROJECT_ROOT"
 
 # --- Start RabbitMQ if not running ---
 if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
   echo "RabbitMQ not running, starting..."
-  rabbitmq-server -detached
+  rabbitmq-server -detached --node "$NODE_NAME"
 
   echo "Waiting for RabbitMQ to become ready..."
   for i in {1..90}; do
-    if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+    if rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
       echo "RabbitMQ is up."
       break
     fi
     sleep 1
   done
 
-  if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+  if ! rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
     echo "ERROR: RabbitMQ did not become ready within timeout."
     exit 1
   fi
@@ -55,3 +53,20 @@ else
 fi
 
 echo "=== Done ==="
+
+# <LICENSE>
+# Copyright (C) 2016-2026 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>

@@ -7,11 +7,11 @@ sudo systemctl stop httpd
 sudo systemctl restart postgresql-17
 sudo systemctl restart mariadb
 
-# Restart RabbitMQ
+# Restart RabbitMQ - Replaced with kill script and added to run celery script. Will be run as wwwrun
 # sudo systemctl stop rabbitmq-server
-rabbitmqctl stop
+# rabbitmqctl stop
 # sudo systemctl start rabbitmq-server
-rabbitmq-server -detached
+# rabbitmq-server -detached
 
 # Start Apache
 sudo systemctl start httpd

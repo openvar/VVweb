@@ -1,7 +1,23 @@
-export HOME="/local/VVweb"
-export ERLANG_COOKIE="$(cat /local/VVweb/.erlang.cookie)"
+#!/usr/bin/env bash
+set -euo pipefail
 
-rabbitmqctl stop
+PROJECT_ROOT="/local/VVweb"
+COOKIE_FILE="$PROJECT_ROOT/.erlang.cookie"
+NODE_NAME="rabbit@$(hostname -s)"
+
+# Ensure environment matches the running RabbitMQ node
+export HOME="$PROJECT_ROOT"
+export ERLANG_COOKIE="$(cat "$COOKIE_FILE")"
+
+# Stop RabbitMQ if it’s running
+if rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
+    echo "Stopping RabbitMQ node $NODE_NAME..."
+    rabbitmqctl --node "$NODE_NAME" stop
+    echo "RabbitMQ stopped."
+else
+    echo "RabbitMQ node $NODE_NAME is not running."
+fi
+
 
 
 # <LICENSE>

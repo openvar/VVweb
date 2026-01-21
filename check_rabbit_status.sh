@@ -1,8 +1,21 @@
-export HOME="/local/VVweb"
-export ERLANG_COOKIE="$(cat /local/VVweb/.erlang.cookie)"
+#!/usr/bin/env bash
+set -euo pipefail
 
-rabbitmqctl status
+PROJECT_ROOT="/local/VVweb"
+COOKIE_FILE="$PROJECT_ROOT/.erlang.cookie"
+NODE_NAME="rabbit@$(hostname -s)"
 
+# Ensure environment matches the running RabbitMQ node
+export HOME="$PROJECT_ROOT"
+export ERLANG_COOKIE="$(cat "$COOKIE_FILE")"
+
+# Check RabbitMQ status
+if rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
+    echo "RabbitMQ node $NODE_NAME is running."
+    rabbitmqctl --node "$NODE_NAME" status
+else
+    echo "RabbitMQ node $NODE_NAME is not running."
+fi
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
