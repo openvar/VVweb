@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source /local/miniconda3/bin/activate vvweb_v2
+
 if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
     echo "RabbitMQ is running. Restarting..."
     rabbitmqctl stop
@@ -23,6 +25,8 @@ for i in {1..30}; do
 done
 
 echo "WARNING: RabbitMQ did not respond within timeout."
+
+source /local/miniconda3/bin/deactivate
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
