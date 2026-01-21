@@ -2,12 +2,10 @@
 set -euo pipefail
 
 # --- RabbitMQ config ---
-COOKIE_FILE="/local/VVweb/.erlang.cookie"
-export ERLANG_COOKIE="$COOKIE_FILE"
+COOKIE_FILE="$HOME/.erlang.cookie"
 
-# --- RabbitMQ directories ---
-export RABBITMQ_MNESIA_BASE="/local/VVweb/mnesia"
-export RABBITMQ_LOG_BASE="/local/VVweb/logs/rabbitmq"
+# Export ERLANG_COOKIE for this session
+export ERLANG_COOKIE="$COOKIE_FILE"
 
 # Check RabbitMQ status
 if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
