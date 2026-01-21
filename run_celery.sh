@@ -1,41 +1,48 @@
 #!/usr/bin/env bash
-#
-# Start RabbitMQ (if needed) and supervisord-managed Celery workers.
-#
-
 set -euo pipefail
 
 PROJECT_ROOT="/local/VVweb"
 SUPERVISORD_CONF="$PROJECT_ROOT/supervisord.conf"
 
+# --- RabbitMQ config ---
 RABBIT_HOST="localhost"
 RABBIT_PORT="5672"
+COOKIE_FILE="$PROJECT_ROOT/.erlang.cookie"
 
-echo "=== Checking RabbitMQ ==="
+# Create cookie if missing
+if [ ! -f "$COOKIE_FILE" ]; then
+  echo "Generating RabbitMQ cookie..."
+  head -c 20 /dev/urandom | base64 > "$COOKIE_FILE"
+  chmod 400 "$COOKIE_FILE"
+fi
 
-if ! nc -z "$RABBIT_HOST" "$RABBIT_PORT" >/dev/null 2>&1; then
+# Export environment for this script only
+export ERLANG_COOKIE="$(cat "$COOKIE_FILE")"
+export HOME="$PROJECT_ROOT"
+
+# --- Start RabbitMQ if not running ---
+if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
   echo "RabbitMQ not running, starting..."
   rabbitmq-server -detached
 
   echo "Waiting for RabbitMQ to become ready..."
-  for i in {1..120}; do
-    if nc -z "$RABBIT_HOST" "$RABBIT_PORT" >/dev/null 2>&1; then
+  for i in {1..90}; do
+    if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
       echo "RabbitMQ is up."
       break
     fi
     sleep 1
   done
 
-  if ! nc -z "$RABBIT_HOST" "$RABBIT_PORT" >/dev/null 2>&1; then
-    echo "ERROR: RabbitMQ did not start within timeout."
+  if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+    echo "ERROR: RabbitMQ did not become ready within timeout."
     exit 1
   fi
 else
   echo "RabbitMQ already running."
 fi
 
-echo "=== Checking supervisord ==="
-
+# --- Start supervisord / Celery ---
 if pgrep -f "supervisord.*$SUPERVISORD_CONF" >/dev/null; then
   echo "Supervisord already running."
   echo "Restarting celery_worker and celery_beat..."
