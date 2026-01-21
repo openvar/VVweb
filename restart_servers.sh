@@ -9,9 +9,9 @@ sudo systemctl restart mariadb
 
 # Restart RabbitMQ
 # sudo systemctl stop rabbitmq-server
-rabbitmqctl stop
+# rabbitmqctl stop
 # sudo systemctl start rabbitmq-server
-rabbitmq-server -detached
+# rabbitmq-server -detached
 
 # Start Apache
 sudo systemctl start httpd

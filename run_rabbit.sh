@@ -1,13 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Check RabbitMQ status
+source /local/miniconda3/bin/activate vvweb_v2
+
 if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
-    echo "RabbitMQ is running."
-    rabbitmqctl status
+    echo "RabbitMQ is running. Restarting..."
+    rabbitmqctl stop
+    echo "RabbitMQ stopped."
 else
     echo "RabbitMQ is not running."
 fi
+
+echo "Starting RabbitMQ..."
+rabbitmq-server -detached
+echo "RabbitMQ start command issued."
+
+# Wait until RabbitMQ responds
+for i in {1..30}; do
+    if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+        echo "RabbitMQ is up."
+        exit 0
+    fi
+    sleep 1
+done
+
+echo "WARNING: RabbitMQ did not respond within timeout."
+
+source /local/miniconda3/bin/deactivate
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
