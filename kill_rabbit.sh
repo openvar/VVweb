@@ -2,10 +2,12 @@
 set -euo pipefail
 
 # --- RabbitMQ config ---
-COOKIE_FILE="/local/VVweb/.erlang.cookie"  # use a location writable by wwwrun
-
-# Export ERLANG_COOKIE for this session
+COOKIE_FILE="/local/VVweb/.erlang.cookie"
 export ERLANG_COOKIE="$COOKIE_FILE"
+
+# --- RabbitMQ directories ---
+export RABBITMQ_MNESIA_BASE="/local/VVweb/mnesia"
+export RABBITMQ_LOG_BASE="/local/VVweb/logs/rabbitmq"
 
 # Stop RabbitMQ if it’s running
 if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
