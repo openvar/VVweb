@@ -15,18 +15,18 @@ if [ ! -f "$COOKIE_FILE" ]; then
   chmod 400 "$COOKIE_FILE"
 fi
 
-# Export environment for this run only
-export ERLANG_COOKIE="$(cat "$COOKIE_FILE")"
+# --- Force environment for RabbitMQ ---
+export ERLANG_COOKIE="$COOKIE_FILE"
 export HOME="$PROJECT_ROOT"
 
 # --- Start RabbitMQ if not running ---
-if ! rabbitmqctl --node "$NODE_NAME" status >/dev/null 2>&1; then
+if ! rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
   echo "RabbitMQ not running, starting..."
   rabbitmq-server -detached --node "$NODE_NAME"
 
   echo "Waiting for RabbitMQ to become fully ready..."
   for i in {1..90}; do
-    if rabbitmqctl --node "$NODE_NAME" status >/dev/null 2>&1; then
+    if rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
       echo "RabbitMQ is fully up."
       break
     fi
@@ -34,7 +34,7 @@ if ! rabbitmqctl --node "$NODE_NAME" status >/dev/null 2>&1; then
   done
 
   # final check
-  if ! rabbitmqctl --node "$NODE_NAME" status >/dev/null 2>&1; then
+  if ! rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
     echo "WARNING: RabbitMQ did not become fully ready within timeout. Continuing..."
   fi
 else

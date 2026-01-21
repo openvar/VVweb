@@ -1,13 +1,22 @@
-ps aux | grep celery
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo ActiveTasks
-celery inspect active
+TARGET_USER="wwwrun"
 
-echo ReservedTasks
-celery inspect reserved
+echo "Celery processes:"
+sudo -u "$TARGET_USER" ps aux | grep '[c]elery'
 
-echo ScheduledTasks
-celery inspect scheduled
+echo
+echo "ActiveTasks:"
+sudo -u "$TARGET_USER" celery inspect active || echo "Celery workers not reachable"
+
+echo
+echo "ReservedTasks:"
+sudo -u "$TARGET_USER" celery inspect reserved || echo "Celery workers not reachable"
+
+echo
+echo "ScheduledTasks:"
+sudo -u "$TARGET_USER" celery inspect scheduled || echo "Celery workers not reachable"
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
@@ -25,4 +34,3 @@ celery inspect scheduled
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # </LICENSE>
-

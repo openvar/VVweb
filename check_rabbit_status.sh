@@ -7,10 +7,10 @@ NODE_NAME="rabbit@$(hostname -s)"
 
 # Ensure environment matches the running RabbitMQ node
 export HOME="$PROJECT_ROOT"
-export ERLANG_COOKIE="$(cat "$COOKIE_FILE")"
+export ERLANG_COOKIE="$COOKIE_FILE"
 
 # Check RabbitMQ status
-if rabbitmqctl --node "$NODE_NAME" status >/dev/null 2>&1; then
+if rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
     echo "RabbitMQ node $NODE_NAME is running."
     rabbitmqctl --node "$NODE_NAME" status
 else
@@ -31,5 +31,4 @@ fi
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-# </LICENSE>
+# alo
