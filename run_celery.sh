@@ -20,7 +20,7 @@ export ERLANG_COOKIE="$(cat "$COOKIE_FILE")"
 export HOME="$PROJECT_ROOT"
 
 # --- Start RabbitMQ if not running ---
-if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+if ! rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
   echo "RabbitMQ not running, starting..."
   rabbitmq-server -detached --node "$NODE_NAME"
 
@@ -33,9 +33,9 @@ if ! rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
     sleep 1
   done
 
+  # final check
   if ! rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
-    echo "ERROR: RabbitMQ did not become ready within timeout."
-    exit 1
+    echo "WARNING: RabbitMQ did not become ready within timeout. Continuing..."
   fi
 else
   echo "RabbitMQ already running."

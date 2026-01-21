@@ -18,8 +18,6 @@ else
     echo "RabbitMQ node $NODE_NAME is not running."
 fi
 
-
-
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
 #
