@@ -10,7 +10,7 @@ export HOME="$PROJECT_ROOT"
 export ERLANG_COOKIE="$(cat "$COOKIE_FILE")"
 
 # Stop RabbitMQ if it’s running
-if rabbitmq-diagnostics -q ping --node "$NODE_NAME" >/dev/null 2>&1; then
+if rabbitmqctl --node "$NODE_NAME" status >/dev/null 2>&1; then
     echo "Stopping RabbitMQ node $NODE_NAME..."
     rabbitmqctl --node "$NODE_NAME" stop
     echo "RabbitMQ stopped."
