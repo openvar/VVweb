@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # --- RabbitMQ config ---
-COOKIE_FILE="$HOME/.erlang.cookie"
+COOKIE_FILE="/local/VVweb/.erlang.cookie"  # or "$HOME/.erlang.cookie" if writable
 
 # Export ERLANG_COOKIE for this session
 export ERLANG_COOKIE="$COOKIE_FILE"

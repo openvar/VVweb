@@ -5,11 +5,11 @@ PROJECT_ROOT="/local/VVweb"
 SUPERVISORD_CONF="$PROJECT_ROOT/supervisord.conf"
 
 # --- RabbitMQ config ---
-COOKIE_FILE="$HOME/.erlang.cookie"
+COOKIE_FILE="$PROJECT_ROOT/.erlang.cookie"
 
-# Create cookie if missing
+# Create cookie if missing (owner-only)
 if [ ! -f "$COOKIE_FILE" ]; then
-  echo "Generating RabbitMQ cookie in $HOME..."
+  echo "Generating RabbitMQ cookie in $PROJECT_ROOT..."
   head -c 20 /dev/urandom | base64 > "$COOKIE_FILE"
   chmod 400 "$COOKIE_FILE"
 fi
