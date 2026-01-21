@@ -1,7 +1,7 @@
 export HOME="/local/VVweb"
 export ERLANG_COOKIE="$(cat /local/VVweb/.erlang.cookie)"
 
-rabbitmqctl status
+rabbitmqctl stop
 
 
 # <LICENSE>
