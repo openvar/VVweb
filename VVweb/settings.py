@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -172,7 +173,7 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
 # Keep Celery task results for 30 days
-CELERY_TASK_RESULT_EXPIRES = 30 * 24 * 60 * 60  # 30 days in seconds
+CELERY_RESULT_EXPIRES = timedelta(days=30)
 
 # Email settings
 DEFAULT_FROM_EMAIL = 'admin@variantValidator.org'
