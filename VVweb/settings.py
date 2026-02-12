@@ -252,6 +252,10 @@ LOGGING = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Fair usage
+# Free-tier default
+DEFAULT_MONTHLY_VARIANT_ALLOWANCE = 20000
+
 try:
     from .local_settings import *
 except ImportError as e:

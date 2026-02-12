@@ -5,7 +5,7 @@ from django.http import HttpResponse, Http404
 from . import forms
 from . import tasks
 from . import services
-from .object_pool import vval_object_pool, g2t_object_pool, batch_object_pool
+from .object_pool import vval_object_pool, g2t_object_pool
 from .utils import render_to_pdf
 import VariantValidator
 from VariantValidator import settings as vvsettings
@@ -13,10 +13,11 @@ import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
 from allauth.account.models import EmailAddress
-import logging
 import codecs
 import sys
 import traceback
+from web.models import VariantQuota
+import logging
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 
@@ -160,6 +161,44 @@ def validate(request):
             if select_transcripts is None or select_transcripts == '' or select_transcripts == 'transcripts':
                 select_transcripts = 'all'
 
+            # --- Handle quota for authenticated users ---
+            logger.info("Check quota")
+            if request.user.is_authenticated:
+                try:
+                    quota, _ = VariantQuota.objects.get_or_create(user=request.user)
+                    quota.reset_if_needed()
+
+                    logger.info(f"Quota for {request.user.username}: {quota}")
+                    if quota.remaining() < 1:
+                        messages.error(
+                            request,
+                            f"You have reached your monthly variant validation limit ({quota.max_allowance}). "
+                            "Please wait for your quota to reset or contact support."
+                        )
+                        locked = True
+                        return render(request, 'validate.html', {
+                            'output': output,
+                            'locked': locked,
+                            'last': last_genome,
+                            'source': last_source,
+                            'initial': variant,
+                        })
+
+                    # Increment quota pre-validation
+                    quota.add_variants(1)
+
+                except Exception as e:
+                    logger.error(f"Quota check failed for user {request.user.id}: {e}")
+                    messages.error(request, "Unable to track your submission quota. Please contact support.")
+                    locked = True
+                    return render(request, 'validate.html', {
+                        'output': output,
+                        'locked': locked,
+                        'last': last_genome,
+                        'source': last_source,
+                        'initial': variant,
+                    })
+
             # Get object from pool
             validator = vval_object_pool.get_object()
 
@@ -268,7 +307,7 @@ def batch_validate(request):
     last_genome = request.session.get('genome', None)
 
     if request.method == 'POST':
-        form = forms.BatchValidateForm(request.POST)
+        form = forms.BatchValidateForm(request.POST, request=request)
         if form.is_valid():
             job = tasks.batch_validate.delay(
                 form.cleaned_data['input_variants'],
@@ -286,7 +325,7 @@ def batch_validate(request):
             return redirect('batch_validate')
         messages.warning(request, "Form contains errors (see below). Please resubmit")
     else:
-        form = forms.BatchValidateForm()
+        form = forms.BatchValidateForm(request=request)
         if not request.user.is_authenticated:
             login_page = reverse('account_login')
             here = reverse('batch_validate')

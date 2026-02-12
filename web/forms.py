@@ -5,6 +5,8 @@ from django.utils.translation import gettext_lazy as _
 from django_recaptcha.fields import ReCaptchaField
 from django.contrib.auth.models import User
 from django.conf import settings
+from django.utils import timezone  # Ensure timezone is imported
+
 
 BATCH_FORM_OPTIONS = [
     ('transcript', 'Transcript context descriptions'),
@@ -33,7 +35,7 @@ class ContactForm(forms.ModelForm):
         fields = ('nameval', 'emailval', 'variant', 'question')
 
     def clean(self):
-        if self.data['name'] or self.data['email']:
+        if self.data.get('name') or self.data.get('email'):
             raise forms.ValidationError("Spam detected")
         return self.cleaned_data
 
@@ -56,8 +58,7 @@ class BatchValidateForm(forms.Form):
                                            'mane \n\tmane_select'}),
                                          required=False,
                                          label='Optional - limit to specific transcripts (see our Genes to '
-                                         'Transcripts tool). '
-                                         'or return select transcripts only'
+                                         'Transcripts tool). or return select transcripts only'
     )
     options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
         attrs={'checked': 'check_label'}),
@@ -65,29 +66,43 @@ class BatchValidateForm(forms.Form):
                                         required=False,
                                         label='Customise the information returned in the output file'
                                         )
-
     email_address = forms.EmailField(widget=forms.EmailInput(
         attrs={'placeholder': 'A validation report will be sent via email.'}))
-
     genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
                                widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
                                label='Select genome build')
-
     refsource = forms.ChoiceField(choices=(('refseq', 'refseq'), ('ensembl', 'ensembl')),
                                   widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
                                   label='Select reference sequence source',
                                   initial='refseq')
 
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+
     def clean_input_variants(self):
         vars = self.cleaned_data['input_variants'].strip().split()
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
-        elif len(vars) > settings.MAX_VCF:
-            raise forms.ValidationError(f"Invalid input, submitted variants exceeds cutoff of {settings.MAX_VCF}",
-                                        code='invalid')
 
-        var_str = '|'.join(vars)
-        return var_str
+        if self.request is None:
+            raise forms.ValidationError("Form must be instantiated with `request` to check quotas.")
+
+        # Get the user's quota object
+        user_quota = self.request.user.variant_quota
+        user_quota.reset_if_needed()
+
+        remaining = user_quota.remaining()
+        if len(vars) > remaining:
+            raise forms.ValidationError(
+                f"Submission exceeds your monthly limit. You have {remaining} variants remaining this month.",
+                code='quota_exceeded'
+            )
+
+        # Add the submitted variants to the quota
+        user_quota.add_variants(len(vars))
+
+        return '|'.join(vars)
 
     def clean_gene_symbols(self):
         symbols = self.cleaned_data['gene_symbols'].strip().split()
@@ -167,13 +182,7 @@ class UpdatedSignUpForm(SignupForm):
         return username
 
     def save(self, request):
-        # Ensure you call the parent class's save.
-        # .save() returns a User object.
         user = super(UpdatedSignUpForm, self).save(request)
-
-        # Add your own processing here if needed.
-
-        # You must return the original result.
         return user
 
 

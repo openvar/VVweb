@@ -1,22 +1,20 @@
 from django.contrib import admin
-from . import models
+from web.models import Contact, VariantQuota
 
-# Register your models here.
-admin.site.register(models.Contact)
+@admin.action(description="Reset variant count to zero")
+def reset_variant_count(modeladmin, request, queryset):
+    for quota in queryset:
+        quota.count = 0
+        quota.last_reset = quota.get_now()
+        quota.save()
 
-# <LICENSE>
-# Copyright (C) 2016-2026 VariantValidator Contributors
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-# </LICENSE>
+@admin.register(VariantQuota)
+class VariantQuotaAdmin(admin.ModelAdmin):
+    list_display = ('user', 'count', 'max_allowance', 'last_reset', 'remaining')
+    readonly_fields = ('remaining',)
+    search_fields = ('user__username', 'user__email')
+    list_filter = ('last_reset',)
+    actions = [reset_variant_count]
+
+# Register Contact
+admin.site.register(Contact)

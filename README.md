@@ -118,6 +118,20 @@ Then load
 psql -U <USER> -d vvweb < temp_data_conflict.sql
 ```
  
+# Then run the following in `python manage.py shell`
+```python
+from django.contrib.auth.models import User
+from web.models import VariantQuota
+from django.conf import settings
+
+for user in User.objects.all():
+    VariantQuota.objects.get_or_create(
+        user=user,
+        defaults={'max_allowance': settings.DEFAULT_MONTHLY_VARIANT_ALLOWANCE, 'count': 0}
+    )
+```
+
+
 Next collect the static folders for Admin accounts
 ```bash
 python manage.py collectstatic
