@@ -10,7 +10,7 @@ class WebConfig(AppConfig):
 
     def ready(self):
         """
-        Setup VariantQuota auto-creation for existing and new users.
+        Auto-create VariantQuota for existing and new users.
         """
         from django.conf import settings
         from django.contrib.auth.models import User
@@ -39,9 +39,6 @@ class WebConfig(AppConfig):
         # FUNCTION: Sync existing users
         # -----------------------------
         def sync_existing_users():
-            """
-            Ensure all existing users have a VariantQuota.
-            """
             default_limit = getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
             updated_count = 0
 
@@ -54,7 +51,6 @@ class WebConfig(AppConfig):
                         'last_reset': timezone.now()
                     }
                 )
-                # Update plan if missing
                 if not created and (quota.plan is None or quota.plan == ''):
                     quota.plan = 'standard'
                     quota.save()
@@ -64,14 +60,15 @@ class WebConfig(AppConfig):
                 print(f"Updated {updated_count} existing users to standard plan")
 
         # -----------------------------
-        # ONLY TRY IF TABLE EXISTS
+        # TRY TO RUN IMMEDIATELY
         # -----------------------------
         try:
-            if VariantQuota.objects.exists():
-                # Run after DB transaction to avoid AppRegistry warnings
-                transaction.on_commit(sync_existing_users)
+            # Only attempt if table exists
+            if VariantQuota.objects.exists() or User.objects.exists():
+                # Run immediately, no need to defer
+                sync_existing_users()
         except (OperationalError, ProgrammingError):
-            # Table might not exist yet (during makemigrations/migrate)
+            # Table doesn't exist yet (during makemigrations/migrate)
             pass
 
 # <LICENSE>
