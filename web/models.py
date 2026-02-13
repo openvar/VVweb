@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
 
+
 class Contact(models.Model):
     nameval = models.CharField(max_length=100, verbose_name='Name')
     emailval = models.EmailField(verbose_name='Email')
@@ -17,14 +18,18 @@ class Contact(models.Model):
 
 
 class VariantQuota(models.Model):
-
     PLAN_CHOICES = [
         ("standard", "Standard"),
         ("pro", "Pro"),
         ("enterprise", "Enterprise"),
     ]
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # Add related_name so we can use `user.variant_quota`
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="variant_quota"
+    )
 
     plan = models.CharField(
         max_length=20,
@@ -42,31 +47,24 @@ class VariantQuota(models.Model):
     # -----------------------------
     # PLAN / LIMIT LOGIC
     # -----------------------------
-
     @property
     def max_allowance(self):
-
         if self.custom_limit is not None:
             return self.custom_limit
 
         if self.plan == "standard":
             return settings.DEFAULT_MONTHLY_VARIANT_ALLOWANCE
-
         if self.plan == "pro":
             return settings.PRO_LIMIT
-
         if self.plan == "enterprise":
             return settings.ENTERPRISE_LIMIT
 
         return settings.DEFAULT_MONTHLY_VARIANT_ALLOWANCE
 
-
     # -----------------------------
     # SUBSCRIPTION CHECK
     # -----------------------------
-
     def check_subscription_status(self):
-
         if (
             self.plan != "standard"
             and self.subscription_expires
@@ -76,40 +74,36 @@ class VariantQuota(models.Model):
             self.subscription_expires = None
             self.count = 0
             self.last_reset = timezone.now()
+            self.custom_limit = None
             self.save()
-
 
     # -----------------------------
     # MONTHLY RESET
     # -----------------------------
-
     def reset_if_needed(self):
         if self.last_reset + timedelta(days=30) <= timezone.now():
             self.count = 0
             self.last_reset = timezone.now()
-            # clear temporary custom limit
+            # Clear temporary custom limit at the end of the month
             self.custom_limit = None
             self.save()
 
     # -----------------------------
     # PUBLIC App
     # -----------------------------
-
     def remaining(self):
         self.check_subscription_status()
         self.reset_if_needed()
         return max(self.max_allowance - self.count, 0)
 
-
     def add_variants(self, n):
         self.check_subscription_status()
         self.reset_if_needed()
-
         if self.count + n > self.max_allowance:
             raise ValueError("Monthly allowance exceeded")
-
         self.count += n
         self.save()
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
