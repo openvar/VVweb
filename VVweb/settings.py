@@ -255,6 +255,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Fair usage
 # Free-tier default
 DEFAULT_MONTHLY_VARIANT_ALLOWANCE = 20000
+PRO_LIMIT = 100000
+ENTERPRISE_LIMIT = 1000000
 
 try:
     from .local_settings import *

@@ -166,30 +166,40 @@ def validate(request):
             if request.user.is_authenticated:
                 try:
                     quota, _ = VariantQuota.objects.get_or_create(user=request.user)
-                    quota.reset_if_needed()
 
-                    logger.info(f"Quota for {request.user.username}: {quota}")
-                    if quota.remaining() < 1:
-                        messages.error(
-                            request,
-                            f"You have reached your monthly variant validation limit ({quota.max_allowance}). "
-                            "Please wait for your quota to reset or contact support."
-                        )
-                        locked = True
-                        return render(request, 'validate.html', {
-                            'output': output,
-                            'locked': locked,
-                            'last': last_genome,
-                            'source': last_source,
-                            'initial': variant,
-                        })
-
-                    # Increment quota pre-validation
+                    # This handles:
+                    # - subscription expiry downgrade
+                    # - monthly reset
+                    # - limit enforcement
                     quota.add_variants(1)
 
+                    logger.info(
+                        f"Quota used by {request.user.username}: "
+                        f"{quota.count}/{quota.max_allowance}"
+                    )
+
+                except ValueError:
+                    messages.error(
+                        request,
+                        f"You have reached your monthly variant validation limit "
+                        f"({quota.max_allowance}). "
+                        "Please wait for your quota to reset or contact support."
+                    )
+                    locked = True
+                    return render(request, 'validate.html', {
+                        'output': output,
+                        'locked': locked,
+                        'last': last_genome,
+                        'source': last_source,
+                        'initial': variant,
+                    })
+
                 except Exception as e:
-                    logger.error(f"Quota check failed for user {request.user.id}: {e}")
-                    messages.error(request, "Unable to track your submission quota. Please contact support.")
+                    logger.error(f"Quota failure for user {request.user.id}: {e}")
+                    messages.error(
+                        request,
+                        "Unable to track your submission quota. Please contact support."
+                    )
                     locked = True
                     return render(request, 'validate.html', {
                         'output': output,

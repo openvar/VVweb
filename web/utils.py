@@ -1,6 +1,7 @@
 from django.template.loader import render_to_string
 from django.conf import settings
 from weasyprint import HTML, CSS, default_url_fetcher
+from web.models import VariantQuota
 
 
 """
@@ -20,6 +21,20 @@ def render_to_pdf(request, template_src, context_dict):
                      ],
         presentational_hints=True)
     return pdf
+
+def sync_free_tier_quotas():
+    """
+    Update all Free-tier users' max_allowance to match the current
+    DEFAULT_MONTHLY_VARIANT_ALLOWANCE in settings.py / local_settings.py.
+    Does NOT touch users who already have a higher limit (Pro/Enterprise).
+    """
+    default_limit = getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
+
+    # Free-tier users are those whose max_allowance is <= default
+    free_users = VariantQuota.objects.filter(max_allowance__lte=default_limit)
+
+    updated_count = free_users.update(max_allowance=default_limit)
+    print(f"Updated {updated_count} Free-tier users to max_allowance = {default_limit}")
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

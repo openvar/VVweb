@@ -10,10 +10,19 @@ def reset_variant_count(modeladmin, request, queryset):
 
 @admin.register(VariantQuota)
 class VariantQuotaAdmin(admin.ModelAdmin):
-    list_display = ('user', 'count', 'max_allowance', 'last_reset', 'remaining')
-    readonly_fields = ('remaining',)
+    list_display = (
+        'user',
+        'plan',
+        'count',
+        'max_allowance',
+        'remaining',
+        'last_reset',
+        'subscription_expires',
+        'custom_limit'
+    )
+    readonly_fields = ('remaining', 'max_allowance')
     search_fields = ('user__username', 'user__email')
-    list_filter = ('last_reset',)
+    list_filter = ('plan', 'last_reset', 'subscription_expires')
     actions = [reset_variant_count]
 
 # Register Contact
