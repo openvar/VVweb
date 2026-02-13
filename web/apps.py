@@ -4,40 +4,75 @@ import logging
 
 logger = logging.getLogger('vv')
 
+
 class WebConfig(AppConfig):
     name = 'web'
 
     def ready(self):
-        # Import inside ready to avoid import-time ORM access
+        """
+        Setup VariantQuota auto-creation for existing and new users.
+        """
         from django.conf import settings
         from django.contrib.auth.models import User
-        from .models import VariantQuota
+        from django.utils import timezone
         from django.db import transaction
         from django.db.utils import OperationalError, ProgrammingError
+        from .models import VariantQuota
+        from django.db.models.signals import post_save
+        from django.dispatch import receiver
 
-        # Schedule a post-commit function so ORM is fully ready
-        def sync_free_tier_quotas():
+        # -----------------------------
+        # SIGNAL: Create VariantQuota for new users
+        # -----------------------------
+        @receiver(post_save, sender=User)
+        def create_variant_quota(sender, instance, created, **kwargs):
+            if created:
+                VariantQuota.objects.create(
+                    user=instance,
+                    plan='standard',
+                    count=0,
+                    last_reset=timezone.now()
+                )
+                logger.info(f"Created VariantQuota for new user: {instance.username}")
+
+        # -----------------------------
+        # FUNCTION: Sync existing users
+        # -----------------------------
+        def sync_existing_users():
+            """
+            Ensure all existing users have a VariantQuota.
+            """
             default_limit = getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
             updated_count = 0
+
             for user in User.objects.all():
-                quota, created = VariantQuota.objects.get_or_create(user=user)
-                # Only update if plan is None or missing
-                if quota.plan is None:
-                    quota.plan = "standard"
+                quota, created = VariantQuota.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'plan': 'standard',
+                        'count': 0,
+                        'last_reset': timezone.now()
+                    }
+                )
+                # Update plan if missing
+                if not created and (quota.plan is None or quota.plan == ''):
+                    quota.plan = 'standard'
                     quota.save()
                     updated_count += 1
 
             if updated_count > 0:
-                print(f"Updated {updated_count} Free-tier users to standard plan")
+                print(f"Updated {updated_count} existing users to standard plan")
 
-        # Only try to run if the table exists
+        # -----------------------------
+        # ONLY TRY IF TABLE EXISTS
+        # -----------------------------
         try:
             if VariantQuota.objects.exists():
-                transaction.on_commit(sync_free_tier_quotas)
+                # Run after DB transaction to avoid AppRegistry warnings
+                transaction.on_commit(sync_existing_users)
         except (OperationalError, ProgrammingError):
-            # Table doesn't exist yet (during makemigrations/migrate)
+            # Table might not exist yet (during makemigrations/migrate)
             pass
-
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
