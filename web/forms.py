@@ -81,7 +81,7 @@ class BatchValidateForm(forms.Form):
         super().__init__(*args, **kwargs)
 
     def clean_input_variants(self):
-        vars = self.cleaned_data['input_variants'].strip().split()
+        vars = self.cleaned_data['input_variants'].split("\n")
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
 
