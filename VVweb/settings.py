@@ -138,13 +138,36 @@ AUTHENTICATION_BACKENDS = (
 
 LOGIN_REDIRECT_URL = 'profile-home'
 
-# Updated allauth settings (replace deprecated ones)
-ACCOUNT_LOGIN_METHODS = {'username', 'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
-ACCOUNT_UNIQUE_EMAIL = True
+# ==============================
+# Django Allauth Configuration (modern)
+# ==============================
 
+# Allow login using either email or username
+ACCOUNT_LOGIN_METHODS = {'email', 'username'}
+
+# Signup fields: all required
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+
+# Email verification is mandatory
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+
+# Automatically log user in after confirming email
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+
+# Custom signup form
+ACCOUNT_FORMS = {
+    'signup': 'web.forms.UpdatedSignUpForm',
+}
+
+# Custom display name function for users
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
-ACCOUNT_FORMS = {'signup': 'web.forms.UpdatedSignUpForm'}
+
+# Email must be unique — enforced via signup fields
+# (ACCOUNT_EMAIL_REQUIRED and ACCOUNT_UNIQUE_EMAIL are deprecated)
+
+
+# Custom display name function
+ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/

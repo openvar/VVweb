@@ -3,14 +3,13 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from django.conf import settings
-from .models import VariantQuota
+from allauth.account.signals import user_signed_up
+from allauth.account.models import EmailAddress
+from .models import VariantQuota, Contact
 
+# Automatically create VariantQuota for new users
 @receiver(post_save, sender=User)
 def create_variant_quota(sender, instance, created, **kwargs):
-    """
-    Automatically create a VariantQuota for new users.
-    """
     if created:
         VariantQuota.objects.create(
             user=instance,
@@ -18,6 +17,21 @@ def create_variant_quota(sender, instance, created, **kwargs):
             count=0,
             last_reset=timezone.now()
         )
+
+# Automatically create Contact for new signed-up users (after email verification)
+@receiver(user_signed_up)
+def create_contact_for_new_user(request, user, **kwargs):
+    email_obj = EmailAddress.objects.filter(user=user, verified=True).first()
+    if email_obj:
+        Contact.objects.get_or_create(
+            emailval=email_obj.email,
+            defaults={
+                'name': user.get_full_name() or user.username,
+                'message': '',   # Optional, empty message for new users
+                'subscribed': True
+            }
+        )
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
