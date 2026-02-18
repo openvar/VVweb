@@ -13,6 +13,7 @@ import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
 from allauth.account.models import EmailAddress
+from allauth.account.views import SignupView
 import codecs
 import sys
 import traceback
@@ -644,6 +645,22 @@ def bed_file(request):
 
     response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
     return response
+
+# -----------------------------
+# Custom Allauth email verification sent page
+# -----------------------------
+class CustomSignupView(SignupView):
+    template_name = 'account/email_verification_sent.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            context['email'] = self.request.user.email
+        else:
+            # For anonymous users in debug/dev mode
+            context['email'] = self.request.POST.get('email', '')
+        return context
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
