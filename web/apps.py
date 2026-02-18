@@ -10,54 +10,19 @@ class WebConfig(AppConfig):
 
     def ready(self):
         """
-        Auto-create VariantQuota for existing and new users.
-        Also create Contact for users signing up via allauth.
+        Connect web app signals and sync existing users.
         """
+        from . import signals
         from django.conf import settings
         from django.contrib.auth.models import User
+        from .models import VariantQuota
         from django.utils import timezone
-        from django.db import transaction
         from django.db.utils import OperationalError, ProgrammingError
-        from django.db.models.signals import post_save
-        from django.dispatch import receiver
-        from .models import VariantQuota, Contact
-        from allauth.account.signals import user_signed_up
-        from allauth.account.models import EmailAddress
+
+        logger.info("Web signals loaded")
 
         # -----------------------------
-        # SIGNAL: Create VariantQuota for new users
-        # -----------------------------
-        @receiver(post_save, sender=User)
-        def create_variant_quota(sender, instance, created, **kwargs):
-            if created:
-                VariantQuota.objects.create(
-                    user=instance,
-                    plan='standard',
-                    count=0,
-                    last_reset=timezone.now()
-                )
-                logger.info(f"Created VariantQuota for new user: {instance.username}")
-
-        # -----------------------------
-        # SIGNAL: Create Contact for verified signup
-        # -----------------------------
-        @receiver(user_signed_up)
-        def create_contact_for_new_user(request, user, **kwargs):
-            # Only create Contact if email is verified
-            email_obj = EmailAddress.objects.filter(user=user, verified=True).first()
-            if email_obj:
-                Contact.objects.get_or_create(
-                    emailval=email_obj.email,
-                    defaults={
-                        'name': user.get_full_name() or user.username,
-                        'message': '',
-                        'subscribed': True
-                    }
-                )
-                logger.info(f"Created Contact for new user: {user.username}")
-
-        # -----------------------------
-        # FUNCTION: Sync existing users
+        # Sync existing users at startup
         # -----------------------------
         def sync_existing_users():
             default_limit = getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
@@ -78,11 +43,8 @@ class WebConfig(AppConfig):
                     updated_count += 1
 
             if updated_count > 0:
-                print(f"Updated {updated_count} existing users to standard plan")
+                logger.info(f"Updated {updated_count} existing users to standard plan")
 
-        # -----------------------------
-        # TRY TO RUN IMMEDIATELY
-        # -----------------------------
         try:
             # Only attempt if table exists
             if VariantQuota.objects.exists() or User.objects.exists():
@@ -90,6 +52,7 @@ class WebConfig(AppConfig):
         except (OperationalError, ProgrammingError):
             # Table doesn't exist yet (during makemigrations/migrate)
             pass
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

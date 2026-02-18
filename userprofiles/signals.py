@@ -1,42 +1,30 @@
-from __future__ import print_function
-from django.conf import settings
+# userprofiles/signals.py
 from django.dispatch import receiver
-from django.contrib.auth.models import User
 from allauth.account.signals import user_signed_up, email_confirmed
 from .models import UserProfile
+import logging
+
+logger = logging.getLogger('vv')
 
 
-@receiver(user_signed_up, dispatch_uid="user_signed_up")
-def create_new_profile(request, **kwargs):
-    if settings.DEBUG:
-        print('# ============ Signal fired: "user_signed_up" ============= #')
-    if not request.user.is_authenticated:
-        return
-    user = kwargs['user']
-    profile = UserProfile(user=user)
-    profile.save()
-    if settings.DEBUG:
-        print('New profile created for user ' + user.username)
-    return
+@receiver(user_signed_up)
+def create_user_profile(request, user, **kwargs):
+    """Create a UserProfile for new users"""
+    profile, created = UserProfile.objects.get_or_create(user=user)
+    if created:
+        logger.info(f"Created UserProfile for {user.username}")
 
 
-@receiver(email_confirmed, dispatch_uid="email_confirmed")
-def set_email_confirmed(request, **kwargs):
-    if settings.DEBUG:
-        print('# ============ Signal fired: "email_confirmed" ============= #')
-    if not request.user.is_authenticated:
-        return
-    else:
-        if settings.DEBUG:
-            print('User is identified : ' + request.user.username)
-        user = request.user
+@receiver(email_confirmed)
+def mark_email_verified(request, email_address, **kwargs):
+    """Mark email as verified on the UserProfile"""
+    user = email_address.user
     profile = UserProfile.objects.get(user=user)
     profile.email_is_verified = True
     profile.completion_level = profile.get_completion_level()
     profile.save()
-    if settings.DEBUG:
-        print('Email set as verified')
-    return
+    logger.info(f"Email set as verified for {user.username}")
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

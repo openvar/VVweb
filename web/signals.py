@@ -6,10 +6,14 @@ from django.utils import timezone
 from allauth.account.signals import user_signed_up
 from allauth.account.models import EmailAddress
 from .models import VariantQuota, Contact
+import logging
 
-# Automatically create VariantQuota for new users
+logger = logging.getLogger('vv')
+
+
 @receiver(post_save, sender=User)
 def create_variant_quota(sender, instance, created, **kwargs):
+    """Automatically create VariantQuota for new users"""
     if created:
         VariantQuota.objects.create(
             user=instance,
@@ -17,20 +21,23 @@ def create_variant_quota(sender, instance, created, **kwargs):
             count=0,
             last_reset=timezone.now()
         )
+        logger.info(f"Created VariantQuota for new user: {instance.username}")
 
-# Automatically create Contact for new signed-up users (after email verification)
+
 @receiver(user_signed_up)
 def create_contact_for_new_user(request, user, **kwargs):
+    """Create Contact object if user's email is verified"""
     email_obj = EmailAddress.objects.filter(user=user, verified=True).first()
     if email_obj:
         Contact.objects.get_or_create(
             emailval=email_obj.email,
             defaults={
                 'name': user.get_full_name() or user.username,
-                'message': '',   # Optional, empty message for new users
+                'message': '',
                 'subscribed': True
             }
         )
+        logger.info(f"Created Contact for new user: {user.username}")
 
 
 # <LICENSE>

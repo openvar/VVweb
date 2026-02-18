@@ -1,11 +1,18 @@
+# userprofiles/apps.py
 from django.apps import AppConfig
+import logging
+
+logger = logging.getLogger('vv')
 
 
 class UserprofilesConfig(AppConfig):
     name = 'userprofiles'
 
     def ready(self):
-        from userprofiles import signals
+        """Connect UserProfiles signals"""
+        from . import signals
+        logger.info("Userprofiles signals loaded")
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
