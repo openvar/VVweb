@@ -1,25 +1,12 @@
 {% extends "account/base.html" %}
 
-{% block content %}
-<div class="card shadow-sm p-4 text-center">
-  {% if confirmation %}
-    <h2 class="mb-3">Email Confirmed!</h2>
+{% block page_content %}
+<div class="card shadow-sm p-4">
+    <h4>Email Confirmed!</h4>
     <p>
-      Thank you, <strong>{{ user.username }}</strong>. Your email
-      <strong>{{ confirmation.email_address.email }}</strong> has been verified.
+        Your email has been successfully verified. You can now
+        <a href="{% url 'account_login' %}">log in</a> or go to your
+        <a href="{% url 'profile-home' %}">profile</a>.
     </p>
-    <a href="{% url 'account_login' %}" class="btn btn-success mt-3">
-      Login
-    </a>
-  {% else %}
-    <h2 class="mb-3">Invalid or Expired Link</h2>
-    <p>
-      Sorry, this confirmation link is invalid or has already been used.
-      Please request a new verification email.
-    </p>
-    <a href="{% url 'account_email' %}" class="btn btn-primary mt-3">
-      Resend Verification Email
-    </a>
-  {% endif %}
 </div>
 {% endblock %}

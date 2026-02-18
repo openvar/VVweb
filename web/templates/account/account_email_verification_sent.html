@@ -1,17 +1,11 @@
 {% extends "account/base.html" %}
 
-{% block content %}
+{% block page_content %}
 <div class="card shadow-sm p-4">
-  <h2 class="mb-3">Verify Your Email</h2>
-  <p>
-    An email has been sent to <strong>{{ user.email }}</strong>.
-    Please check your inbox and click the verification link to activate your account.
-  </p>
-  <p class="text-muted">
-    If you don’t see it, check your spam folder or request a new verification email.
-  </p>
-  <a href="{% url 'account_email' %}" class="btn btn-primary mt-3">
-    Resend Verification Email
-  </a>
+    <h4>Verify Your Email</h4>
+    <p>
+        We have sent a confirmation email to <strong>{{ email }}</strong>.
+        Please follow the link in the email to verify your account.
+    </p>
 </div>
 {% endblock %}
