@@ -18,6 +18,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from web import views
+from web.views import StyledEmailSentView, StyledSignupView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
@@ -34,6 +36,8 @@ urlpatterns = [
     path('bed/', views.bed_file, name='bed'),
     path('accounts/', include('allauth.urls')),
     path('profile/', include('userprofiles.urls')),
+    path("accounts/confirm-email/", StyledEmailSentView.as_view(), name="account_email_verification_sent"),
+    path('accounts/signup/', StyledSignupView.as_view(), name='account_signup'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 

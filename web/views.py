@@ -18,6 +18,7 @@ import sys
 import traceback
 from web.models import VariantQuota
 import logging
+from allauth.account.views import EmailVerificationSentView, SignupView
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 
@@ -644,6 +645,29 @@ def bed_file(request):
 
     response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
     return response
+
+class StyledEmailSentView(EmailVerificationSentView):
+    template_name = "account/email_confirmation_sent.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Ensure email is always passed to template
+        context['email'] = self.request.session.get(
+            'account_email',
+            self.request.GET.get('email', 'your email')
+        )
+        return context
+
+class StyledSignupView(SignupView):
+    """
+    Custom signup view that stores the email in the session
+    so StyledEmailSentView can always access it.
+    """
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # Save email in session
+        self.request.session['account_email'] = form.cleaned_data['email']
+        return response
 
 
 # <LICENSE>
