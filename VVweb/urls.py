@@ -34,10 +34,10 @@ urlpatterns = [
     path('service/vcf2hgvs/', views.vcf2hgvs, name='vcf2hgvs'),
     path('download/<str:job_id>/', views.download_batch_res, name='batch_download'),
     path('bed/', views.bed_file, name='bed'),
+    path('accounts/signup/', StyledSignupView.as_view(), name='account_signup'),
     path('accounts/', include('allauth.urls')),
     path('profile/', include('userprofiles.urls')),
     path("accounts/confirm-email/", StyledEmailSentView.as_view(), name="account_email_verification_sent"),
-    path('accounts/signup/', StyledSignupView.as_view(), name='account_signup'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
