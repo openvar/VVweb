@@ -152,7 +152,8 @@ ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 
 # Automatically log user in after confirming email
-ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
+# ACCOUNT_SIGNUP_REDIRECT_URL = "/accounts/confirm-email/"
 
 # Custom signup form
 ACCOUNT_FORMS = {

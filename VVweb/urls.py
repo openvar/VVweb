@@ -34,7 +34,6 @@ urlpatterns = [
     path('bed/', views.bed_file, name='bed'),
     path('accounts/', include('allauth.urls')),
     path('profile/', include('userprofiles.urls')),
-    path("accounts/signup/", views.CustomSignupView.as_view(), name="account_signup"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
