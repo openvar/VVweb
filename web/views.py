@@ -12,13 +12,16 @@ from VariantValidator import settings as vvsettings
 import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
-from allauth.account.models import EmailAddress
 import codecs
 import sys
 import traceback
 from web.models import VariantQuota
 import logging
 from allauth.account.views import EmailVerificationSentView, SignupView
+from allauth.account.views import LoginView
+from allauth.account.utils import send_email_confirmation
+from allauth.account.models import EmailAddress
+from django.contrib import messages
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 
@@ -668,6 +671,31 @@ class StyledSignupView(SignupView):
         # Save email in session
         self.request.session['account_email'] = form.cleaned_data['email']
         return response
+
+class StrictLoginView(LoginView):
+
+    def form_valid(self, form):
+        user = form.user
+
+        # Check if email verified
+        email_address = EmailAddress.objects.filter(
+            user=user,
+            email=user.email
+        ).first()
+
+        if email_address and not email_address.verified:
+            send_email_confirmation(self.request, user)
+            self.request.session['account_email'] = user.email
+
+            messages.error(
+                self.request,
+                "Your email address is not verified. "
+                "We have sent you a new confirmation email."
+            )
+
+            return redirect("account_email_verification_sent")
+
+        return super().form_valid(form)
 
 
 # <LICENSE>

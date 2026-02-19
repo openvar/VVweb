@@ -18,7 +18,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from web import views
-from web.views import StyledEmailSentView, StyledSignupView
+from web.views import StyledEmailSentView, StyledSignupView, StrictLoginView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -34,6 +34,7 @@ urlpatterns = [
     path('service/vcf2hgvs/', views.vcf2hgvs, name='vcf2hgvs'),
     path('download/<str:job_id>/', views.download_batch_res, name='batch_download'),
     path('bed/', views.bed_file, name='bed'),
+    path("accounts/login/", StrictLoginView.as_view(), name="account_login"),
     path('accounts/signup/', StyledSignupView.as_view(), name='account_signup'),
     path("accounts/confirm-email/", StyledEmailSentView.as_view(), name="account_email_verification_sent"),
     path('accounts/', include('allauth.urls')),
