@@ -65,7 +65,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.github',
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.orcid',
-    'userprofiles',
+    'userprofiles.apps.UserprofilesConfig',
     'verification',
     'django_recaptcha',
     'django_countries',
