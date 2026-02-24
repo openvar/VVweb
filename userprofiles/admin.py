@@ -2,16 +2,23 @@
 
 from django.contrib import admin
 from django.utils import timezone
+from django.contrib.auth.models import User
+
 from .models import UserProfile
 
 
+# ============================
+# ADMIN ACTIONS
+# ============================
+
 @admin.action(description="Mark selected users as Verified (non-commercial)")
 def mark_verified(modeladmin, request, queryset):
-    queryset.update(
-        verification_status="verified",
-        verified_at=timezone.now(),
-        verified_by=request.user,
-    )
+    now = timezone.now()
+    for profile in queryset:
+        profile.verification_status = "verified"
+        profile.verified_at = now
+        profile.verified_by = request.user
+        profile.save()
 
 
 @admin.action(description="Mark selected users as Commercial")
@@ -24,13 +31,16 @@ def ban_users(modeladmin, request, queryset):
     queryset.update(verification_status="banned")
 
 
+# ============================
+# MODEL ADMIN
+# ============================
+
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = (
         "user",
         "org_type",
         "verification_status",
-        "country",
         "email_is_verified",
         "terms_accepted_at",
         "verified_at",
@@ -40,7 +50,11 @@ class UserProfileAdmin(admin.ModelAdmin):
 
     list_filter = ("org_type", "verification_status", "country")
 
-    actions = [mark_verified, mark_commercial, ban_users]
+    actions = [
+        mark_verified,
+        mark_commercial,
+        ban_users,
+    ]
 
     readonly_fields = (
         "verified_at",
@@ -48,6 +62,16 @@ class UserProfileAdmin(admin.ModelAdmin):
         "terms_accepted_at",
         "rejection_reason",
     )
+
+    # Optional: Auto-timestamp verified_by/verified_at when using dropdown
+    def save_model(self, request, obj, form, change):
+        if "verification_status" in form.changed_data:
+            if obj.verification_status == "verified":
+                if obj.verified_at is None:
+                    obj.verified_at = timezone.now()
+                if obj.verified_by is None:
+                    obj.verified_by = request.user
+        super().save_model(request, obj, form, change)
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
