@@ -1,15 +1,32 @@
 {% extends "account/base.html" %}
-
 {% load i18n %}
-{% load widget_tweaks %}
 {% load static %}
 
 {% block page_content %}
-<div class="card shadow-sm p-4">
-    <h4>Verify Your Email</h4>
-    <p>
-        We have sent a confirmation email to <strong>{{ email }}</strong>.
-        Please follow the link in the email to verify your account.
+<div class="card shadow-sm p-4" style="max-width: 600px; margin: 0 auto;">
+
+    <h4 class="mb-3">{% trans "Verify Your Email" %}</h4>
+
+    <p class="text-muted mb-4">
+        {% blocktrans with email=email %}
+            We’ve sent a confirmation email to <strong>{{ email }}</strong>.
+            Please check your inbox and click the link inside to verify your account.
+        {% endblocktrans %}
     </p>
+
+    <div class="alert alert-info" role="alert">
+        <strong>{% trans "Didn't receive the email?" %}</strong><br>
+        {% trans "It may take a minute to arrive, or be in your spam/junk folder." %}
+    </div>
+
+    <p class="mt-3">
+        {% trans "If you need us to resend it, click below:" %}
+    </p>
+
+    /accounts_emailverification_sent_resend
+        {% trans "Resend confirmation email" %}
+    </a>
+
 </div>
 {% endblock %}
+``
