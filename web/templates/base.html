@@ -135,7 +135,7 @@
                   </div>
               </div>
             </li>
-          {% if user.is_authenticated %}
+            {% if user.is_authenticated %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">
               {% user_display user %}
@@ -151,6 +151,15 @@
             <a class="nav-link" href="{% url 'account_login' %}">Login</a>
           </li>
           {% endif %}
+            {% if user.is_authenticated %}
+            <li class="nav-item">
+              <span id="quota-display"
+                    class="nav-link badge badge-info text-white"
+                    style="font-size: 0.85rem; display: none;">
+                Loading…
+              </span>
+            </li>
+            {% endif %}
         </ul>
       </div>
     </div>
@@ -287,6 +296,32 @@
         </script>
     {% endif %}
 {% endblock %}
+
+{% if user.is_authenticated %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  fetch("{% url 'quota_status' %}", { credentials: "same-origin" })
+    .then(res => res.json())
+    .then(data => {
+        const badge = document.getElementById("quota-display");
+        if (!badge) return;
+
+        const remaining = data.remaining;
+        const total = data.effective_allowance;
+
+        badge.textContent = `Validations remaining: ${remaining.toLocaleString()} / ${total.toLocaleString()}`;
+        badge.style.display = "inline-block";
+
+        // Optional: turn red if <10% remaining
+        if (remaining < total * 0.1) {
+            badge.classList.remove("badge-info");
+            badge.classList.add("badge-danger");
+        }
+    })
+    .catch(err => console.error("Quota fetch failed:", err));
+});
+</script>
+{% endif %}
 
 </body>
 

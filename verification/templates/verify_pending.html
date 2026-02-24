@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Verification Pending{% endblock %}
+
+{% block content %}
+<div class="container my-5" style="max-width: 820px;">
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-4">
+
+      <div class="d-flex align-items-center mb-3">
+        <span class="badge badge-warning mr-2" style="font-size:0.9rem;">Pending</span>
+        <h3 class="mb-0">Your verification request has been submitted</h3>
+      </div>
+
+      <p class="text-muted">
+        Thank you. Your information has been received. An administrator has been notified and will review your request.
+        You will receive access as soon as your account is verified.
+      </p>
+
+      <hr>
+
+      <div class="row">
+        <div class="col-md-7">
+
+          <h5 class="mt-2">What happens next?</h5>
+          <ul class="mb-3">
+            <li>We confirm your organisation and intended use.</li>
+            <li>If more information is required, we’ll contact you at your registered email.</li>
+            <li>Once approved, you’ll be able to use VariantValidator immediately.</li>
+          </ul>
+
+          <h6 class="text-muted">Typical timelines</h6>
+          <ul class="mb-4">
+            <li>Academic / NHS / public‑sector users: usually same or next working day.</li>
+            <li>Generic email (e.g. Gmail/Outlook): may take longer if additional evidence is needed.</li>
+          </ul>
+
+          <div class="alert alert-info" role="alert">
+            <strong>Tip:</strong> Fastest approvals usually include an institutional profile
+            (university, NHS trust, government/public health) or a Google Scholar / ORCID link for researchers.
+          </div>
+
+          <div class="mt-4">
+            <a class="btn btn-outline-primary" href="/verify/">Resubmit more evidence</a>
+            <a class="btn btn-link" href="https://github.com/openvar/variantValidator/blob/master/README.md#terms-and-conditions-of-use" target="_blank" rel="noopener noreferrer">
+              Terms and Conditions of Use
+            </a>
+          </div>
+
+        </div>
+        <div class="col-md-5">
+
+          <div class="bg-light rounded p-3 mb-3">
+            <h6 class="mb-2">Your details</h6>
+            <dl class="mb-0">
+              <dt>Email</dt>
+              <dd class="mb-2">{{ request.user.email }}</dd>
+
+              {% if profile %}
+                <dt>Organisation type</dt>
+                <dd class="mb-2">{{ profile.get_org_type_display }}</dd>
+              {% endif %}
+            </dl>
+          </div>
+
+          <div class="bg-light rounded p-3">
+            <h6 class="mb-2">Need help?</h6>
+            <p class="mb-2">
+              If you believe you should have been auto‑verified (e.g. you used an institutional email)
+              or you want to add extra evidence, you can resubmit above or contact us.
+            </p>
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'contact' %}">Contact support</a>
+          </div>
+
+        </div>
+      </div>
+
+      <hr class="mt-4">
+
+      <div class="d-flex align-items-center">
+        <a class="btn btn-link p-0 mr-3" href="/">Return to homepage</a>
+        <small class="text-muted">
+          You can safely close this page. We’ll email you if more information is needed.
+        </small>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

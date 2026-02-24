@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from web import views
+from web import views, views_quota
 from web.views import StyledEmailSentView, StyledSignupView, StrictLoginView
 
 urlpatterns = [
@@ -37,6 +37,8 @@ urlpatterns = [
     path("accounts/login/", StrictLoginView.as_view(), name="account_login"),
     path('accounts/signup/', StyledSignupView.as_view(), name='account_signup'),
     path("accounts/confirm-email/", StyledEmailSentView.as_view(), name="account_email_verification_sent"),
+    path("quota/", views_quota.quota_status, name="quota_status"),
+    path("", include("verification.urls")),
     path('accounts/', include('allauth.urls')),
     path('profile/', include('userprofiles.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

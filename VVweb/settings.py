@@ -69,7 +69,9 @@ INSTALLED_APPS = [
     'django_recaptcha',
     'django_countries',
     'django_celery_beat',
+    'verification',
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -77,10 +79,13 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # ENFORCEMENT MIDDLEWARE
+    'verification.middleware.TierEnforcementMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
 ]
+
 
 ROOT_URLCONF = 'VVweb.urls'
 
@@ -281,6 +286,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DEFAULT_MONTHLY_VARIANT_ALLOWANCE = 20000
 PRO_LIMIT = 100000
 ENTERPRISE_LIMIT = 1000000
+INSTITUTION_LIMIT = 1000000
 
 try:
     from .local_settings import *
