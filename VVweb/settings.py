@@ -66,10 +66,10 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.orcid',
     'userprofiles',
+    'verification',
     'django_recaptcha',
     'django_countries',
     'django_celery_beat',
-    'verification',
 ]
 
 
