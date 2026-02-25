@@ -17,6 +17,7 @@ class TierEnforcementMiddleware:
 
       2. COMMERCIAL users:
             - Redirect to /commercial/ for payment/licensing workflow
+            - DO NOT redirect them to /verify/ (prevents redirect loops)
 
       3. VERIFIED or AUTO_VERIFIED users:
             - Full access to site as normal
@@ -24,8 +25,6 @@ class TierEnforcementMiddleware:
       4. NOT_STARTED or PENDING users:
             - HARD LOCKOUT
             - Redirect to /verify/ until they complete verification
-
-    Applies to ALL authenticated users (existing + new).
     """
 
     def __init__(self, get_response):
@@ -34,6 +33,7 @@ class TierEnforcementMiddleware:
         # Paths allowed during locked-out state
         self.allowed_prefixes = [
             "/verify/",
+            "/commercial/",           # <-- FIX ADDED HERE
             "/logout/",
             "/accounts/login/",
             "/accounts/logout/",
@@ -72,9 +72,10 @@ class TierEnforcementMiddleware:
             # 2. COMMERCIAL USERS → redirect to commercial flow
             # ============================================================
             if status == "commercial":
-                # Prevent redirect loop
+                # Prevent redirect loop by allowing /commercial/ and anything under it
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
+                return self.get_response(request)
 
             # ============================================================
             # 3. VERIFIED USERS → allow access (verified or auto-verified)
@@ -83,12 +84,7 @@ class TierEnforcementMiddleware:
                 return self.get_response(request)
 
             # ============================================================
-            # 4. NOT VERIFIED → HARD LOCKOUT
-            #
-            #    - not_started → must choose org type
-            #    - pending     → awaiting admin review
-            #
-            #    Only allowed to visit verification pages
+            # 4. NOT VERIFIED (not_started or pending) → HARD LOCKOUT
             # ============================================================
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
