@@ -25,8 +25,8 @@ class ObjectPool:
 
 # Create shared object pools
 vval_object_pool = ObjectPool(Validator, initial_pool_size=8, max_pool_size=10)
-g2t_object_pool = ObjectPool(Validator, initial_pool_size=4, max_pool_size=10)
-batch_object_pool = ObjectPool(Validator, initial_pool_size=7, max_pool_size=10)
+g2t_object_pool = ObjectPool(Validator, initial_pool_size=2, max_pool_size=10)
+batch_object_pool = ObjectPool(Validator, initial_pool_size=6, max_pool_size=10)
 
 
 # <LICENSE>
