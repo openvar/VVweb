@@ -1,7 +1,8 @@
 # verification/urls.py
 
 from django.urls import path
-from .views_verify import verify_identity, verify_pending, commercial_landing
+from .views_verify import verify_identity, verify_pending
+from .views_commercial import commercial_landing
 
 urlpatterns = [
     path("verify/", verify_identity, name="verify_identity"),
