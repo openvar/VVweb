@@ -1,12 +1,34 @@
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django.shortcuts import redirect
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from allauth.account.models import EmailAddress
 from allauth.account.utils import send_email_confirmation
 
-@login_required
+User = get_user_model()
+
+
 def resend_confirmation(request):
-    send_email_confirmation(request, request.user)
+    """
+    Resend confirmation email WITHOUT requiring login.
+    The user's email must be passed in the GET parameter (?email=...),
+    which Allauth does on the email-sent page.
+    """
+    email = request.GET.get("email")
+
+    if not email:
+        messages.error(request, "No email address provided.")
+        return redirect("account_email_verification_sent")
+
+    try:
+        email_obj = EmailAddress.objects.get(email=email)
+        user = email_obj.user
+    except EmailAddress.DoesNotExist:
+        messages.error(request, "Unknown email address.")
+        return redirect("account_email_verification_sent")
+
+    send_email_confirmation(request, user)
     messages.success(request, "A new confirmation email has been sent.")
+
     return redirect("account_email_verification_sent")
 
 # <LICENSE>

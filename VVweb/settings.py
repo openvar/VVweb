@@ -212,12 +212,16 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = '[VVWeb] '
 
 # Local email debugging configuration
 if DEBUG:
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = 'localhost'
+    # Use MailHog/MailCatcher or similar at localhost:1025
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = "localhost"
     EMAIL_PORT = 1025
     EMAIL_USE_TLS = False
-    EMAIL_HOST_USER = ''
-    EMAIL_HOST_PASSWORD = ''
+    EMAIL_HOST_USER = ""
+    EMAIL_HOST_PASSWORD = ""
+
+    # IMPORTANT: set a valid default sender for dev
+    DEFAULT_FROM_EMAIL = "dev-noreply@variantvalidator.local"
 
 # For VCF to HGVS conversion
 MAX_VCF = 20000
@@ -287,6 +291,7 @@ DEFAULT_MONTHLY_VARIANT_ALLOWANCE = 20000
 PRO_LIMIT = 100000
 ENTERPRISE_LIMIT = 1000000
 INSTITUTION_LIMIT = 1000000
+COMMERCIAL_TRIAL_LIMIT = 0
 
 try:
     from .local_settings import *

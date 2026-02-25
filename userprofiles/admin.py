@@ -2,7 +2,29 @@
 
 from django.contrib import admin
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
+
 from .models import UserProfile
+
+
+# ============================================================
+# EMAIL HELPER
+# ============================================================
+
+def notify_user(profile, subject, message):
+    """
+    Send a notification email to the user.
+    In DEBUG, fail_silently=False so you see errors immediately.
+    In production, fail_silently=True so admin actions don't crash.
+    """
+    send_mail(
+        subject,
+        message,
+        getattr(settings, "DEFAULT_FROM_EMAIL", "dev-noreply@variantvalidator.local"),
+        [profile.user.email],
+        fail_silently=not settings.DEBUG,
+    )
 
 
 # ============================
@@ -18,15 +40,55 @@ def mark_verified(modeladmin, request, queryset):
         profile.verified_by = request.user
         profile.save()
 
+        # Notify user
+        notify_user(
+            profile,
+            "Your VariantValidator account has been approved",
+            (
+                f"Hello {profile.user.username},\n\n"
+                "Your VariantValidator account has now been approved.\n"
+                "You may now use VariantValidator.\n\n"
+                "Regards,\nVariantValidator Team"
+            ),
+        )
+
 
 @admin.action(description="Mark selected users as Commercial")
 def mark_commercial(modeladmin, request, queryset):
-    queryset.update(verification_status="commercial")
+    for profile in queryset:
+        profile.verification_status = "commercial"
+        profile.save()
+
+        # Notify user
+        notify_user(
+            profile,
+            "VariantValidator – Commercial Access Required",
+            (
+                f"Hello {profile.user.username},\n\n"
+                "Your account requires a commercial licence.\n"
+                "Please visit the commercial page inside VariantValidator.\n\n"
+                "Regards,\nVariantValidator Team"
+            ),
+        )
 
 
 @admin.action(description="Ban selected users")
 def ban_users(modeladmin, request, queryset):
-    queryset.update(verification_status="banned")
+    for profile in queryset:
+        profile.verification_status = "banned"
+        profile.save()
+
+        # Notify user
+        notify_user(
+            profile,
+            "VariantValidator – Access Suspended",
+            (
+                f"Hello {profile.user.username},\n\n"
+                "Your VariantValidator account has been suspended or not approved.\n"
+                "If you believe this is an error, contact support.\n\n"
+                "Regards,\nVariantValidator Team"
+            ),
+        )
 
 
 # ============================
@@ -45,7 +107,6 @@ class UserProfileAdmin(admin.ModelAdmin):
     )
 
     search_fields = ("user__username", "user__email", "institution")
-
     list_filter = ("org_type", "verification_status", "country")
 
     actions = [
@@ -61,14 +122,30 @@ class UserProfileAdmin(admin.ModelAdmin):
         "rejection_reason",
     )
 
-    # Optional: Auto-timestamp verified_by/verified_at when using dropdown
     def save_model(self, request, obj, form, change):
-        if "verification_status" in form.changed_data:
+        """
+        Auto-fill verified timestamps if the dropdown is used
+        to set verification_status='verified'. Also sends the email notification.
+        """
+        if change and "verification_status" in form.changed_data:
             if obj.verification_status == "verified":
-                if obj.verified_at is None:
+                if not obj.verified_at:
                     obj.verified_at = timezone.now()
-                if obj.verified_by is None:
+                if not obj.verified_by:
                     obj.verified_by = request.user
+
+                # Notify user when verified manually
+                notify_user(
+                    obj,
+                    "Your VariantValidator account has been approved",
+                    (
+                        f"Hello {obj.user.username},\n\n"
+                        "Your VariantValidator account has now been approved.\n"
+                        "You may now use VariantValidator.\n\n"
+                        "Regards,\nVariantValidator Team"
+                    ),
+                )
+
         super().save_model(request, obj, form, change)
 
 # <LICENSE>
