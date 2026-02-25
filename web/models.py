@@ -6,6 +6,9 @@
 # - Per-institution variant limits
 # - Retains existing VariantQuota structure
 # - Personal (standard/pro/enterprise) plans AND institution inheritance
+# - Commercial users ALWAYS inherit COMMERCIAL_TRIAL_LIMIT (0 unless trial assigned)
+# - Admins can assign custom_limit as trial
+# - Monthly reset clears trial (custom_limit) automatically
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -15,7 +18,7 @@ from dateutil.relativedelta import relativedelta
 
 
 # -------------------------------------------------------
-# CONTACT MODEL (unchanged)
+# CONTACT MODEL
 # -------------------------------------------------------
 class Contact(models.Model):
     nameval = models.CharField(max_length=100, verbose_name='Name')
@@ -30,12 +33,9 @@ class Contact(models.Model):
 
 
 # =======================================================================
-#   INSTITUTION STRUCTURE (Upgraded)
+#   INSTITUTION STRUCTURE
 # =======================================================================
 
-
-# -------------------------------------------------------
-## -------------------------------------------------------
 class Institution(models.Model):
     """
     Represents an organisation (NHS Trust, University, Hospital, Lab).
@@ -79,7 +79,7 @@ class Institution(models.Model):
 
 
 # -------------------------------------------------------
-# INSTITUTION DOMAINS (NEW)
+# INSTITUTION DOMAIN SUFFIXES
 # -------------------------------------------------------
 class InstitutionDomain(models.Model):
     """
@@ -104,7 +104,7 @@ class InstitutionDomain(models.Model):
 
 
 # -------------------------------------------------------
-# INSTITUTION MEMBERSHIP (NEW)
+# INSTITUTION MEMBERSHIP
 # -------------------------------------------------------
 class InstitutionMembership(models.Model):
     """
@@ -144,48 +144,47 @@ class InstitutionMembership(models.Model):
 
 
 # =======================================================================
-#   VARIANT QUOTA (RETAINED, SLIGHTLY EXPANDED)
+#   VARIANT QUOTA (CORRECTED FOR COMMERCIAL USERS)
 # =======================================================================
 
 class VariantQuota(models.Model):
     """
     Personal subscription + institutional inheritance + monthly usage.
     """
+
     PLAN_CHOICES = [
         ("standard", "Standard"),
         ("pro", "Pro"),
         ("enterprise", "Enterprise"),
     ]
 
-    # One quota per user
+    # One per user
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
         related_name="variant_quota"
     )
 
-    # PERSONAL PLAN (standard / pro / enterprise)
     plan = models.CharField(
         max_length=20,
         choices=PLAN_CHOICES,
         default="standard"
     )
 
-    # Personal Stripe subscription expiry
     subscription_expires = models.DateTimeField(null=True, blank=True)
 
-    # Usage counters
+    # Monthly counts
     count = models.PositiveIntegerField(default=0)
     last_reset = models.DateTimeField(default=timezone.now)
 
-    # Optional temporary override
+    # Manual override (used for commercial trial variants)
     custom_limit = models.PositiveIntegerField(null=True, blank=True)
 
-    # PERSONAL STRIPE METADATA
+    # Stripe metadata
     stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
     stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
 
-    # Cached pointer to active institution (if any)
+    # Institution pointer (if membership active)
     institution = models.ForeignKey(
         Institution,
         on_delete=models.SET_NULL,
@@ -195,32 +194,49 @@ class VariantQuota(models.Model):
     )
 
     # -------------------------------------------------------
-    # PERSONAL PLAN ALLOWANCE
+    # PERSONAL ALLOWANCE (COMMERCIAL FIX INCLUDED)
     # -------------------------------------------------------
     @property
     def personal_allowance(self):
+        """
+        Base allowance before institutional uplift.
+
+        Order of precedence:
+          1. custom_limit → ALWAYS wins (manual trial/allocation)
+          2. commercial user with standard plan → COMMERCIAL_TRIAL_LIMIT (e.g., 0)
+          3. plan-based defaults (standard/pro/enterprise)
+        """
+
+        # 1. Manual trial allocation
         if self.custom_limit is not None:
             return self.custom_limit
 
+        # 2. Commercial users inherit COMMERCIAL_TRIAL_LIMIT
+        profile = getattr(self.user, "profile", None)
+        if (
+            profile is not None
+            and getattr(profile, "verification_status", None) == "commercial"
+            and self.plan == "standard"
+        ):
+            return getattr(settings, "COMMERCIAL_TRIAL_LIMIT", 0)
+
+        # 3. Plan defaults
         if self.plan == "standard":
-            return settings.DEFAULT_MONTHLY_VARIANT_ALLOWANCE
+            return getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
 
         if self.plan == "pro":
-            return settings.PRO_LIMIT
+            return getattr(settings, "PRO_LIMIT", 1000)
 
         if self.plan == "enterprise":
-            return settings.ENTERPRISE_LIMIT
+            return getattr(settings, "ENTERPRISE_LIMIT", 1000000)
 
-        return settings.DEFAULT_MONTHLY_VARIANT_ALLOWANCE
+        return getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
 
     # -------------------------------------------------------
-    # EFFECTIVE ALLOWANCE (personal OR institution)
+    # EFFECTIVE ALLOWANCE (institution may uplift)
     # -------------------------------------------------------
     @property
     def effective_allowance(self):
-        """
-        Real allowance = max(personal, institution_limit_if_active).
-        """
         base = self.personal_allowance
 
         if self.institution and self.institution.is_active:
@@ -229,7 +245,7 @@ class VariantQuota(models.Model):
         return base
 
     # -------------------------------------------------------
-    # PERSONAL SUBSCRIPTION EXPIRY CHECK
+    # CHECK PERSONAL SUBSCRIPTION EXPIRY
     # -------------------------------------------------------
     def check_subscription_status(self):
         if (
@@ -249,17 +265,16 @@ class VariantQuota(models.Model):
     # -------------------------------------------------------
     def reset_if_needed(self):
         """
-        Reset monthly usage exactly 1 calendar month after last_reset.
-        A user who started on Jan 31 will reset on Feb 28/29, Mar 31, etc.
+        Reset usage one calendar month after last_reset.
+        Trials disappear because custom_limit resets to None.
         """
         now = timezone.now()
-
         next_reset = self.last_reset + relativedelta(months=1)
 
         if now >= next_reset:
             self.count = 0
             self.last_reset = now
-            self.custom_limit = None
+            self.custom_limit = None    # TRIAL EXPIRES
             self.save()
 
     # -------------------------------------------------------
@@ -279,23 +294,6 @@ class VariantQuota(models.Model):
 
         self.count += n
         self.save()
-
-# <LICENSE>
-# Copyright (C) 2016-2026 VariantValidator Contributors
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-# </LICENSE>
 
 
 # <LICENSE>

@@ -15,8 +15,8 @@ from .models import UserProfile
 def notify_user(profile, subject, message):
     """
     Send a notification email to the user.
-    In DEBUG, fail_silently=False so you see errors immediately.
-    In production, fail_silently=True so admin actions don't crash.
+    In DEBUG, fail_silently=False so email errors surface.
+    In production (DEBUG=False), fail quietly so admin UI isn't interrupted.
     """
     send_mail(
         subject,
@@ -27,12 +27,17 @@ def notify_user(profile, subject, message):
     )
 
 
-# ============================
+# ============================================================
 # ADMIN ACTIONS
-# ============================
+# ============================================================
 
 @admin.action(description="Mark selected users as Verified (non-commercial)")
 def mark_verified(modeladmin, request, queryset):
+    """
+    Approve non-commercial users (research, healthcare, charity, government).
+    Sends a friendly sustainability message encouraging subscription support
+    and institutional licences.
+    """
     now = timezone.now()
     for profile in queryset:
         profile.verification_status = "verified"
@@ -40,36 +45,61 @@ def mark_verified(modeladmin, request, queryset):
         profile.verified_by = request.user
         profile.save()
 
-        # Notify user
-        notify_user(
-            profile,
-            "Your VariantValidator account has been approved",
-            (
-                f"Hello {profile.user.username},\n\n"
-                "Your VariantValidator account has now been approved.\n"
-                "You may now use VariantValidator.\n\n"
-                "Regards,\nVariantValidator Team"
-            ),
+        # FRIENDLY COMMUNITY MESSAGE
+        subject = "Your VariantValidator account has been approved"
+        message = (
+            f"Hello {profile.user.username},\n\n"
+            "Your VariantValidator account is now set up and ready to use — thank you for joining us.\n\n"
+            "VariantValidator is a community resource, and unlike many tools in this space, "
+            "we do not receive academic, institutional, or external grant funding. Maintaining the "
+            "infrastructure, supporting users, and improving the service is something we fund ourselves.\n\n"
+            "If you ever require a higher monthly variant quota, please consider purchasing a subscription. "
+            "Your support directly helps us ensure VariantValidator remains reliable, available, and sustainable "
+            "for the global community that depends on it.\n\n"
+            "If you're part of publicly funded healthcare, a clinical laboratory, or a research organisation "
+            "with multiple users, we encourage your organisation to contact us at admin@variantvalidator.org "
+            "to discuss an institutional licence.\n\n"
+            "• Paid licensing options will be available soon. A purchase link will appear here once the "
+            "subscription portal is live:\n"
+            "  https://variantvalidator.org/paid-options/   <-- placeholder link\n\n"
+            "Thanks again for using VariantValidator — we hope it supports your work.\n\n"
+            "— VariantValidator Team"
         )
+
+        notify_user(profile, subject, message)
 
 
 @admin.action(description="Mark selected users as Commercial")
 def mark_commercial(modeladmin, request, queryset):
+    """
+    Classify users as commercial. Sends a professional message explaining
+    the sustainability model, manual trial process, and future paid options.
+    """
     for profile in queryset:
         profile.verification_status = "commercial"
         profile.save()
 
-        # Notify user
-        notify_user(
-            profile,
-            "VariantValidator – Commercial Access Required",
-            (
-                f"Hello {profile.user.username},\n\n"
-                "Your account requires a commercial licence.\n"
-                "Please visit the commercial page inside VariantValidator.\n\n"
-                "Regards,\nVariantValidator Team"
-            ),
+        subject = "VariantValidator – Commercial Access Required"
+        message = (
+            f"Hello {profile.user.username},\n\n"
+            "Your VariantValidator account is now set up — thank you for registering.\n\n"
+            "We’ve recently updated our service model to ensure we can maintain the infrastructure, "
+            "support continued development, and keep VariantValidator running reliably into the future.\n\n"
+            "Based on the information provided, your account has been classified as *commercial use*. "
+            "Commercial users require a paid licence to perform variant validations.\n\n"
+            "• If you would like to evaluate VariantValidator before committing, please email "
+            "admin@variantvalidator.org to request a manual trial allocation.\n"
+            "• Paid licensing options will be available soon. A purchase link will appear here once the "
+            "subscription portal is live:\n"
+            "  https://variantvalidator.org/paid-options/   <-- placeholder link\n\n"
+            "Until a licence or trial is applied to your account, your commercial quota is set to "
+            "zero variants per month.\n\n"
+            "Thank you for your interest in VariantValidator — your support helps us keep the service "
+            "available for the wider community.\n"
+            "— VariantValidator Team"
         )
+
+        notify_user(profile, subject, message)
 
 
 @admin.action(description="Ban selected users")
@@ -78,22 +108,20 @@ def ban_users(modeladmin, request, queryset):
         profile.verification_status = "banned"
         profile.save()
 
-        # Notify user
-        notify_user(
-            profile,
-            "VariantValidator – Access Suspended",
-            (
-                f"Hello {profile.user.username},\n\n"
-                "Your VariantValidator account has been suspended or not approved.\n"
-                "If you believe this is an error, contact support.\n\n"
-                "Regards,\nVariantValidator Team"
-            ),
+        subject = "VariantValidator – Access Suspended"
+        message = (
+            f"Hello {profile.user.username},\n\n"
+            "Your VariantValidator account has been suspended or could not be approved.\n"
+            "If you believe this is an error, please contact support.\n\n"
+            "— VariantValidator Team"
         )
 
+        notify_user(profile, subject, message)
 
-# ============================
+
+# ============================================================
 # MODEL ADMIN
-# ============================
+# ============================================================
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -124,27 +152,35 @@ class UserProfileAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         """
-        Auto-fill verified timestamps if the dropdown is used
-        to set verification_status='verified'. Also sends the email notification.
+        If an admin manually changes verification_status to 'verified',
+        fill timestamps and send the same friendly non-commercial message.
         """
-        if change and "verification_status" in form.changed_data:
+        if change and "verification_status" in getattr(form, "changed_data", []):
             if obj.verification_status == "verified":
                 if not obj.verified_at:
                     obj.verified_at = timezone.now()
                 if not obj.verified_by:
                     obj.verified_by = request.user
+                obj.save(update_fields=["verified_at", "verified_by"])
 
-                # Notify user when verified manually
-                notify_user(
-                    obj,
-                    "Your VariantValidator account has been approved",
-                    (
-                        f"Hello {obj.user.username},\n\n"
-                        "Your VariantValidator account has now been approved.\n"
-                        "You may now use VariantValidator.\n\n"
-                        "Regards,\nVariantValidator Team"
-                    ),
+                subject = "Your VariantValidator account has been approved"
+                message = (
+                    f"Hello {obj.user.username},\n\n"
+                    "Your VariantValidator account is now set up and ready to use — thank you for joining us.\n\n"
+                    "VariantValidator is a community resource, and unlike many tools in this space, "
+                    "we do not receive academic, institutional, or external grant funding. Maintaining the "
+                    "infrastructure, supporting users, and improving the service is something we fund ourselves.\n\n"
+                    "If you ever require a higher monthly variant quota, please consider purchasing a subscription. "
+                    "Your support directly helps us ensure VariantValidator remains reliable, available, and sustainable "
+                    "for the global community that depends on it.\n\n"
+                    "If you're part of publicly funded healthcare, a clinical laboratory, or a research organisation "
+                    "with multiple users, we encourage your organisation to contact us at admin@variantvalidator.org "
+                    "to discuss an institutional licence.\n\n"
+                    "Thanks again for using VariantValidator — we hope it supports your work.\n\n"
+                    "— VariantValidator Team"
                 )
+
+                notify_user(obj, subject, message)
 
         super().save_model(request, obj, form, change)
 
