@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Commercial Access Required{% endblock %}
+
+{% block content %}
+
+<div class="container my-5" style="max-width: 860px;">
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-5">
+
+      <div class="d-flex align-items-center mb-4">
+        <span class="badge bg-warning text-dark me-2" style="font-size:0.9rem;">
+          Commercial
+        </span>
+        <h2 class="mb-0">Commercial Access Required</h2>
+      </div>
+
+      <p class="lead text-muted">
+        Your VariantValidator account is set up — thank you for registering.
+      </p>
+
+      <p class="text-muted">
+        VariantValidator has introduced a sustainability‑focused service model to ensure we can
+        continue maintaining the infrastructure, supporting users, and keeping the platform
+        running reliably for the global community.
+      </p>
+
+      <hr class="my-4">
+
+      <h4 class="mb-3">Why am I seeing this?</h4>
+      <p>
+        Based on the information you provided, your account has been classified as
+        <strong>commercial use</strong>.
+        Commercial accounts require a licence to run variant validations.
+      </p>
+
+      <div class="alert alert-warning" role="alert">
+        Your current monthly variant quota is <strong>0</strong>.
+        You will not be able to run validations until a trial or licence is applied.
+      </div>
+
+      <hr class="my-4">
+
+      <h4 class="mb-3">Request a Trial</h4>
+      <p>
+        If you would like to evaluate VariantValidator before committing to a licence,
+        please request a manual trial allocation.
+        We are happy to set up a short trial period so you can test the service.
+      </p>
+
+      <div class="bg-light p-3 rounded mb-4">
+        <strong>Email us:</strong><br>
+        <a href="mailto:admin@variantvalidator.org">
+          admin@variantvalidator.org
+        </a>
+      </div>
+
+      <hr class="my-4">
+
+      <h4 class="mb-3">Purchase Options</h4>
+      <p class="mb-2">
+        Full subscription and organisational licence purchasing options will be available soon.
+      </p>
+
+      <p class="text-muted">
+        <em>Placeholder subscription link:</em><br>
+        <a href="https://variantvalidator.org/paid-options/" class="text-muted">
+          https://variantvalidator.org/paid-options/
+        </a>
+      </p>
+
+      <div class="alert alert-info mt-4">
+        <strong>Why licensing?</strong><br>
+        These changes help ensure VariantValidator remains available, maintained, and
+        reliable for everyone — now and in the future.
+      </div>
+
+      <hr class="my-4">
+
+      <p class="text-center text-muted mb-0">
+        Thank you for supporting the project.<br>
+        <strong>— VariantValidator Team</strong>
+      </p>
+
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

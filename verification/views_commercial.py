@@ -1,13 +1,15 @@
-# verification/urls.py
+# verification/views_commercial.py
 
-from django.urls import path
-from .views_verify import verify_identity, verify_pending, commercial_landing
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
 
-urlpatterns = [
-    path("verify/", verify_identity, name="verify_identity"),
-    path("verify/pending/", verify_pending, name="verify_pending"),
-    path("commercial/", commercial_landing, name="commercial_landing"),
-]
+@login_required
+def commercial_landing(request):
+    """
+    Page shown to commercial users until they purchase a licence
+    or request a manual trial.
+    """
+    return render(request, "commercial.html")
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
