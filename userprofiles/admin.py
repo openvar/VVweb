@@ -2,30 +2,12 @@
 
 from django.contrib import admin
 from django.utils import timezone
-from django.core.mail import send_mail
-from django.conf import settings
-
 from .models import UserProfile
 
 
-# ==========================================================
-# EMAIL HELPERS
-# ==========================================================
-
-def send_user_email(user, subject, message):
-    """Send a notification email to the user."""
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@variantvalidator.org"),
-        recipient_list=[user.email],
-        fail_silently=True,
-    )
-
-
-# ==========================================================
+# ============================
 # ADMIN ACTIONS
-# ==========================================================
+# ============================
 
 @admin.action(description="Mark selected users as Verified (non-commercial)")
 def mark_verified(modeladmin, request, queryset):
@@ -36,60 +18,20 @@ def mark_verified(modeladmin, request, queryset):
         profile.verified_by = request.user
         profile.save()
 
-        # Notify the user
-        send_user_email(
-            profile.user,
-            "Your VariantValidator account has been approved",
-            (
-                f"Hello {profile.user.username},\n\n"
-                "Your VariantValidator account has now been verified.\n"
-                "You may use the service immediately.\n\n"
-                "Thank you,\nVariantValidator Team"
-            ),
-        )
-
 
 @admin.action(description="Mark selected users as Commercial")
 def mark_commercial(modeladmin, request, queryset):
-    for profile in queryset:
-        profile.verification_status = "commercial"
-        profile.save()
-
-        # Notify the user
-        send_user_email(
-            profile.user,
-            "VariantValidator Commercial Access Required",
-            (
-                f"Hello {profile.user.username},\n\n"
-                "Your account has been reviewed and requires a commercial licence.\n"
-                "Please visit the commercial page within VariantValidator to continue.\n\n"
-                "Thank you,\nVariantValidator Team"
-            ),
-        )
+    queryset.update(verification_status="commercial")
 
 
-@admin.action(description="Ban selected users (reject / suspend)")
+@admin.action(description="Ban selected users")
 def ban_users(modeladmin, request, queryset):
-    for profile in queryset:
-        profile.verification_status = "banned"
-        profile.save()
-
-        # Notify the user
-        send_user_email(
-            profile.user,
-            "Your VariantValidator account could not be approved",
-            (
-                f"Hello {profile.user.username},\n\n"
-                "Your verification request could not be approved or your access has been suspended.\n"
-                "If you believe this is in error, please contact support.\n\n"
-                "Thank you,\nVariantValidator Team"
-            ),
-        )
+    queryset.update(verification_status="banned")
 
 
-# ==========================================================
+# ============================
 # MODEL ADMIN
-# ==========================================================
+# ============================
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -119,30 +61,14 @@ class UserProfileAdmin(admin.ModelAdmin):
         "rejection_reason",
     )
 
+    # Optional: Auto-timestamp verified_by/verified_at when using dropdown
     def save_model(self, request, obj, form, change):
-        """
-        Automatically fill verified_at / verified_by if admin manually
-        changes verification_status to 'verified'.
-        """
-        if change and "verification_status" in form.changed_data:
+        if "verification_status" in form.changed_data:
             if obj.verification_status == "verified":
-                if not obj.verified_at:
+                if obj.verified_at is None:
                     obj.verified_at = timezone.now()
-                if not obj.verified_by:
+                if obj.verified_by is None:
                     obj.verified_by = request.user
-
-                # Email user about approval
-                send_user_email(
-                    obj.user,
-                    "Your VariantValidator account has been approved",
-                    (
-                        f"Hello {obj.user.username},\n\n"
-                        "Your VariantValidator account has now been verified.\n"
-                        "You may now use the service.\n\n"
-                        "Thank you,\nVariantValidator Team"
-                    ),
-                )
-
         super().save_model(request, obj, form, change)
 
 # <LICENSE>
