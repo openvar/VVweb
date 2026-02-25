@@ -38,6 +38,7 @@ urlpatterns = [
     path('accounts/signup/', StyledSignupView.as_view(), name='account_signup'),
     path("accounts/confirm-email/", StyledEmailSentView.as_view(), name="account_email_verification_sent"),
     path("quota/", views_quota.quota_status, name="quota_status"),
+    path("accounts/resend-confirmation/", web.views_resend.resend_confirmation, name="resend_confirmation"),
     path("", include("verification.urls")),
     path('accounts/', include('allauth.urls')),
     path('profile/', include('userprofiles.urls')),

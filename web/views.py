@@ -1,6 +1,5 @@
 from django.shortcuts import render, redirect, reverse
 from django.conf import settings
-from django.contrib import messages
 from django.http import HttpResponse, Http404
 from . import forms
 from . import tasks
@@ -696,7 +695,6 @@ class StrictLoginView(LoginView):
             return redirect("account_email_verification_sent")
 
         return super().form_valid(form)
-
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

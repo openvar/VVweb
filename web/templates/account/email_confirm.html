@@ -29,9 +29,9 @@
       <p>
           {% trans "You can request a new confirmation email below:" %}
       </p>
-      <a href="{% url 'account_email_verification_sent' %}" class="btn btn-secondary">
-          {% trans "Resend Confirmation Email" %}
-      </a>
+        <a href="{% url 'resend_confirmation' %}" class="btn btn-outline-primary">
+            {% trans "Resend confirmation email" %}
+        </a>
   {% endif %}
 
 </div>
