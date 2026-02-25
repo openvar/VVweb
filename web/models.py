@@ -5,7 +5,7 @@
 # - Proper institutional membership table
 # - Per-institution variant limits
 # - Retains existing VariantQuota structure
-# - Personal (standard/pro/enterprise) plans AND institution inheritance
+# - Personal (standard/pro/enterprise/commercial) plans AND institution inheritance
 # - Commercial users ALWAYS inherit COMMERCIAL_TRIAL_LIMIT (0 unless trial assigned)
 # - Admins can assign custom_limit as trial
 # - Monthly reset clears trial (custom_limit) automatically
@@ -56,7 +56,7 @@ class Institution(models.Model):
     stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
     po_number = models.CharField(max_length=100, null=True, blank=True)
 
-    # Per-institution variant limit (default = global INSTITUTION_LIMIT)
+    # Per-institution variant limit
     variant_limit = models.PositiveIntegerField(
         default=getattr(settings, "INSTITUTION_LIMIT", 1000000),
         help_text="Monthly variant allowance for this institution."
@@ -153,6 +153,7 @@ class VariantQuota(models.Model):
     """
 
     PLAN_CHOICES = [
+        ("commercial", "Commercial"),   # <-- NEW: Commercial plan
         ("standard", "Standard"),
         ("pro", "Pro"),
         ("enterprise", "Enterprise"),
@@ -203,24 +204,19 @@ class VariantQuota(models.Model):
 
         Order of precedence:
           1. custom_limit → ALWAYS wins (manual trial/allocation)
-          2. commercial user with standard plan → COMMERCIAL_TRIAL_LIMIT (e.g., 0)
+          2. commercial plan → COMMERCIAL_TRIAL_LIMIT (e.g., 0)
           3. plan-based defaults (standard/pro/enterprise)
         """
 
-        # 1. Manual trial allocation
+        # 1. Trial override always wins
         if self.custom_limit is not None:
             return self.custom_limit
 
-        # 2. Commercial users inherit COMMERCIAL_TRIAL_LIMIT
-        profile = getattr(self.user, "profile", None)
-        if (
-            profile is not None
-            and getattr(profile, "verification_status", None) == "commercial"
-            and self.plan == "standard"
-        ):
+        # 2. Commercial plan ALWAYS inherits COMMERCIAL_TRIAL_LIMIT
+        if self.plan == "commercial":
             return getattr(settings, "COMMERCIAL_TRIAL_LIMIT", 0)
 
-        # 3. Plan defaults
+        # 3. Default plans
         if self.plan == "standard":
             return getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
 
@@ -250,6 +246,7 @@ class VariantQuota(models.Model):
     def check_subscription_status(self):
         if (
             self.plan != "standard"
+            and self.plan != "commercial"
             and self.subscription_expires
             and timezone.now() >= self.subscription_expires
         ):
