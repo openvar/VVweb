@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Account Deactivated{% endblock %}
+
+{% block content %}
+
+<div class="container my-5" style="max-width: 860px;">
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-5">
+
+      <!-- Header -->
+      <div class="d-flex align-items-center mb-4">
+        <span class="badge bg-danger me-2" style="font-size:0.9rem;">
+          Account Restricted
+        </span>
+        <h2 class="mb-0">Account Deactivated</h2>
+      </div>
+
+      <p class="lead text-muted">
+        Your VariantValidator account has been deactivated.
+      </p>
+
+      <p class="text-muted">
+        This action was taken because we were unable to verify your identity or eligibility,
+        or because activity was detected that does not comply with our terms of use.
+      </p>
+
+      <hr class="my-4">
+
+      <!-- Why am I seeing this? -->
+      <h4 class="mb-3">Why am I seeing this?</h4>
+      <p>
+        Your account is currently restricted. You will not be able to use VariantValidator
+        until additional information is provided and reviewed.
+      </p>
+
+      <div class="alert alert-danger" role="alert">
+        <strong>Your access has been disabled.</strong><br>
+        Please check your email for full details.
+      </div>
+
+      <hr class="my-4">
+
+      <!-- How to fix this -->
+      <h4 class="mb-3">How to Reactivate Your Account</h4>
+
+      <p>
+        If you believe this decision was made in error, or you can provide additional
+        information to support your eligibility, please contact us using the details below.
+      </p>
+
+      <p>
+        When contacting us, you may include:
+      </p>
+      <ul>
+        <li>an institutional or organisational email address;</li>
+        <li>ORCID, LinkedIn, or institutional profile links;</li>
+        <li>details regarding your intended use of VariantValidator.</li>
+      </ul>
+
+      <div class="bg-light p-3 rounded mb-4">
+        <strong>Email us:</strong><br>
+        <a href="mailto:admin@variantvalidator.org">
+          admin@variantvalidator.org
+        </a>
+      </div>
+
+      <hr class="my-4">
+
+      <p class="text-center text-muted mb-0">
+        Thank you for your cooperation.<br>
+        <strong>— VariantValidator Team</strong>
+      </p>
+
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

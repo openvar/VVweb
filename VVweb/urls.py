@@ -19,6 +19,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from web import views, views_quota, views_resend
 from web.views import StyledEmailSentView, StyledSignupView, StrictLoginView
+from verification.views_banned import banned_landing
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -38,6 +39,7 @@ urlpatterns = [
     path("accounts/login/", StrictLoginView.as_view(), name="account_login"),
     path('accounts/signup/', StyledSignupView.as_view(), name='account_signup'),
     path("accounts/confirm-email/", StyledEmailSentView.as_view(), name="account_email_verification_sent"),
+    path("banned/", banned_landing, name="banned_landing"),
     path("quota/", views_quota.quota_status, name="quota_status"),
     path("", include("verification.urls")),
     path('accounts/', include('allauth.urls')),
