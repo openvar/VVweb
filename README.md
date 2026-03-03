@@ -77,6 +77,8 @@ To then create the database tables, make a migration (checks what models need cr
 python manage.py makemigrations
 python manage.py migrate
 python manage.py loaddata trusted_domains.json
+python manage.py lowercase_emails
+python manage.py rebuild_institutional_memberships
 ```
 
 Once this is done, you need to create an admin user account to access the web admin site. Make sure you don't lose track

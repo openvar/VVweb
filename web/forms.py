@@ -5,7 +5,6 @@ from django.utils.translation import gettext_lazy as _
 from django_recaptcha.fields import ReCaptchaField
 from django.contrib.auth.models import User
 from django.conf import settings
-from django.utils import timezone  # Ensure timezone is imported
 
 
 BATCH_FORM_OPTIONS = [
@@ -170,7 +169,7 @@ class UpdatedSignUpForm(SignupForm):
     captcha = ReCaptchaField()
 
     def clean_email(self):
-        email = self.cleaned_data['email']
+        email = self.cleaned_data["email"].lower().strip()
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError(_("This email address is already in use. Please supply a different email."))
         return email

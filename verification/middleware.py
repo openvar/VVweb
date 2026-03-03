@@ -3,18 +3,24 @@
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.contrib.auth import logout
-from web.models import VariantQuota   # <-- needed for checking allowance
 
 
 class TierEnforcementMiddleware:
     """
     Enforces VariantValidator’s mandatory verification & entitlement model.
+
+    Rules:
+
+      • BANNED → logout + /banned/
+      • COMMERCIAL → allow only if effective_allowance > 0 (institutional or trial)
+      • VERIFIED (non-commercial) → allow access
+      • PENDING / NOT_STARTED → locked to /verify/
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
-        # Paths allowed during locked-out state
+        # Paths allowed before full verification
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -31,18 +37,27 @@ class TierEnforcementMiddleware:
         if request.path.startswith("/accounts/logout"):
             return self.get_response(request)
 
-        # Let admin panel and static files through always
+        # Admin + static always allowed
         if request.path.startswith("/admin/"):
             return self.get_response(request)
 
         user = request.user
 
-        # Apply rules only to authenticated users
+        # ===============================
+        # Only enforce for authenticated users
+        # ===============================
         if user.is_authenticated:
+
+            # Lowercase user.email on every request
+            if user.email:
+                lower = user.email.lower().strip()
+                if user.email != lower:
+                    user.email = lower
+                    user.save(update_fields=["email"])
 
             profile = getattr(user, "profile", None)
 
-            # Profile missing? Force logout
+            # Safety: missing profile → force logout
             if profile is None:
                 logout(request)
                 return redirect(reverse("account_login"))
@@ -57,37 +72,35 @@ class TierEnforcementMiddleware:
                 return redirect("/banned/")
 
             # ============================================================
-            # 2. COMMERCIAL USERS → allow access if they have allowance
+            # 2. COMMERCIAL USERS → allowed only if effective_allowance > 0
             # ============================================================
             if status == "commercial":
 
-                # Fetch VariantQuota
                 quota = getattr(user, "variant_quota", None)
 
-                # Safety default: if somehow missing, treat as blocked
+                # No quota = treat as blocked
                 if quota is None:
                     if not request.path.startswith("/commercial/"):
                         return redirect("/commercial/")
                     return self.get_response(request)
 
-                # Commercial user with TRIAL or institutional limit
+                # Commercial uplift / trial / paid institution
                 if quota.effective_allowance > 0:
-                    # Allow full site access
                     return self.get_response(request)
 
-                # No allowance: redirect unless already on /commercial/
+                # No allowance → force into commercial landing
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
                 return self.get_response(request)
 
             # ============================================================
-            # 3. VERIFIED or AUTO_VERIFIED USERS → full access
+            # 3. VERIFIED USERS → full access
             # ============================================================
             if status in ("verified", "auto_verified"):
                 return self.get_response(request)
 
             # ============================================================
-            # 4. NOT VERIFIED (not_started, pending) → HARD LOCKOUT
+            # 4. NOT VERIFIED (pending, not_started) → HARD LOCKOUT
             # ============================================================
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
@@ -95,7 +108,7 @@ class TierEnforcementMiddleware:
 
             return redirect("/verify/")
 
-        # Anonymous users unaffected
+        # Anonymous → allow normal behaviour
         return self.get_response(request)
 
 

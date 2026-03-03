@@ -12,6 +12,31 @@ from web.models import (
     InstitutionMembership,
 )
 
+from allauth.account.models import EmailAddress
+
+
+# ======================================================================
+# UTILITY HELPERS
+# ======================================================================
+
+def get_primary_email(user):
+    """Return the primary email address (lowercased) or None."""
+    try:
+        ea = EmailAddress.objects.filter(user=user, primary=True).first()
+        if ea:
+            return ea.email.lower().strip()
+    except Exception:
+        pass
+    return None
+
+
+def primary_email_domain(user):
+    """Return domain of primary email (for inspection/debug)."""
+    email = get_primary_email(user)
+    if email and "@" in email:
+        return email.split("@", 1)[1].lower()
+    return "-"
+
 
 # ======================================================================
 # QUOTA ACTIONS
@@ -46,7 +71,7 @@ def clear_custom_limit(modeladmin, request, queryset):
 
 
 # ======================================================================
-# PLAN MANAGEMENT — UPDATED TO CALENDAR MONTHS
+# PLAN MANAGEMENT
 # ======================================================================
 
 @admin.action(description="Upgrade to PRO (1 calendar month)")
@@ -99,7 +124,7 @@ def downgrade_to_standard(modeladmin, request, queryset):
 
 
 # ======================================================================
-# SUBSCRIPTION CONTROL — UPDATED TO CALENDAR MONTHS
+# SUBSCRIPTION CONTROL
 # ======================================================================
 
 @admin.action(description="Extend subscription by 1 calendar month")
@@ -129,7 +154,7 @@ def expire_subscription_now(modeladmin, request, queryset):
 
 
 # ======================================================================
-# MAINTENANCE
+# MAINTENANCE ACTIONS
 # ======================================================================
 
 @admin.action(description="Force recalculation (save trigger)")
@@ -145,10 +170,14 @@ def force_recalculation(modeladmin, request, queryset):
 
 @admin.register(VariantQuota)
 class VariantQuotaAdmin(admin.ModelAdmin):
+
     list_display = (
         "user",
+        "primary_email_domain",
+        "verification_status",
         "plan",
         "institution",
+        "variant_limit_display",
         "count",
         "effective_allowance",
         "remaining",
@@ -175,6 +204,23 @@ class VariantQuotaAdmin(admin.ModelAdmin):
         expire_subscription_now,
         force_recalculation,
     ]
+
+    # ---------------------------
+    # Extra helpful display methods
+    # ---------------------------
+    def primary_email_domain(self, obj):
+        return primary_email_domain(obj.user)
+    primary_email_domain.short_description = "Primary Domain"
+
+    def verification_status(self, obj):
+        return obj.user.profile.verification_status
+    verification_status.short_description = "Verification"
+
+    def variant_limit_display(self, obj):
+        if obj.institution:
+            return obj.institution.variant_limit
+        return "-"
+    variant_limit_display.short_description = "Institution Limit"
 
 
 # ======================================================================

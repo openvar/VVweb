@@ -173,6 +173,9 @@ ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
 # Custom display name function
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
 
+# Ensure lower case at login
+ACCOUNT_PRESERVE_EMAIL_CASE = False
+
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
 LANGUAGE_CODE = 'en-us'

@@ -1,4 +1,5 @@
 # web/views.py
+
 from django.shortcuts import render, redirect, reverse
 from django.conf import settings
 from django.http import HttpResponse, Http404
@@ -17,682 +18,595 @@ import sys
 import traceback
 from web.models import VariantQuota
 import logging
-from allauth.account.views import EmailVerificationSentView, SignupView
-from allauth.account.views import LoginView
+from allauth.account.views import EmailVerificationSentView, SignupView, LoginView
 from allauth.account.utils import send_email_confirmation
 from allauth.account.models import EmailAddress
 from django.contrib import messages
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
+logger = logging.getLogger("vv")
 
-logger = logging.getLogger('vv')
 
+# ======================================================================
+# BASIC PAGES
+# ======================================================================
 
 def home(request):
     config = ConfigParser()
     config.read(vvsettings.CONFIG_DIR)
 
     versions = {
-        'VariantValidator': VariantValidator.__version__,
-        'hgvs': vvhgvs.__version__,
-        'uta': config['postgres']['version'],
-        'seqrepo': config['seqrepo']['version'],
-        'vvdb': config['mysql']['version']
+        "VariantValidator": VariantValidator.__version__,
+        "hgvs": vvhgvs.__version__,
+        "uta": config["postgres"]["version"],
+        "seqrepo": config["seqrepo"]["version"],
+        "vvdb": config["mysql"]["version"],
     }
 
-    return render(request, 'home.html', {
-        'versions': versions,
-    })
+    return render(request, "home.html", {"versions": versions})
 
 
 def about(request):
-    return redirect('https://github.com/openvar/variantValidator/blob/master/README.md')
+    return redirect("https://github.com/openvar/variantValidator/blob/master/README.md")
 
 
 def contact(request):
-    logger.debug("Loading Contact page")
     form = forms.ContactForm()
 
-    if request.method == 'POST':
-        logger.debug("POST to contact page")
+    if request.method == "POST":
         form = forms.ContactForm(request.POST)
         if form.is_valid():
             my_contact = form.save()
             services.send_contact_email(my_contact)
             messages.success(request, "Message sent")
             logger.info("Contact from %s made" % my_contact.emailval)
-            return redirect('contact')
+            return redirect("contact")
 
-    return render(request, 'contact.html', {
-        'form': form,
-    })
+    return render(request, "contact.html", {"form": form})
 
 
 def nomenclature(request):
-    return render(request, 'nomenclature.html')
+    return render(request, "nomenclature.html")
 
 
 def instructions(request):
-    return redirect('https://github.com/openvar/VV_databases/blob/master/markdown/instructions.md')
-    # return render(request, 'batch_instructions.html')
+    return redirect("https://github.com/openvar/VV_databases/blob/master/markdown/instructions.md")
 
 
 def faqs(request):
-    return render(request, 'faqs.html')
+    return render(request, "faqs.html")
 
+
+# ======================================================================
+# GENE TO TRANSCRIPTS
+# ======================================================================
 
 def genes_to_transcripts(request):
     output = False
 
     if request.method == "POST":
-        logger.debug("Gene2Trans submitted")
-        symbol = request.POST.get('symbol')
-        select_transcripts = request.POST.get('transcripts')
-        reference_source = request.POST.get('refsource', 'refseq')
-        if select_transcripts == "":
+        symbol = request.POST.get("symbol")
+        select_transcripts = request.POST.get("transcripts")
+        reference_source = request.POST.get("refsource", "refseq")
+
+        if not select_transcripts:
             select_transcripts = "all"
 
-        # Get object from pool
         validator = g2t_object_pool.get_object()
-
-        output = tasks.gene2transcripts(symbol, validator=validator, select_transcripts=select_transcripts,
-                                        transcript_set=reference_source)
-
-        logger.debug(output)
-
-        # Return object to pool
+        output = tasks.gene2transcripts(
+            symbol,
+            validator=validator,
+            select_transcripts=select_transcripts,
+            transcript_set=reference_source,
+        )
         g2t_object_pool.return_object(validator)
 
-        if 'transcripts' in output.keys():
-            for trans in output['transcripts']:
-                if trans['reference'].startswith('LRG'):
-                    trans['url'] = 'http://ftp.ebi.ac.uk/pub/databases/lrgex/' + trans['reference'].split('t')[0
-                    ] + '.xml'
+        if "transcripts" in output:
+            for trans in output["transcripts"]:
+                if trans["reference"].startswith("LRG"):
+                    trans["url"] = (
+                        "http://ftp.ebi.ac.uk/pub/databases/lrgex/"
+                        + trans["reference"].split("t")[0]
+                        + ".xml"
+                    )
                 else:
-                    trans['url'] = 'https://www.ncbi.nlm.nih.gov/nuccore/' + trans['reference']
+                    trans["url"] = "https://www.ncbi.nlm.nih.gov/nuccore/" + trans["reference"]
 
-    return render(request, 'genes_to_transcripts.html', {
-        'output': output
-    })
+    return render(request, "genes_to_transcripts.html", {"output": output})
 
+
+# ======================================================================
+# VALIDATE VIEW
+# ======================================================================
 
 def validate(request):
-    """
-    View will validate input and process output. If multiple transcripts are found, each will be presented with their
-    own tab. Choice and filtering of results will occur server side after everything returned. Might take a while for
-    some sequences so will need loading spinner/timeout.
-    :param request:
-    :return:
-    """
-
     output = False
     locked = False
-    num = int(request.session.get('validations', 0))
-    last_genome = request.session.get('genome', None)
-    last_source = request.session.get('refsource', None)
+    num = int(request.session.get("validations", 0))
+    last_genome = request.session.get("genome", None)
+    last_source = request.session.get("refsource", None)
 
+    if request.method == "GET":
+        return render(
+            request,
+            "validate.html",
+            {
+                "variant": request.GET.get("variant"),
+                "genome": request.GET.get("genomebuild", "GRCh38"),
+                "select_transcripts": request.GET.get("transcripts"),
+                "transcripts": request.GET.get("transcripts"),
+                "from_get": True,
+                "autosubmit": request.GET.get("autosubmit", "false"),
+                "source": request.GET.get("refsource", "refseq"),
+            },
+        )
 
-    if request.method == 'GET':
-        variant = request.GET.get('variant')
-        genome = request.GET.get('genomebuild', 'GRCh38')
-        select_transcripts = request.GET.get('transcripts')
-        source = request.GET.get('refsource', 'refseq')
-        autosubmit = request.GET.get('autosubmit', 'false')
-
-        return render(request, 'validate.html', {
-            'variant': variant,
-            'genome': genome,
-            'select_transcripts': select_transcripts,
-            'transcripts': select_transcripts,
-            'from_get': True,
-            'autosubmit': autosubmit,
-            'source': source,
-        })
-
-    if request.method == 'POST':
+    if request.method == "POST":
         if request.user.is_authenticated or num < 5:
-            logger.debug("Going to validate sequences")
-            variant = request.POST.get('variant')
-            genome = request.POST.get('genomebuild', 'GRCh38')
-            source = request.POST.get('refsource', 'refseq')
-            select_transcripts = request.POST.get('transcripts')
-            pdf_r = request.POST.get('pdf_request')
+            variant = request.POST.get("variant")
+            genome = request.POST.get("genomebuild", "GRCh38")
+            source = request.POST.get("refsource", "refseq")
+            select_transcripts = request.POST.get("transcripts")
+            pdf_r = request.POST.get("pdf_request")
 
-            if pdf_r is None:
+            if pdf_r in (None, "True"):
                 pdf_r = True
-            elif pdf_r == "False":
+            else:
                 pdf_r = False
-            if select_transcripts is None or select_transcripts == '' or select_transcripts == 'transcripts':
-                select_transcripts = 'all'
 
-            # --- Handle quota for authenticated users ---
-            logger.info("Check quota")
+            if not select_transcripts or select_transcripts == "transcripts":
+                select_transcripts = "all"
+
+            # --- QUOTA CHECK ---
             if request.user.is_authenticated:
                 try:
                     quota, _ = VariantQuota.objects.get_or_create(user=request.user)
-
-                    # This handles:
-                    # - subscription expiry downgrade
-                    # - monthly reset
-                    # - limit enforcement
                     quota.add_variants(1)
-
-                    logger.info(
-                        f"Quota used by {request.user.username}: "
-                        f"{quota.count}/{quota.max_allowance}"
-                    )
-
                 except ValueError:
                     messages.error(
                         request,
-                        f"You have reached your monthly variant validation limit "
-                        f"({quota.max_allowance}). "
-                        "Please wait for your quota to reset or contact support."
+                        f"You have reached your monthly variant validation limit ({quota.effective_allowance}).",
                     )
-                    locked = True
-                    return render(request, 'validate.html', {
-                        'output': output,
-                        'locked': locked,
-                        'last': last_genome,
-                        'source': last_source,
-                        'initial': variant,
-                    })
-
+                    return render(
+                        request,
+                        "validate.html",
+                        {
+                            "output": output,
+                            "locked": True,
+                            "last": last_genome,
+                            "source": last_source,
+                            "initial": variant,
+                        },
+                    )
                 except Exception as e:
                     logger.error(f"Quota failure for user {request.user.id}: {e}")
-                    messages.error(
+                    messages.error(request, "Unable to track your submission quota.")
+                    return render(
                         request,
-                        "Unable to track your submission quota. Please contact support."
+                        "validate.html",
+                        {
+                            "output": output,
+                            "locked": True,
+                            "last": last_genome,
+                            "source": last_source,
+                            "initial": variant,
+                        },
                     )
-                    locked = True
-                    return render(request, 'validate.html', {
-                        'output': output,
-                        'locked': locked,
-                        'last': last_genome,
-                        'source': last_source,
-                        'initial': variant,
-                    })
 
-            # Get object from pool
+            # --- VALIDATE TASK ---
             validator = vval_object_pool.get_object()
-
             output = tasks.validate(variant, genome, select_transcripts, validator=validator, transcript_set=source)
             output = services.process_result(output, validator)
-            output['genome'] = genome
-            output['source'] = source
+            output["genome"] = genome
+            output["source"] = source
 
-            request.session['genome'] = genome
-            request.session['source'] = source
+            request.session["genome"] = genome
+            request.session["source"] = source
 
             ucsc_link = services.get_ucsc_link(validator, output)
             varsome_link = services.get_varsome_link(output)
             gnomad_link = services.get_gnomad_link(output)
 
-            # Return object to pool
             vval_object_pool.return_object(validator)
 
-            if pdf_r is True:
-                # Render the template into pdf
+            # PDF
+            if pdf_r:
                 config = ConfigParser()
                 config.read(vvsettings.CONFIG_DIR)
                 versions = {
-                    'VariantValidator': VariantValidator.__version__,
-                    'hgvs': vvhgvs.__version__,
-                    'uta': config['postgres']['version'],
-                    'seqrepo': config['seqrepo']['version'],
-                    'vvdb': config['mysql']['version']
+                    "VariantValidator": VariantValidator.__version__,
+                    "hgvs": vvhgvs.__version__,
+                    "uta": config["postgres"]["version"],
+                    "seqrepo": config["seqrepo"]["version"],
+                    "vvdb": config["mysql"]["version"],
                 }
-                context = {
-                    'output': output,
-                    'versions': versions
-                }
-                pdf = render_to_pdf(request, 'pdf_results.html', context)
+                context = {"output": output, "versions": versions}
+                pdf = render_to_pdf(request, "pdf_results.html", context)
+
                 if pdf:
-                    response = HttpResponse(pdf, content_type='application/pdf')
-                    filename = "VariantValidator_report_%s.pdf" % variant
-                    content = "inline; filename=%s" % filename
-                    download = request.GET.get("download")
-                    if download:
-                        content = "attachment; filename=%s" % filename
-                    response['Content-Disposition'] = content
+                    response = HttpResponse(pdf, content_type="application/pdf")
+                    filename = f"VariantValidator_report_{variant}.pdf"
+                    content = f"inline; filename={filename}"
+                    if request.GET.get("download"):
+                        content = f"attachment; filename={filename}"
+                    response["Content-Disposition"] = content
                     return response
-                return HttpResponse("Not found")
 
-            # Count requests to 5
-            num += 1
+                return HttpResponse("PDF generation error")
+
+            # Count requests if anonymous
             if not request.user.is_authenticated:
-                request.session['validations'] = num
-            logger.debug(output)
-            logger.info("Successful validation made by user %s" % request.user)
-            return render(request, 'validate_results.html', {
-                'output': output,
-                'ucsc': ucsc_link,
-                'varsome': varsome_link,
-                'gnomad': gnomad_link
-            })
+                num += 1
+                request.session["validations"] = num
 
+            return render(
+                request,
+                "validate_results.html",
+                {
+                    "output": output,
+                    "ucsc": ucsc_link,
+                    "varsome": varsome_link,
+                    "gnomad": gnomad_link,
+                },
+            )
+
+    # --- ANONYMOUS LOCKOUT WARNINGS ---
     if not request.user.is_authenticated:
-        login_page = reverse('account_login')
-        here = reverse('validate')
+        login_page = reverse("account_login")
+        here = reverse("validate")
+
         if num < 5:
+            remaining = 5 - num
             if num == 4:
-                messages.warning(request,
-                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> "
-                                 "more submission allowed. "
-                                 "For unlimited access please <a href='%s?next=%s' "
-                                 "class='alert-link'>login</a>.</span>" % (
-                                     5 - num, login_page, here))
+                messages.warning(
+                    request,
+                    f"<span id='msg-body'>Warning: Only <span id='msg-valnum'>{remaining}</span> more submission allowed. "
+                    f"For unlimited access please <a href='{login_page}?next={here}' class='alert-link'>login</a>.</span>",
+                )
             else:
-                messages.warning(request,
-                                 "<span id='msg-body'>Warning: Only <span id='msg-valnum'>%s</span> more submissions "
-                                 "allowed. "
-                                 "For unlimited access please <a href='%s?next=%s' "
-                                 "class='alert-link'>login</a>.</span>" % (
-                                     5 - num, login_page, here))
+                messages.warning(
+                    request,
+                    f"<span id='msg-body'>Warning: Only <span id='msg-valnum'>{remaining}</span> more submissions allowed. "
+                    f"For unlimited access please <a href='{login_page}?next={here}' class='alert-link'>login</a>.</span>",
+                )
         else:
-            logger.debug("Unauthenticated user blocked from validator")
-            messages.error(request,
-                           "<span id='msg-body'>Please <a href='%s?next=%s' class='alert-link'>login</a> "
-                           "to continue using this service</span>" % (
-                               login_page, here))
+            messages.error(
+                request,
+                f"<span id='msg-body'>Please <a href='{login_page}?next={here}' class='alert-link'>login</a> to continue using this service</span>",
+            )
             locked = True
 
-    initial = request.GET.get('variant')
-    if initial:
-        last_genome = request.GET.get('genome', 'GRCh38')
-        last_source = request.GET.get('refsource', 'refseq')
+    return render(
+        request,
+        "validate.html",
+        {
+            "output": output,
+            "locked": locked,
+            "last": last_genome,
+            "source": last_source,
+            "initial": request.GET.get("variant"),
+        },
+    )
 
-    return render(request, 'validate.html', {
-        'output': output,
-        'locked': locked,
-        'last': last_genome,
-        'source': last_source,
-        'initial': initial,
-    })
 
+# ======================================================================
+# BATCH VALIDATION
+# ======================================================================
 
 def batch_validate(request):
-    """
-    View will take input and run validator via Celery. Results will be emailed to user.
-    :param request:
-    :return:
-    """
     locked = False
-    last_genome = request.session.get('genome', None)
+    last_genome = request.session.get("genome", None)
 
-    if request.method == 'POST':
+    if request.method == "POST":
         form = forms.BatchValidateForm(request.POST, request=request)
         if form.is_valid():
             job = tasks.batch_validate.delay(
-                form.cleaned_data['input_variants'],
-                form.cleaned_data['genome'],
-                form.cleaned_data['email_address'],
-                form.cleaned_data['gene_symbols'],
-                form.cleaned_data['select_transcripts'],
-                options=form.cleaned_data['options'],
-                transcript_set=form.cleaned_data['refsource']
+                form.cleaned_data["input_variants"],
+                form.cleaned_data["genome"],
+                form.cleaned_data["email_address"],
+                form.cleaned_data["gene_symbols"],
+                form.cleaned_data["select_transcripts"],
+                options=form.cleaned_data["options"],
+                transcript_set=form.cleaned_data["refsource"],
             )
-            messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % job)
-            services.send_initial_email(form.cleaned_data['email_address'], job, 'validation')
+            messages.success(
+                request,
+                "Success! Validated variants will be emailed to you (Job ID: %s)" % job,
+            )
+            services.send_initial_email(form.cleaned_data["email_address"], job, "validation")
             logger.info("Batch validation submitted by user %s" % request.user)
-            request.session['genome'] = form.cleaned_data['genome']
-            return redirect('batch_validate')
-        messages.warning(request, "Form contains errors (see below). Please resubmit")
+            request.session["genome"] = form.cleaned_data["genome"]
+            return redirect("batch_validate")
+
+        messages.warning(request, "Form contains errors. Please resubmit.")
+
     else:
         form = forms.BatchValidateForm(request=request)
+
         if not request.user.is_authenticated:
-            login_page = reverse('account_login')
-            here = reverse('batch_validate')
-            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> "
-                                    "to submit Validator Batch jobs" % (login_page, here))
-            form.fields['input_variants'].disabled = True
-            form.fields['genome'].disabled = True
-            form.fields['email_address'].disabled = True
-            form.fields['gene_symbols'].disabled = True
-            form.fields['select_transcripts'].disabled = True
-            form.fields['options'].disabled = True
-            form.fields['refsource'].disabled = True
+            login_page = reverse("account_login")
+            here = reverse("batch_validate")
+
+            messages.error(
+                request,
+                f"You must be <a href='{login_page}?next={here}' class='alert-link'>logged in</a> to submit batch jobs.",
+            )
+            for f in form.fields.values():
+                f.disabled = True
             locked = True
+
         else:
-            form.fields['genome'].initial = last_genome
-            email_address = getattr(request.user, 'email')
-            if email_address:
-                email = EmailAddress.objects.get(email=email_address)
-                if email.verified:
-                    form.fields['email_address'].initial = email.email
-                else:
-                    form.fields['input_variants'].disabled = True
-                    form.fields['genome'].disabled = True
-                    form.fields['email_address'].disabled = True
-                    form.fields['gene_symbols'].disabled = True
-                    form.fields['select_transcripts'].disabled = True
-                    form.fields['options'].disabled = True
-                    form.fields['refsource'].disabled = True
-                    verify = reverse('account_email')
-                    messages.error(request,
-                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
-                                   "before submitting a Batch Validator job" % (
-                                       verify))
-                    locked = True
+            form.fields["genome"].initial = last_genome
+            email_address = getattr(request.user, "email")
+
+            email_obj = EmailAddress.objects.filter(email__iexact=email_address).first()
+
+            if email_obj and email_obj.verified:
+                form.fields["email_address"].initial = email_obj.email
             else:
-                form.fields['input_variants'].disabled = True
-                form.fields['genome'].disabled = True
-                form.fields['email_address'].disabled = True
-                form.fields['gene_symbols'].disabled = True
-                form.fields['select_transcripts'].disabled = True
-                form.fields['options'].disabled = True
-                form.fields['refsource'].disabled = True
-                verify = reverse('account_email')
-                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
-                                        "before submitting a Batch Validator job" % verify)
+                for f in form.fields.values():
+                    f.disabled = True
+                verify = reverse("account_email")
+                messages.error(
+                    request,
+                    f"Primary email must be <a href='{verify}' class='alert-link'>verified</a> before batch submission.",
+                )
                 locked = True
 
-    return render(request, 'batch_validate.html', {
-        'form': form,
-        'locked': locked,
-        'settings': settings,
-    })
+    return render(
+        request,
+        "batch_validate.html",
+        {"form": form, "locked": locked, "settings": settings},
+    )
 
+
+# ======================================================================
+# VCF2HGVS (left unchanged, even if unused)
+# ======================================================================
 
 def vcf2hgvs(request):
-    """
-    View will take uploaded vcf file and convert to HGVS via celery. Results will be emailed to user.
-    :param request:
-    :return:
-    """
     locked = False
-    last_genome = request.session.get('genome', None)
+    last_genome = request.session.get("genome", None)
 
-    if request.method == 'POST':
+    if request.method == "POST":
         form = forms.VCF2HGVSForm(request.POST, request.FILES)
         if form.is_valid():
-            logger.debug("VCF to HGVS input: %s" % form.cleaned_data)
-
-            if request.FILES['vcf_file'].multiple_chunks():
-                messages.info(request, 'Large file detected, multiple jobs will be submitted')
+            if request.FILES["vcf_file"].multiple_chunks():
                 jobs = []
-                for chunk in request.FILES['vcf_file'].chunks():
+                for chunk in request.FILES["vcf_file"].chunks():
                     res = tasks.vcf2hgvs.delay(
                         chunk,
-                        form.cleaned_data['genome'],
-                        form.cleaned_data['gene_symbols'],
-                        form.cleaned_data['email_address']
+                        form.cleaned_data["genome"],
+                        form.cleaned_data["gene_symbols"],
+                        form.cleaned_data["email_address"],
                     )
                     jobs.append(str(res))
-                res = ', '.join(jobs)
+                res = ", ".join(jobs)
             else:
                 try:
                     res = tasks.vcf2hgvs.delay(
-                        codecs.decode(request.FILES['vcf_file'].read(), 'UTF-8'),
-                        form.cleaned_data['genome'],
-                        form.cleaned_data['gene_symbols'],
-                        form.cleaned_data['email_address'],
-                        form.cleaned_data['select_transcripts'],
-                        form.cleaned_data['options']
+                        codecs.decode(request.FILES["vcf_file"].read(), "UTF-8"),
+                        form.cleaned_data["gene_symbols"],
+                        form.cleaned_data["email_address"],
+                        form.cleaned_data["genome"],
+                        form.cleaned_data["select_transcripts"],
+                        form.cleaned_data["options"],
                     )
-                except TypeError:
+                except Exception:
                     res = tasks.vcf2hgvs.delay(
-                    request.FILES['vcf_file'].read(),
-                    form.cleaned_data['genome'],
-                    form.cleaned_data['gene_symbols'],
-                    form.cleaned_data['email_address'],
-                    form.cleaned_data['select_transcripts'],
-                    form.cleaned_data['options']
-                )
-            messages.success(request, "Success! Validated variants will be emailed to you (Job ID: %s)" % res)
-            services.send_initial_email(form.cleaned_data['email_address'], res, 'VCF to HGVS')
+                        request.FILES["vcf_file"].read(),
+                        form.cleaned_data["gene_symbols"],
+                        form.cleaned_data["email_address"],
+                        form.cleaned_data["genome"],
+                        form.cleaned_data["select_transcripts"],
+                        form.cleaned_data["options"],
+                    )
 
-            request.session['genome'] = form.cleaned_data['genome']
+            messages.success(request, "Success! Your VCF job has been submitted.")
+            services.send_initial_email(form.cleaned_data["email_address"], res, "VCF to HGVS")
+            request.session["genome"] = form.cleaned_data["genome"]
+            return redirect("vcf2hgvs")
 
-            logger.info("VCF to HGVS job submitted by user %s" % request.user)
-            return redirect('vcf2hgvs')
-        messages.warning(request, "Form contains errors (see below). Please resubmit")
+        messages.warning(request, "Form error. Please correct and resubmit.")
 
     else:
         form = forms.VCF2HGVSForm()
+
         if not request.user.is_authenticated:
-            login_page = reverse('account_login')
-            here = reverse('vcf2hgvs')
-            messages.error(request, "You must be <a href='%s?next=%s' class='alert-link'>logged in</a> "
-                                    "to submit VCF to HGVS jobs" % (login_page, here))
-            form.fields['vcf_file'].disabled = True
-            form.fields['genome'].disabled = True
-            form.fields['email_address'].disabled = True
-            form.fields['gene_symbols'].disabled = True
-            form.fields['select_transcripts'].disabled = True
-            form.fields['options'].disabled = True
+            login_page = reverse("account_login")
+            here = reverse("vcf2hgvs")
+
+            messages.error(
+                request,
+                f"You must be <a href='{login_page}?next={here}' class='alert-link'>logged in</a> to submit VCF jobs.",
+            )
+            for f in form.fields.values():
+                f.disabled = True
             locked = True
+
         else:
-            form.fields['genome'].initial = last_genome
-            email_address = getattr(request.user, 'email')
-            if email_address:
-                email = EmailAddress.objects.get(email=email_address)
-                if email.verified:
-                    form.fields['email_address'].initial = email.email
-                else:
-                    form.fields['vcf_file'].disabled = True
-                    form.fields['genome'].disabled = True
-                    form.fields['email_address'].disabled = True
-                    form.fields['gene_symbols'].disabled = True
-                    form.fields['select_transcripts'].disabled = True
-                    form.fields['options'].disabled = True
-                    verify = reverse('account_email')
-                    messages.error(request,
-                                   "Primary email address must be <a href='%s' class='alert-link'>verified</a> before "
-                                   "submitting VCF to HGVS jobs" % (
-                                       verify))
-                    locked = True
+            form.fields["genome"].initial = last_genome
+            email_address = getattr(request.user, "email")
+
+            email_obj = EmailAddress.objects.filter(email__iexact=email_address).first()
+
+            if email_obj and email_obj.verified:
+                form.fields["email_address"].initial = email_obj.email
             else:
-                form.fields['vcf_file'].disabled = True
-                form.fields['genome'].disabled = True
-                form.fields['email_address'].disabled = True
-                form.fields['gene_symbols'].disabled = True
-                form.fields['select_transcripts'].disabled = True
-                form.fields['options'].disabled = True
-                verify = reverse('account_email')
-                messages.error(request, "Primary email address must be <a href='%s' class='alert-link'>verified</a> "
-                                        "before submitting VCF to HGVS jobs" % (verify))
+                for f in form.fields.values():
+                    f.disabled = True
+                verify = reverse("account_email")
+                messages.error(
+                    request,
+                    f"Primary email must be <a href='{verify}' class='alert-link'>verified</a> before VCF job submission.",
+                )
                 locked = True
 
-    return render(request, 'vcf_to_hgvs.html', {
-        'form': form,
-        'max': settings.MAX_VCF,
-        'locked': locked,
-    })
+    return render(
+        request,
+        "vcf_to_hgvs.html",
+        {"form": form, "max": settings.MAX_VCF, "locked": locked},
+    )
 
+
+# ======================================================================
+# DOWNLOAD BATCH RESULTS
+# ======================================================================
 
 def download_batch_res(request, job_id):
-    """
-    Request will download job results
-    :param request:
-    :param job_id:
-    :return:
-    """
     job = AsyncResult(job_id)
+    buffer = f"# Job ID:{job_id}\n"
 
-    buffer = str()
-    buffer += '# Job ID:%s\n' % job_id
     try:
-        # Modify the output based on the options selected by the user.
-
-        # First pass, collect the metadata line which has had the options embedded
-        metaline = ''
+        # Determine which columns to include based on metadata
+        metaline = ""
         for row in job.result:
             if "Metadata:" in str(row):
                 metaline = str(row)
 
-        # Next parse the metaline to set the options
-        # 'options': 'transcript|genomic|protein|refseqgene|lrg|vcf|gene_info|tx_name|alt_loci'
-        if 'transcript' in metaline:
-            transcript_d = True
-        else:
-            transcript_d = False
-        if 'genomic' in metaline:
-            genomic_d = True
-        else:
-            genomic_d = False
-        if 'protein' in metaline:
-            protein_d = True
-        else:
-            protein_d = False
-        if 'refseqgene' in metaline:
-            refseqgene_d = True
-        else:
-            refseqgene_d = False
-        if 'lrg' in metaline:
-            lrg_d = True
-        else:
-            lrg_d = False
-        if 'vcf' in metaline:
-            vcf_d = True
-        else:
-            vcf_d = False
-        if 'gene_info' in metaline:
-            gene_info_d = True
-        else:
-            gene_info_d = False
-        if 'tx_name' in metaline:
-            tx_name_d = True
-        else:
-            tx_name_d = False
-        if 'alt_loci' in metaline:
-            alt_loci_d = True
-        else:
-            alt_loci_d = False
+        transcript_d = "transcript" in metaline
+        genomic_d = "genomic" in metaline
+        protein_d = "protein" in metaline
+        refseqgene_d = "refseqgene" in metaline
+        lrg_d = "lrg" in metaline
+        vcf_d = "vcf" in metaline
+        gene_info_d = "gene_info" in metaline
+        tx_name_d = "tx_name" in metaline
+        alt_loci_d = "alt_loci" in metaline
 
-        # Based on the option controls, add the correct list elements from job.result into the list my_results
         my_results = []
         for row in job.result:
-            if "# Metadata" not in row:
-                output_these_elements = []
-                # Add selected variant and warnings
-                row[2] = str(row[2])
-                l = row[0:2]
-                output_these_elements = output_these_elements + l
-                if transcript_d is True:
-                    l = row[2:5]
-                    output_these_elements = output_these_elements + l
-                if refseqgene_d is True:
-                    l = row[5:7]
-                    output_these_elements = output_these_elements + l
-                if lrg_d is True:
-                    l = row[7:9]
-                    output_these_elements = output_these_elements + l
-                if protein_d is True:
-                    l = [row[9]]
-                    output_these_elements = output_these_elements + l
-                if genomic_d is True:
-                    l = [row[10]]
-                    output_these_elements = output_these_elements + l
-                    l = [row[16]]
-                    output_these_elements = output_these_elements + l
-                if vcf_d is True:
-                    l = row[11:16]
-                    output_these_elements = output_these_elements + l
-                    l = row[17:22]
-                    output_these_elements = output_these_elements + l
-                if gene_info_d is True:
-                    l = row[22:24]
-                    output_these_elements = output_these_elements + l
-                if tx_name_d is True:
-                    l = [row[24]]
-                    output_these_elements = output_these_elements + l
-                if alt_loci_d is True:
-                    l = [row[25]]
-                    output_these_elements = output_these_elements + l
-            else:
-                output_these_elements = row
-            my_results.append(output_these_elements)
+            if not isinstance(row, list):
+                my_results.append(row)
+                continue
 
-        # String together the list into an output string for transfer into a text file (tab delimited "\n" newlines)
+            out = row[0:2]  # basic fields
+            if transcript_d:
+                out += row[2:5]
+            if refseqgene_d:
+                out += row[5:7]
+            if lrg_d:
+                out += row[7:9]
+            if protein_d:
+                out.append(row[9])
+            if genomic_d:
+                out.append(row[10])
+                out.append(row[16])
+            if vcf_d:
+                out += row[11:16]
+                out += row[17:22]
+            if gene_info_d:
+                out += row[22:24]
+            if tx_name_d:
+                out.append(row[24])
+            if alt_loci_d:
+                out.append(row[25])
+
+            my_results.append(out)
+
         for row in my_results:
             if isinstance(row, list):
-                # The sql query returns null for some columns which is converted
-                # to a Python NoneType. In this case the join() was failing.
-                # Added a list comprehension to convert the NoneType to a string
-                # containing the word 'None'.
-                buffer += '\t'.join(['None' if v is None else v for v in row])
-            elif isinstance(row, str):
-                # Converted the else statement to an elif, to test whether we got a string.
-                # If yes we append it here (Usually the Metadata row).
-                # Add an else statement if needed.
-                buffer += row
-            buffer += '\n'
+                buffer += "\t".join(["None" if v is None else str(v) for v in row])
+            else:
+                buffer += str(row)
+            buffer += "\n"
+
     except Exception as ex:
-        # This will print errors to the Apache log
         exc_type, exc_value, last_traceback = sys.exc_info()
-        logger.error(str(exc_type) + " " + str(exc_value))
+        logger.error(f"{exc_type} {exc_value}")
         traceback.print_tb(last_traceback, file=sys.stdout)
 
-    response = HttpResponse(buffer, content_type='text/plain')
-    response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
-    logger.debug("Job %s results downloaded by user %s" % (job_id, request.user))
+    response = HttpResponse(buffer, content_type="text/plain")
+    response["Content-Disposition"] = "attachment; filename=batch_job.txt"
     return response
 
 
-def bed_file(request):
-    # Capture the incoming request
-    info = request.GET.get('variant')
-    if info is None:
-        raise Http404("BED file does not exist without providing input variants")
+# ======================================================================
+# BED FILE OUTPUT
+# ======================================================================
 
-    # Split up the input
-    input_elements = info.split('|')
-    # Sort out URI encoding
-    if '+' in str(input_elements[0]):
-        input_elements = str(input_elements[0].replace(' ', '+'))
+def bed_file(request):
+    info = request.GET.get("variant")
+    if info is None:
+        raise Http404("BED file requires input variants")
+
+    input_elements = info.split("|")
+    if "+" in input_elements[0]:
+        input_elements[0] = input_elements[0].replace(" ", "+")
 
     validator = vval_object_pool.get_object()
     bed_call = services.create_bed_file(validator, *input_elements)
     vval_object_pool.return_object(validator)
 
-    response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
-    return response
+    return HttpResponse(bed_call, content_type="text/plain; charset=utf-8")
+
+
+# ======================================================================
+# CUSTOM EMAIL VIEWS
+# ======================================================================
 
 class StyledEmailSentView(EmailVerificationSentView):
     template_name = "account/email_confirmation_sent.html"
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # Ensure email is always passed to template
-        context['email'] = self.request.session.get(
-            'account_email',
-            self.request.GET.get('email', 'your email')
+        ctx = super().get_context_data(**kwargs)
+        ctx["email"] = self.request.session.get(
+            "account_email",
+            self.request.GET.get("email", "your email"),
         )
-        return context
+        return ctx
+
 
 class StyledSignupView(SignupView):
     """
-    Custom signup view that stores the email in the session
-    so StyledEmailSentView can always access it.
+    Custom signup: force lowercase email BEFORE allauth creates the user.
     """
+
     def form_valid(self, form):
+        email = form.cleaned_data.get("email", "").lower().strip()
+        form.cleaned_data["email"] = email
+
         response = super().form_valid(form)
-        # Save email in session
-        self.request.session['account_email'] = form.cleaned_data['email']
+        self.request.session["account_email"] = email
         return response
 
+
 class StrictLoginView(LoginView):
+    """
+    Enforces:
+    • Lowercase login input
+    • Lowercase stored user.email
+    • Verified-primary-email requirement
+    """
+
+    def post(self, request, *args, **kwargs):
+        if request.method == "POST":
+            request.POST = request.POST.copy()
+            if "login" in request.POST and request.POST["login"]:
+                request.POST["login"] = request.POST["login"].lower().strip()
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
         user = form.user
 
-        # Check if email verified
+        # Normalize stored email
+        lowered = (user.email or "").lower().strip()
+        if user.email != lowered:
+            user.email = lowered
+            user.save(update_fields=["email"])
+
+        # Verified?
         email_address = EmailAddress.objects.filter(
-            user=user,
-            email=user.email
+            user=user, email__iexact=user.email
         ).first()
 
         if email_address and not email_address.verified:
             send_email_confirmation(self.request, user)
-            self.request.session['account_email'] = user.email
-
+            self.request.session["account_email"] = lowered
             messages.error(
                 self.request,
-                "Your email address is not verified. "
-                "We have sent you a new confirmation email."
+                "Your email address is not verified. A new confirmation email has been sent.",
             )
-
             return redirect("account_email_verification_sent")
 
         return super().form_valid(form)

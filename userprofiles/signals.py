@@ -27,6 +27,12 @@ logger = logging.getLogger('vv')
 def create_user_profile(request, user, **kwargs):
     profile, created = UserProfile.objects.get_or_create(user=user)
     if created:
+        # Lowercase stored email immediately
+        if user.email:
+            lower = user.email.lower().strip()
+            if user.email != lower:
+                user.email = lower
+                user.save(update_fields=["email"])
         logger.info(f"[user_signed_up] Created UserProfile for {user.username}")
 
 
@@ -81,6 +87,13 @@ def enforce_status_transitions(sender, instance, **kwargs):
 
     new_org = profile.org_type
     new_status = profile.verification_status
+
+    # Lowercase user.email on every save
+    if user.email:
+        lower = user.email.lower().strip()
+        if user.email != lower:
+            user.email = lower
+            user.save(update_fields=["email"])
 
     # -------------------------------------------------------
     # COMMERCIAL EMAIL (transition-only)
@@ -153,56 +166,93 @@ def enforce_status_transitions(sender, instance, **kwargs):
 
 
 # ======================================================================
-# EMAIL CONFIRMED → INSTITUTION SYNC + COMMERCIAL ENFORCEMENT
+# EMAIL CONFIRMED → INSTITUTION SYNC (PRIMARY EMAIL ONLY)
 # ======================================================================
 @receiver(email_confirmed)
 def handle_email_verified(sender, request, email_address, **kwargs):
     user = email_address.user
     profile, _ = UserProfile.objects.get_or_create(user=user)
 
+    # ----------------------------------------------------------
+    # ALWAYS store user.email in lowercase
+    # ----------------------------------------------------------
+    if user.email:
+        lower = user.email.lower().strip()
+        if user.email != lower:
+            user.email = lower
+            user.save(update_fields=["email"])
+
+    # ----------------------------------------------------------
+    # Mark profile email as verified
+    # ----------------------------------------------------------
     profile.email_is_verified = True
     profile.completion_level = profile.get_completion_level()
     profile.save()
 
-    verified_emails = EmailAddress.objects.filter(user=user, verified=True)
-    verified_domains = []
+    # ----------------------------------------------------------
+    # PRIMARY verified EmailAddress ONLY
+    # ----------------------------------------------------------
+    primary = EmailAddress.objects.filter(
+        user=user,
+        primary=True,
+        verified=True
+    ).first()
 
-    for e in verified_emails:
-        try:
-            dom = e.email.split("@")[1].lower().strip()
-            verified_domains.append(dom)
-        except:
-            pass
-
-    if not verified_domains:
+    if not primary:
+        logger.info(f"[email_confirmed] No verified primary email for {user.username}")
         InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
         VariantQuota.objects.filter(user=user).update(institution=None)
         enforce_commercial_quota(user, profile)
         return
 
-    # Institution matching
+    # Lowercase primary email too
+    lower_ea = primary.email.lower().strip()
+    if primary.email != lower_ea:
+        primary.email = lower_ea
+        primary.save(update_fields=["email"])
+
+    # Extract domain
+    try:
+        domain = lower_ea.split("@", 1)[1]
+    except Exception:
+        domain = ""
+
+    if not domain:
+        logger.info(f"[email_confirmed] Invalid primary email → clearing membership for {user.username}")
+        InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
+        VariantQuota.objects.filter(user=user).update(institution=None)
+        enforce_commercial_quota(user, profile)
+        return
+
+    # ----------------------------------------------------------
+    # MATCH using PRIMARY DOMAIN ONLY
+    # ----------------------------------------------------------
     matches = []
     for inst_domain in InstitutionDomain.objects.select_related("institution"):
         suffix = inst_domain.domain
-        for d in verified_domains:
-            if d == suffix or d.endswith("." + suffix):
-                matches.append((inst_domain.institution, suffix))
+        if domain == suffix or domain.endswith("." + suffix):
+            matches.append((inst_domain.institution, suffix))
 
     if not matches:
+        logger.info(f"[email_confirmed] No institution match for {user.username} → domain={domain}")
         InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
         VariantQuota.objects.filter(user=user).update(institution=None)
         enforce_commercial_quota(user, profile)
         return
 
+    # Pick longest suffix
     matches.sort(key=lambda x: len(x[1]), reverse=True)
-    best_institution, best_domain = matches[0]
+    best_institution, best_suffix = matches[0]
 
+    # ----------------------------------------------------------
+    # ACTIVATE CORRECT MEMBERSHIP
+    # ----------------------------------------------------------
     membership, created = InstitutionMembership.objects.get_or_create(
         user=user,
         institution=best_institution,
         defaults={
             "source": "domain",
-            "email_used": email_address.email,
+            "email_used": lower_ea,
             "verified_at": timezone.now(),
             "active": True,
         }
@@ -210,20 +260,31 @@ def handle_email_verified(sender, request, email_address, **kwargs):
 
     if not created:
         membership.active = True
-        membership.email_used = email_address.email
+        membership.email_used = lower_ea
         membership.verified_at = timezone.now()
         membership.save()
 
+    # Deactivate others
     InstitutionMembership.objects.filter(
-        user=user, active=True
+        user=user,
+        active=True
     ).exclude(institution=best_institution).update(active=False)
 
+    # ----------------------------------------------------------
+    # UPDATE QUOTA INSTITUTION
+    # ----------------------------------------------------------
     quota, _ = VariantQuota.objects.get_or_create(user=user)
 
     if quota.institution != best_institution:
         quota.institution = best_institution
         quota.save()
+        logger.info(
+            f"[email_confirmed] quota institution → {best_institution.name} (suffix={best_suffix})"
+        )
 
+    # ----------------------------------------------------------
+    # ENFORCE commercial vs standard plan
+    # ----------------------------------------------------------
     enforce_commercial_quota(user, profile)
 
 

@@ -153,7 +153,7 @@ class VariantQuota(models.Model):
     """
 
     PLAN_CHOICES = [
-        ("commercial", "Commercial"),   # <-- NEW: Commercial plan
+        ("commercial", "Commercial"),
         ("standard", "Standard"),
         ("pro", "Pro"),
         ("enterprise", "Enterprise"),
@@ -195,24 +195,24 @@ class VariantQuota(models.Model):
     )
 
     # -------------------------------------------------------
-    # PERSONAL ALLOWANCE (COMMERCIAL FIX INCLUDED)
+    # PERSONAL ALLOWANCE (incl. commercial fix)
     # -------------------------------------------------------
     @property
     def personal_allowance(self):
         """
         Base allowance before institutional uplift.
 
-        Order of precedence:
-          1. custom_limit → ALWAYS wins (manual trial/allocation)
-          2. commercial plan → COMMERCIAL_TRIAL_LIMIT (e.g., 0)
-          3. plan-based defaults (standard/pro/enterprise)
+        Order:
+          1. custom_limit → trial override
+          2. commercial plan → COMMERCIAL_TRIAL_LIMIT
+          3. plan defaults (standard/pro/enterprise)
         """
 
-        # 1. Trial override always wins
+        # 1. Trial override
         if self.custom_limit is not None:
             return self.custom_limit
 
-        # 2. Commercial plan ALWAYS inherits COMMERCIAL_TRIAL_LIMIT
+        # 2. Commercial plan inherits COMMERCIAL_TRIAL_LIMIT
         if self.plan == "commercial":
             return getattr(settings, "COMMERCIAL_TRIAL_LIMIT", 0)
 
@@ -229,15 +229,41 @@ class VariantQuota(models.Model):
         return getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
 
     # -------------------------------------------------------
-    # EFFECTIVE ALLOWANCE (institution may uplift)
+    # EFFECTIVE ALLOWANCE (institutional uplift with correct rules)
     # -------------------------------------------------------
     @property
     def effective_allowance(self):
+        """
+        Institutional uplift:
+
+        • Verified non‑commercial users ALWAYS receive uplift from institution.
+        • Commercial users ONLY receive uplift if their primary email maps to
+          a commercial-paying institution (already enforced via signals).
+        • Unverified users NEVER receive uplift.
+        """
+
         base = self.personal_allowance
 
-        if self.institution and self.institution.is_active:
+        profile = getattr(self.user, "profile", None)
+        if not profile:
+            return base  # Should never happen
+
+        status = profile.verification_status
+
+        # No institution → no uplift
+        if not self.institution or not self.institution.is_active:
+            return base
+
+        # VERIFIED / AUTO VERIFIED → ALWAYS uplift
+        if status in ("verified", "auto_verified"):
             return max(base, self.institution.variant_limit)
 
+        # COMMERCIAL → uplift allowed ONLY if institution matches employer
+        # (this is enforced by signals: wrong-domain users never get institution pointer)
+        if status == "commercial":
+            return max(base, self.institution.variant_limit)
+
+        # UNVERIFIED → NEVER uplift
         return base
 
     # -------------------------------------------------------
@@ -245,10 +271,9 @@ class VariantQuota(models.Model):
     # -------------------------------------------------------
     def check_subscription_status(self):
         if (
-            self.plan != "standard"
-            and self.plan != "commercial"
-            and self.subscription_expires
-            and timezone.now() >= self.subscription_expires
+                self.plan not in ("standard", "commercial")
+                and self.subscription_expires
+                and timezone.now() >= self.subscription_expires
         ):
             self.plan = "standard"
             self.subscription_expires = None
@@ -261,17 +286,13 @@ class VariantQuota(models.Model):
     # MONTHLY RESET
     # -------------------------------------------------------
     def reset_if_needed(self):
-        """
-        Reset usage one calendar month after last_reset.
-        Trials disappear because custom_limit resets to None.
-        """
         now = timezone.now()
         next_reset = self.last_reset + relativedelta(months=1)
 
         if now >= next_reset:
             self.count = 0
             self.last_reset = now
-            self.custom_limit = None    # TRIAL EXPIRES
+            self.custom_limit = None  # trial expires
             self.save()
 
     # -------------------------------------------------------

@@ -2,14 +2,13 @@
 
 from django.contrib import admin
 from django.utils import timezone
-from .models import TrustedDomain, VerificationEvidence
-from .validators import (
-    is_valid_orcid,
-    is_probable_google_scholar,
-    is_linkedin_profile,
-    looks_like_company_site,
-)
 
+from .models import TrustedDomain, VerificationEvidence
+
+
+# ======================================================================
+# TRUSTED DOMAIN ADMIN
+# ======================================================================
 
 @admin.register(TrustedDomain)
 class TrustedDomainAdmin(admin.ModelAdmin):
@@ -17,6 +16,10 @@ class TrustedDomainAdmin(admin.ModelAdmin):
     search_fields = ("domain",)
     list_filter = ("category", "auto_approve")
 
+
+# ======================================================================
+# VERIFICATION EVIDENCE ACTION
+# ======================================================================
 
 @admin.action(description="Mark selected evidence as verified")
 def mark_evidence_verified(modeladmin, request, queryset):
@@ -31,11 +34,23 @@ def mark_evidence_verified(modeladmin, request, queryset):
     modeladmin.message_user(request, f"{updated} item(s) verified.")
 
 
+# ======================================================================
+# VERIFICATION EVIDENCE ADMIN
+# ======================================================================
+
 @admin.register(VerificationEvidence)
 class VerificationEvidenceAdmin(admin.ModelAdmin):
-    list_display = ("user", "kind", "url", "verified", "submitted_at")
+    list_display = (
+        "user",
+        "kind",
+        "url",
+        "verified",
+        "submitted_at",
+    )
+
     list_filter = ("kind", "verified", "submitted_at")
-    search_fields = ("user__username", "user__email", "url", "display_name")
+    search_fields = ("user__username", "user__email", "url")
+
     actions = [mark_evidence_verified]
 
     readonly_fields = (
@@ -59,9 +74,10 @@ class VerificationEvidenceAdmin(admin.ModelAdmin):
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program.
+# If not, see <https://www.gnu.org/licenses/>.
 # </LICENSE>
