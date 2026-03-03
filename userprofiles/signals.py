@@ -25,10 +25,6 @@ logger = logging.getLogger('vv')
 # ======================================================================
 @receiver(user_signed_up)
 def create_user_profile(request, user, **kwargs):
-    """
-    Create a UserProfile when a new user signs up.
-    VariantQuota is created separately in web/signals.py.
-    """
     profile, created = UserProfile.objects.get_or_create(user=user)
     if created:
         logger.info(f"[user_signed_up] Created UserProfile for {user.username}")
@@ -37,14 +33,10 @@ def create_user_profile(request, user, **kwargs):
 
 
 # ======================================================================
-# CAPTURE ORIGINAL PROFILE STATE (NEEDED TO DETECT ADMIN TRANSITIONS)
+# CAPTURE ORIGINAL PROFILE STATE (needed to detect transitions)
 # ======================================================================
 @receiver(post_init, sender=UserProfile)
 def store_original_profile_state(sender, instance, **kwargs):
-    """
-    Cache original values on instance so post_save can detect transitions.
-    This solves the 'admin change detected after save' problem.
-    """
     instance._original_org_type = instance.org_type
     instance._original_verification_status = instance.verification_status
 
@@ -53,18 +45,6 @@ def store_original_profile_state(sender, instance, **kwargs):
 # COMMERCIAL QUOTA ENFORCEMENT
 # ======================================================================
 def enforce_commercial_quota(user, profile):
-    """
-    Ensures VariantQuota accurately reflects commercial/non-commercial status.
-
-    COMMERCIAL if:
-        - org_type = commercial
-        OR
-        - verification_status = commercial
-
-    NON-COMMERCIAL:
-        - neither field indicates commercial
-    """
-
     is_commercial = (
         profile.org_type == "commercial"
         or profile.verification_status == "commercial"
@@ -80,49 +60,30 @@ def enforce_commercial_quota(user, profile):
             quota.count = 0
             quota.last_reset = timezone.now()
             quota.save()
+            logger.info(f"[commercial_enforce] Set plan=COMMERCIAL for {user.username}")
 
-            logger.info(
-                f"[commercial_enforce] Set plan=COMMERCIAL for {user.username}"
-            )
     else:
-        # Downgrade only if previously commercial
         if quota.plan == "commercial":
             quota.plan = "standard"
             quota.custom_limit = None
             quota.subscription_expires = None
             quota.save()
-
-            logger.info(
-                f"[commercial_enforce] Downgraded {user.username} to STANDARD"
-            )
+            logger.info(f"[commercial_enforce] Set plan=STANDARD for {user.username}")
 
 
 # ======================================================================
-# COMMERCIAL EMAIL + ENFORCEMENT ON PROFILE SAVE (ALL 4 WORKFLOWS)
+# PROFILE SAVE → COMMERCIAL EMAIL, BANNED EMAIL, QUOTA ENFORCEMENT
 # ======================================================================
 @receiver(post_save, sender=UserProfile)
 def enforce_commercial_on_profile_save(sender, instance, **kwargs):
-    """
-    Handles ALL required workflows:
-
-    1. User declares org_type="commercial"
-    2. Admin sets verification_status="commercial"
-    3. System auto-verifies commercial via email-confirmed
-    4. Admin changes user back → downgrade to standard
-
-    Uses pre-save originals captured by post_init to detect transitions.
-    """
-
     user = instance.user
     profile = instance
 
-    # -------------------------------------------------------
-    # Read original values cached by post_init
-    # (if absent, treat as None)
-    # -------------------------------------------------------
+    # OLD values (from post_init)
     old_org = getattr(instance, "_original_org_type", None)
     old_status = getattr(instance, "_original_verification_status", None)
 
+    # NEW values
     new_org = profile.org_type
     new_status = profile.verification_status
 
@@ -134,8 +95,6 @@ def enforce_commercial_on_profile_save(sender, instance, **kwargs):
         (old_status != "commercial" and new_status == "commercial")
     )
 
-    # Send commercial email ONLY when transitioning into commercial
-    # (Admin flip, system update, or user-declared if not already sent elsewhere)
     if became_commercial:
         logger.info(f"[commercial_email] Sending commercial activation email to {user.username}")
 
@@ -158,12 +117,42 @@ def enforce_commercial_on_profile_save(sender, instance, **kwargs):
         )
 
     # -------------------------------------------------------
+    # Detect transition into banned/malicious
+    # Option B → ONLY when CHANGING to banned
+    # -------------------------------------------------------
+    became_banned = (old_status != "banned" and new_status == "banned")
+
+    if became_banned:
+        logger.info(f"[banned_email] Sending banned/malicious notice to {user.username}")
+
+        send_mail(
+            subject="VariantValidator – Account Deactivated",
+            message=(
+                f"Hello {user.username},\n\n"
+                "Your VariantValidator account has been deactivated because we were unable to verify your "
+                "identity or eligibility, or because activity was detected that does not comply with our terms of use.\n\n"
+                "If you believe this decision was made in error or you wish to provide additional information, "
+                "please contact us at:\n"
+                "admin@variantvalidator.org\n\n"
+                "You may include:\n"
+                " • an institutional or organisational email address\n"
+                " • ORCID, LinkedIn or institutional profile links\n"
+                " • details regarding your intended use of VariantValidator\n\n"
+                "Thank you,\n"
+                "— VariantValidator Team"
+            ),
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@variantvalidator.org"),
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+
+    # -------------------------------------------------------
     # Enforce quota after email logic
     # -------------------------------------------------------
     enforce_commercial_quota(user, profile)
 
     # -------------------------------------------------------
-    # Update cached originals so subsequent saves compare correctly
+    # Update cached originals for next save
     # -------------------------------------------------------
     instance._original_org_type = instance.org_type
     instance._original_verification_status = instance.verification_status
@@ -174,29 +163,14 @@ def enforce_commercial_on_profile_save(sender, instance, **kwargs):
 # ======================================================================
 @receiver(email_confirmed)
 def handle_email_verified(sender, request, email_address, **kwargs):
-    """
-    When a user verifies email:
-      - Mark profile email verified
-      - Compute completion %
-      - Compute institutional membership
-      - Update VariantQuota institution link
-      - Enforce commercial logic (auto/commercial users)
-    """
-
     user = email_address.user
     logger.info(f"[email_confirmed] Fired for user={user.username} email={email_address.email}")
 
-    # ---------------------------
-    # 1. Profile update
-    # ---------------------------
     profile, _ = UserProfile.objects.get_or_create(user=user)
     profile.email_is_verified = True
     profile.completion_level = profile.get_completion_level()
     profile.save()
 
-    # ---------------------------
-    # 2. Verified domains
-    # ---------------------------
     verified_emails = EmailAddress.objects.filter(user=user, verified=True)
     verified_domains = []
 
@@ -211,15 +185,10 @@ def handle_email_verified(sender, request, email_address, **kwargs):
     if not verified_domains:
         InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
         VariantQuota.objects.filter(user=user).update(institution=None)
-
         enforce_commercial_quota(user, profile)
         return
 
-    # ---------------------------
-    # 3. Institution matching
-    # ---------------------------
     matches = []
-
     for inst_domain in InstitutionDomain.objects.select_related("institution"):
         inst_suffix = inst_domain.domain
         for d in verified_domains:
@@ -229,19 +198,12 @@ def handle_email_verified(sender, request, email_address, **kwargs):
     if not matches:
         InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
         VariantQuota.objects.filter(user=user).update(institution=None)
-
         enforce_commercial_quota(user, profile)
         return
 
-    # ---------------------------
-    # 4. Best match
-    # ---------------------------
     matches.sort(key=lambda x: len(x[1]), reverse=True)
     best_institution, best_domain = matches[0]
 
-    # ---------------------------
-    # 5. Create/update membership
-    # ---------------------------
     membership, created = InstitutionMembership.objects.get_or_create(
         user=user,
         institution=best_institution,
@@ -259,17 +221,11 @@ def handle_email_verified(sender, request, email_address, **kwargs):
         membership.verified_at = timezone.now()
         membership.save()
 
-    # ---------------------------
-    # 6. Deactivate other memberships
-    # ---------------------------
     InstitutionMembership.objects.filter(
         user=user,
         active=True
     ).exclude(institution=best_institution).update(active=False)
 
-    # ---------------------------
-    # 7. Update quota institution pointer
-    # ---------------------------
     try:
         quota = VariantQuota.objects.get(user=user)
     except VariantQuota.DoesNotExist:
@@ -279,9 +235,6 @@ def handle_email_verified(sender, request, email_address, **kwargs):
         quota.institution = best_institution
         quota.save()
 
-    # ---------------------------
-    # 8. Commercial enforcement (auto/commercial)
-    # ---------------------------
     enforce_commercial_quota(user, profile)
 
 
