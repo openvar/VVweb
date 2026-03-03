@@ -61,10 +61,6 @@ INSTALLED_APPS = [
     'cookielaw',
     'allauth',
     'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.github',
-    'allauth.socialaccount.providers.google',
-    'allauth.socialaccount.providers.orcid',
     'userprofiles.apps.UserprofilesConfig',
     'verification',
     'django_recaptcha',
@@ -137,6 +133,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTHENTICATION_BACKENDS = (
+
+    "userprofiles.auth_backends.ProfileAwareModelBackend",
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
 )
