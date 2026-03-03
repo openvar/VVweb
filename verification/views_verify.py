@@ -136,7 +136,7 @@ def verify_identity(request):
                         "support continued development, and keep VariantValidator running reliably into the future.\n\n"
                         "Based on the information provided, your account has been classified as *commercial use*. "
                         "Commercial users require a paid licence to perform variant validations.\n\n"
-                        "• If you would like to evaluate VariantValidator before committing, please email "
+                        "• If you would like to evaluate VariantValidator before committing, or wish to have your account reviewed, please email "
                         "admin@variantvalidator.org to request a manual trial allocation.\n"
                         "• Paid licensing options will be available soon. A purchase link will appear here once the "
                         "subscription portal is live:\n"

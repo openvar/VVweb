@@ -21,7 +21,7 @@ logger = logging.getLogger('vv')
 
 
 # ======================================================================
-# USER PROFILE SETUP
+# USER SIGN-UP → CREATE USER PROFILE
 # ======================================================================
 @receiver(user_signed_up)
 def create_user_profile(request, user, **kwargs):
@@ -30,6 +30,9 @@ def create_user_profile(request, user, **kwargs):
         logger.info(f"[user_signed_up] Created UserProfile for {user.username}")
 
 
+# ======================================================================
+# CAPTURE ORIGINAL PROFILE STATE
+# ======================================================================
 @receiver(post_init, sender=UserProfile)
 def store_original_profile_state(sender, instance, **kwargs):
     instance._original_org_type = instance.org_type
@@ -66,7 +69,7 @@ def enforce_commercial_quota(user, profile):
 
 
 # ======================================================================
-# PROFILE SAVE → COMMERCIAL + BANNED EMAILS + QUOTA SYNC
+# PROFILE SAVE: COMMERCIAL EMAIL + BANNED EMAIL + QUOTA SYNC
 # ======================================================================
 @receiver(post_save, sender=UserProfile)
 def enforce_status_transitions(sender, instance, **kwargs):
@@ -79,53 +82,60 @@ def enforce_status_transitions(sender, instance, **kwargs):
     new_org = profile.org_type
     new_status = profile.verification_status
 
-    # -------------------------
-    # Commercial transition
-    # -------------------------
+    # -------------------------------------------------------
+    # COMMERCIAL EMAIL (transition-only)
+    # -------------------------------------------------------
     became_commercial = (
-        (old_org != "commercial" and new_org == "commercial") or
-        (old_status != "commercial" and new_status == "commercial")
+        (old_org != "commercial" and new_org == "commercial")
+        or (old_status != "commercial" and new_status == "commercial")
     )
 
     if became_commercial:
+        logger.info(f"[email] Sending commercial activation email → {user.username}")
+
         send_mail(
             subject="VariantValidator – Commercial Access Required",
             message=(
                 f"Hello {user.username},\n\n"
-                "Your VariantValidator account has been classified as *commercial use*.\n\n"
+                "Your VariantValidator account is now set up — thank you for registering.\n\n"
+                "We’ve recently updated our service model to ensure we can maintain the infrastructure, "
+                "support continued development, and keep VariantValidator running reliably into the future.\n\n"
+                "Based on the information provided, your account has been classified as *commercial use*. "
                 "Commercial users require a paid licence to perform variant validations.\n\n"
-                "If you would like to request a manual trial allocation, please email:\n"
-                "admin@variantvalidator.org\n\n"
-                "Paid licensing options will be available soon.\n\n"
-                "Thank you,\n"
+                "• To request a manual trial allocation, or to have your account reviewed, please email admin@variantvalidator.org\n"
+                "• Paid licensing options will be available soon:\n"
+                "  https://variantvalidator.org/paid-options/   <-- placeholder link\n\n"
+                "Until a licence or trial is applied to your account, your commercial quota is set to zero variants.\n\n"
+                "Thank you for your interest in VariantValidator — your support helps us keep the service available "
+                "for the wider community.\n"
                 "— VariantValidator Team"
             ),
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@variantvalidator.org"),
             recipient_list=[user.email],
             fail_silently=True,
         )
-        logger.info(f"[email] Commercial notification sent → {user.username}")
 
-    # -------------------------
-    # Banned transition (Option B)
-    # -------------------------
+    # -------------------------------------------------------
+    # BANNED EMAIL (OPTION B — transition-only)
+    # -------------------------------------------------------
     became_banned = (old_status != "banned" and new_status == "banned")
 
     if became_banned:
+        logger.info(f"[email] Sending banned notification → {user.username}")
+
         send_mail(
             subject="VariantValidator – Account Deactivated",
             message=(
                 f"Hello {user.username},\n\n"
-                "Your VariantValidator account has been deactivated because we were unable "
-                "to verify your identity or eligibility, or because activity was detected "
-                "that does not comply with our terms of use.\n\n"
-                "If you believe this decision was made in error or wish to provide additional information, "
-                "please contact:\n"
+                "Your VariantValidator account has been deactivated because we were unable to "
+                "verify your identity or eligibility, or because activity was detected that "
+                "does not comply with our terms of use.\n\n"
+                "If you believe this was made in error or can provide additional information, please contact:\n"
                 "admin@variantvalidator.org\n\n"
                 "You may include:\n"
-                " • an institutional or organisational email address\n"
-                " • ORCID, LinkedIn or institutional profile links\n"
-                " • details regarding your intended use of VariantValidator\n\n"
+                " • an institutional or organisational email\n"
+                " • ORCID, LinkedIn, or institutional profile links\n"
+                " • your intended use of VariantValidator\n\n"
                 "Thank you,\n"
                 "— VariantValidator Team"
             ),
@@ -133,18 +143,17 @@ def enforce_status_transitions(sender, instance, **kwargs):
             recipient_list=[user.email],
             fail_silently=True,
         )
-        logger.info(f"[email] Banned notification sent → {user.username}")
 
-    # Sync quota after email logic
+    # Sync quotas (always after email logic)
     enforce_commercial_quota(user, profile)
 
-    # Update stored originals
+    # Store updated originals
     instance._original_org_type = instance.org_type
     instance._original_verification_status = instance.verification_status
 
 
 # ======================================================================
-# EMAIL CONFIRMED → SYNC INSTITUTION + QUOTA
+# EMAIL CONFIRMED → INSTITUTION SYNC + COMMERCIAL ENFORCEMENT
 # ======================================================================
 @receiver(email_confirmed)
 def handle_email_verified(sender, request, email_address, **kwargs):
@@ -171,7 +180,7 @@ def handle_email_verified(sender, request, email_address, **kwargs):
         enforce_commercial_quota(user, profile)
         return
 
-    # Match institutions
+    # Institution matching
     matches = []
     for inst_domain in InstitutionDomain.objects.select_related("institution"):
         suffix = inst_domain.domain
@@ -206,8 +215,7 @@ def handle_email_verified(sender, request, email_address, **kwargs):
         membership.save()
 
     InstitutionMembership.objects.filter(
-        user=user,
-        active=True
+        user=user, active=True
     ).exclude(institution=best_institution).update(active=False)
 
     quota, _ = VariantQuota.objects.get_or_create(user=user)
