@@ -103,6 +103,10 @@ def verify_identity(request):
             # Basic field population
             org_type = form.cleaned_data["org_type"]
             profile.org_type = org_type
+
+            # NEW: Save country (required field on the form)
+            profile.country = form.cleaned_data["country"]
+
             profile.orcid_id = form.cleaned_data.get("orcid_id", "")
             profile.verification_notes = form.cleaned_data.get("notes", "")
             profile.terms_accepted_at = timezone.now()
@@ -240,10 +244,15 @@ def verify_identity(request):
             return redirect("/verify/pending/")
 
     # ---------------------------------------------------------------------
-    # GET: Show form
+    # GET: Show form (prefill from profile when possible)
     # ---------------------------------------------------------------------
     else:
-        form = VerificationForm()
+        form = VerificationForm(initial={
+            "org_type": profile.org_type or "",
+            "country": getattr(profile, "country", None) or None,
+            "orcid_id": profile.orcid_id or "",
+            "notes": profile.verification_notes or "",
+        })
 
     return render(request, "verify.html", {"form": form})
 

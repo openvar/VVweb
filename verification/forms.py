@@ -1,6 +1,9 @@
 # verification/forms.py
 
 from django import forms
+from django_countries.fields import CountryField
+from django_countries.widgets import CountrySelectWidget
+
 from userprofiles.models import ORG_TYPES
 from verification.validators import is_valid_orcid, is_valid_url
 
@@ -10,6 +13,13 @@ class VerificationForm(forms.Form):
         choices=ORG_TYPES,
         required=True,
         label="Organisation Type"
+    )
+
+    # NEW: country is required
+    country = CountryField().formfield(
+        required=True,
+        label="Country",
+        widget=CountrySelectWidget(attrs={"class": "form-control"})
     )
 
     orcid_id = forms.CharField(
@@ -56,6 +66,7 @@ class VerificationForm(forms.Form):
         if url and not is_valid_url(url):
             raise forms.ValidationError("Invalid URL.")
         return url
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

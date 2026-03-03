@@ -8,23 +8,6 @@ from django.contrib.auth import logout
 class TierEnforcementMiddleware:
     """
     Enforces VariantValidator’s mandatory verification & entitlement model.
-
-    Rules:
-
-      1. BANNED users:
-            - Immediately logged out
-            - Redirect to /banned/
-
-      2. COMMERCIAL users:
-            - Redirect to /commercial/ for payment/licensing workflow
-            - DO NOT redirect them to /verify/ (prevents redirect loops)
-
-      3. VERIFIED or AUTO_VERIFIED users:
-            - Full access to site as normal
-
-      4. NOT_STARTED or PENDING users:
-            - HARD LOCKOUT
-            - Redirect to /verify/ until they complete verification
     """
 
     def __init__(self, get_response):
@@ -33,7 +16,7 @@ class TierEnforcementMiddleware:
         # Paths allowed during locked-out state
         self.allowed_prefixes = [
             "/verify/",
-            "/commercial/",           # <-- FIX ADDED HERE
+            "/commercial/",
             "/logout/",
             "/accounts/login/",
             "/accounts/logout/",
@@ -42,6 +25,10 @@ class TierEnforcementMiddleware:
         ]
 
     def __call__(self, request):
+
+        # ✔ FIX: Allow logout request BEFORE any enforcement happens
+        if request.path.startswith("/accounts/logout"):
+            return self.get_response(request)
 
         # Let admin panel, static files through
         if request.path.startswith("/admin/"):
@@ -72,29 +59,28 @@ class TierEnforcementMiddleware:
             # 2. COMMERCIAL USERS → redirect to commercial flow
             # ============================================================
             if status == "commercial":
-                # Prevent redirect loop by allowing /commercial/ and anything under it
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
                 return self.get_response(request)
 
             # ============================================================
-            # 3. VERIFIED USERS → allow access (verified or auto-verified)
+            # 3. VERIFIED USERS → allow access
             # ============================================================
             if status in ("verified", "auto_verified"):
                 return self.get_response(request)
 
             # ============================================================
-            # 4. NOT VERIFIED (not_started or pending) → HARD LOCKOUT
+            # 4. NOT VERIFIED → HARD LOCKOUT
             # ============================================================
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
                     return self.get_response(request)
 
-            # Redirect all other pages
             return redirect("/verify/")
 
         # Anonymous users unaffected
         return self.get_response(request)
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
