@@ -3,7 +3,7 @@
 from django.dispatch import receiver
 from allauth.account.signals import user_signed_up, email_confirmed
 from django.utils import timezone
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_init
 from django.core.mail import send_mail
 from django.conf import settings
 
@@ -34,6 +34,19 @@ def create_user_profile(request, user, **kwargs):
         logger.info(f"[user_signed_up] Created UserProfile for {user.username}")
     else:
         logger.info(f"[user_signed_up] UserProfile already existed for {user.username}")
+
+
+# ======================================================================
+# CAPTURE ORIGINAL PROFILE STATE (NEEDED TO DETECT ADMIN TRANSITIONS)
+# ======================================================================
+@receiver(post_init, sender=UserProfile)
+def store_original_profile_state(sender, instance, **kwargs):
+    """
+    Cache original values on instance so post_save can detect transitions.
+    This solves the 'admin change detected after save' problem.
+    """
+    instance._original_org_type = instance.org_type
+    instance._original_verification_status = instance.verification_status
 
 
 # ======================================================================
@@ -96,34 +109,33 @@ def enforce_commercial_on_profile_save(sender, instance, **kwargs):
     2. Admin sets verification_status="commercial"
     3. System auto-verifies commercial via email-confirmed
     4. Admin changes user back → downgrade to standard
+
+    Uses pre-save originals captured by post_init to detect transitions.
     """
 
     user = instance.user
     profile = instance
 
     # -------------------------------------------------------
-    # Detect previous values (for transition-based email)
+    # Read original values cached by post_init
+    # (if absent, treat as None)
     # -------------------------------------------------------
-    try:
-        old = UserProfile.objects.get(pk=instance.pk)
-        old_org = old.org_type
-        old_status = old.verification_status
-    except UserProfile.DoesNotExist:
-        old_org = None
-        old_status = None
+    old_org = getattr(instance, "_original_org_type", None)
+    old_status = getattr(instance, "_original_verification_status", None)
 
     new_org = profile.org_type
     new_status = profile.verification_status
 
-    # Detect promotion to commercial
+    # -------------------------------------------------------
+    # Detect promotion to commercial (transition-only)
+    # -------------------------------------------------------
     became_commercial = (
         (old_org != "commercial" and new_org == "commercial") or
         (old_status != "commercial" and new_status == "commercial")
     )
 
-    # -------------------------------------------------------
-    # Send commercial email on promotion
-    # -------------------------------------------------------
+    # Send commercial email ONLY when transitioning into commercial
+    # (Admin flip, system update, or user-declared if not already sent elsewhere)
     if became_commercial:
         logger.info(f"[commercial_email] Sending commercial activation email to {user.username}")
 
@@ -149,6 +161,12 @@ def enforce_commercial_on_profile_save(sender, instance, **kwargs):
     # Enforce quota after email logic
     # -------------------------------------------------------
     enforce_commercial_quota(user, profile)
+
+    # -------------------------------------------------------
+    # Update cached originals so subsequent saves compare correctly
+    # -------------------------------------------------------
+    instance._original_org_type = instance.org_type
+    instance._original_verification_status = instance.verification_status
 
 
 # ======================================================================
