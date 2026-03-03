@@ -1,3 +1,4 @@
+# web/views.py
 from django.shortcuts import render, redirect, reverse
 from django.conf import settings
 from django.http import HttpResponse, Http404

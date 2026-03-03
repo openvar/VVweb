@@ -24,7 +24,7 @@ logger = logging.getLogger('vv')
 def create_user_profile(request, user, **kwargs):
     """
     Create a UserProfile when a new user signs up.
-    VariantQuota is created in web/signals.py.
+    VariantQuota is created separately in web/signals.py.
     """
     profile, created = UserProfile.objects.get_or_create(user=user)
     if created:
@@ -34,25 +34,85 @@ def create_user_profile(request, user, **kwargs):
 
 
 # ======================================================================
-# EMAIL CONFIRMED → SYNC PROFILE + INSTITUTION MEMBERSHIP
+# COMMERCIAL CHECK → Central helper
+# ======================================================================
+def enforce_commercial_quota(user, profile):
+    """
+    Enforce commercial subscription rules:
+
+      - Triggered if:
+          org_type == commercial
+          OR
+          verification_status == commercial
+
+      - Result:
+          plan = commercial
+          custom_limit = None
+          subscription_expires = None
+          count reset
+    """
+
+    # Combined rule
+    is_commercial = (
+        (profile.org_type == "commercial") or
+        (profile.verification_status == "commercial")
+    )
+
+    if not is_commercial:
+        return  # No action needed
+
+    try:
+        quota = VariantQuota.objects.get(user=user)
+    except VariantQuota.DoesNotExist:
+        quota = VariantQuota.objects.create(
+            user=user,
+            plan="commercial",
+            count=0,
+            custom_limit=None,
+            subscription_expires=None,
+            last_reset=timezone.now(),
+        )
+        logger.info(f"[commercial_enforce] Created new COMMERCIAL plan for {user.username}")
+        return
+
+    # Already correct → nothing to do
+    if quota.plan == "commercial":
+        return
+
+    # Apply enforced commercial settings
+    quota.plan = "commercial"
+    quota.custom_limit = None
+    quota.subscription_expires = None
+    quota.count = 0
+    quota.last_reset = timezone.now()
+    quota.save()
+
+    logger.info(
+        f"[commercial_enforce] Updated VariantQuota for {user.username}: "
+        f"plan=commercial"
+    )
+
+
+# ======================================================================
+# EMAIL CONFIRMED → SYNC PROFILE + INSTITUTION MEMBERSHIP + COMMERCIAL ENFORCEMENT
 # IMPORTANT: Signature must include `sender` as first param
 # ======================================================================
 @receiver(email_confirmed)
 def handle_email_verified(sender, request, email_address, **kwargs):
     """
     When a user verifies an email:
-      1. Mark the UserProfile as verified (email_is_verified=True) to avoid loops.
-      2. Update profile completion level.
-      3. Recompute institutional membership using ALL verified email domains
-         (longest suffix match wins).
-      4. Update user.variant_quota.institution pointer.
-      5. Deactivate old memberships if no longer valid.
+      1. Mark email verified in UserProfile
+      2. Update completion level
+      3. Recompute institutional membership using ALL verified emails
+      4. Update VariantQuota.institution pointer
+      5. Enforce commercial subscription if profile indicates so
     """
+
     user = email_address.user
     logger.info(f"[email_confirmed] Fired for user={user.username} email={email_address.email}")
 
     # -------------------------------------------------------
-    # 1. Update profile (avoid email-verification loop)
+    # 1. Update profile
     # -------------------------------------------------------
     profile, _ = UserProfile.objects.get_or_create(user=user)
     profile.email_is_verified = True
@@ -61,52 +121,51 @@ def handle_email_verified(sender, request, email_address, **kwargs):
     logger.info(f"[email_confirmed] email_is_verified=True set for {user.username}")
 
     # -------------------------------------------------------
-    # 2. Collect ALL verified email domains for this user
+    # 2. Gather verified domains
     # -------------------------------------------------------
     verified_emails = EmailAddress.objects.filter(user=user, verified=True)
     verified_domains = []
 
     for e in verified_emails:
         try:
-            domain = e.email.split("@", 1)[1].lower().strip()
-            if domain:
-                verified_domains.append(domain)
+            dom = e.email.split("@", 1)[1].lower().strip()
+            if dom:
+                verified_domains.append(dom)
         except Exception:
             continue
 
     if not verified_domains:
-        # If the account has no verified domains, remove institution mappings.
         InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
         VariantQuota.objects.filter(user=user).update(institution=None)
-        logger.info(f"[email_confirmed] No verified email domains for {user.username}. Cleared institution pointers.")
+        logger.info(f"[email_confirmed] No verified domains → cleared institution")
+        enforce_commercial_quota(user, profile)
         return
 
     # -------------------------------------------------------
-    # 3. Find all matching institutions (suffix rule, multiple domains)
+    # 3. Match institutions (suffix rule)
     # -------------------------------------------------------
-    matches = []  # (Institution, matching_domain)
-
+    matches = []
     for inst_domain in InstitutionDomain.objects.select_related("institution"):
         inst_suffix = inst_domain.domain
-        for user_domain in verified_domains:
-            if user_domain == inst_suffix or user_domain.endswith("." + inst_suffix):
+        for d in verified_domains:
+            if d == inst_suffix or d.endswith("." + inst_suffix):
                 matches.append((inst_domain.institution, inst_suffix))
 
     if not matches:
-        # Deactivate any existing memberships if no matches remain
         InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
         VariantQuota.objects.filter(user=user).update(institution=None)
-        logger.info(f"[email_confirmed] No institution matched for {user.username}. Cleared institution pointers.")
+        logger.info(f"[email_confirmed] No institution match for {user.username}")
+        enforce_commercial_quota(user, profile)
         return
 
     # -------------------------------------------------------
-    # 4. Choose the BEST match: longest domain suffix wins
+    # 4. Select best match: longest suffix wins
     # -------------------------------------------------------
-    matches.sort(key=lambda pair: len(pair[1]), reverse=True)
+    matches.sort(key=lambda x: len(x[1]), reverse=True)
     best_institution, best_domain = matches[0]
 
     # -------------------------------------------------------
-    # 5. Get or create membership
+    # 5. Create/activate membership
     # -------------------------------------------------------
     membership, created = InstitutionMembership.objects.get_or_create(
         user=user,
@@ -120,9 +179,7 @@ def handle_email_verified(sender, request, email_address, **kwargs):
     )
 
     if not created:
-        # Ensure active and capture the email_used + timestamp
-        if not membership.active:
-            membership.active = True
+        membership.active = True
         membership.email_used = email_address.email
         membership.verified_at = timezone.now()
         membership.save()
@@ -133,7 +190,7 @@ def handle_email_verified(sender, request, email_address, **kwargs):
     )
 
     # -------------------------------------------------------
-    # 6. Deactivate any other memberships
+    # 6. Deactivate other memberships
     # -------------------------------------------------------
     InstitutionMembership.objects.filter(
         user=user,
@@ -141,26 +198,27 @@ def handle_email_verified(sender, request, email_address, **kwargs):
     ).exclude(institution=best_institution).update(active=False)
 
     # -------------------------------------------------------
-    # 7. Update VariantQuota.institution pointer (cached on quota)
+    # 7. Update quota institution pointer
     # -------------------------------------------------------
     try:
         quota = VariantQuota.objects.get(user=user)
     except VariantQuota.DoesNotExist:
-        logger.warning(f"[email_confirmed] VariantQuota missing for user {user.username}")
-        return
+        logger.warning(f"[email_confirmed] Missing VariantQuota for {user.username}")
+        quota = VariantQuota.objects.create(user=user)
 
     if quota.institution != best_institution:
         quota.institution = best_institution
         quota.save()
         logger.info(
-            f"[email_confirmed] VariantQuota updated for {user.username}: "
-            f"institution = {best_institution.name}"
+            f"[email_confirmed] quota institution → {best_institution.name}"
         )
-    else:
-        logger.info(
-            f"[email_confirmed] VariantQuota unchanged for {user.username}: "
-            f"institution = {best_institution.name}"
-        )
+
+    # -------------------------------------------------------
+    # 8. ENFORCE commercial quota (combined rule)
+    # -------------------------------------------------------
+    enforce_commercial_quota(user, profile)
+
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

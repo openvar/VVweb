@@ -1,43 +1,72 @@
 # web/signals.py
+
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import user_signed_up
 from allauth.account.models import EmailAddress
-from .models import VariantQuota, Contact
-import logging
 
+from web.models import VariantQuota, Contact
+from userprofiles.models import UserProfile
+
+import logging
 logger = logging.getLogger('vv')
 
 
+# ======================================================================
+# QUOTA CREATION ON NEW USER
+# ======================================================================
 @receiver(post_save, sender=User)
 def create_variant_quota(sender, instance, created, **kwargs):
-    """Automatically create VariantQuota for new users"""
-    if created:
-        VariantQuota.objects.create(
-            user=instance,
-            plan='standard',
-            count=0,
-            last_reset=timezone.now()
-        )
-        logger.info(f"Created VariantQuota for new user: {instance.username}")
+    """
+    Automatically create VariantQuota for new users.
+
+    NOTE:
+        Plan ALWAYS begins as "standard".
+        Commercial logic is enforced *after* profile data is known
+        in userprofiles/signals.py → enforce_commercial_quota().
+    """
+    if not created:
+        return
+
+    VariantQuota.objects.create(
+        user=instance,
+        plan='standard',
+        count=0,
+        last_reset=timezone.now()
+    )
+
+    logger.info(f"[quota_created] Created VariantQuota for new user: {instance.username}")
+
+    # Safety: ensure UserProfile exists (rare race condition)
+    UserProfile.objects.get_or_create(user=instance)
 
 
+# ======================================================================
+# CREATE CONTACT WHEN USER SIGNS UP WITH VERIFIED EMAIL
+# ======================================================================
 @receiver(user_signed_up)
 def create_contact_for_new_user(request, user, **kwargs):
-    """Create Contact object if user's email is verified"""
+    """
+    Create a Contact object if the user's email is verified at signup.
+
+    This is not directly related to quota logic.
+    """
     email_obj = EmailAddress.objects.filter(user=user, verified=True).first()
-    if email_obj:
-        Contact.objects.get_or_create(
-            emailval=email_obj.email,
-            defaults={
-                'name': user.get_full_name() or user.username,
-                'message': '',
-                'subscribed': True
-            }
-        )
-        logger.info(f"Created Contact for new user: {user.username}")
+    if not email_obj:
+        return
+
+    Contact.objects.get_or_create(
+        emailval=email_obj.email,
+        defaults={
+            'name': user.get_full_name() or user.username,
+            'variant': '',
+            'question': '(auto-created on signup)',
+        }
+    )
+
+    logger.info(f"[contact_created] Created Contact for new user: {user.username}")
 
 
 # <LICENSE>
