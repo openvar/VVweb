@@ -3,6 +3,7 @@
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.contrib.auth import logout
+from web.models import VariantQuota   # <-- needed for checking allowance
 
 
 class TierEnforcementMiddleware:
@@ -26,22 +27,22 @@ class TierEnforcementMiddleware:
 
     def __call__(self, request):
 
-        # ✔ FIX: Allow logout request BEFORE any enforcement happens
+        # Allow logout to proceed before ANY enforcement
         if request.path.startswith("/accounts/logout"):
             return self.get_response(request)
 
-        # Let admin panel, static files through
+        # Let admin panel and static files through always
         if request.path.startswith("/admin/"):
             return self.get_response(request)
 
         user = request.user
 
-        # Only enforce for authenticated users
+        # Apply rules only to authenticated users
         if user.is_authenticated:
 
             profile = getattr(user, "profile", None)
 
-            # Safety: if profile missing, force logout
+            # Profile missing? Force logout
             if profile is None:
                 logout(request)
                 return redirect(reverse("account_login"))
@@ -56,21 +57,37 @@ class TierEnforcementMiddleware:
                 return redirect("/banned/")
 
             # ============================================================
-            # 2. COMMERCIAL USERS → redirect to commercial flow
+            # 2. COMMERCIAL USERS → allow access if they have allowance
             # ============================================================
             if status == "commercial":
+
+                # Fetch VariantQuota
+                quota = getattr(user, "variant_quota", None)
+
+                # Safety default: if somehow missing, treat as blocked
+                if quota is None:
+                    if not request.path.startswith("/commercial/"):
+                        return redirect("/commercial/")
+                    return self.get_response(request)
+
+                # Commercial user with TRIAL or institutional limit
+                if quota.effective_allowance > 0:
+                    # Allow full site access
+                    return self.get_response(request)
+
+                # No allowance: redirect unless already on /commercial/
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
                 return self.get_response(request)
 
             # ============================================================
-            # 3. VERIFIED USERS → allow access
+            # 3. VERIFIED or AUTO_VERIFIED USERS → full access
             # ============================================================
             if status in ("verified", "auto_verified"):
                 return self.get_response(request)
 
             # ============================================================
-            # 4. NOT VERIFIED → HARD LOCKOUT
+            # 4. NOT VERIFIED (not_started, pending) → HARD LOCKOUT
             # ============================================================
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
