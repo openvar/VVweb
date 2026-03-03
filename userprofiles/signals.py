@@ -4,6 +4,8 @@ from django.dispatch import receiver
 from allauth.account.signals import user_signed_up, email_confirmed
 from django.utils import timezone
 from django.db.models.signals import post_save
+from django.core.mail import send_mail
+from django.conf import settings
 
 from .models import UserProfile
 from web.models import (
@@ -35,18 +37,19 @@ def create_user_profile(request, user, **kwargs):
 
 
 # ======================================================================
-# COMMERCIAL ENFORCEMENT LOGIC
+# COMMERCIAL QUOTA ENFORCEMENT
 # ======================================================================
 def enforce_commercial_quota(user, profile):
     """
-    Enforce correct VariantQuota logic based on UserProfile fields.
+    Ensures VariantQuota accurately reflects commercial/non-commercial status.
 
     COMMERCIAL if:
-        - org_type = "commercial", OR
-        - verification_status = "commercial"
+        - org_type = commercial
+        OR
+        - verification_status = commercial
 
-    NON-COMMERCIAL if:
-        - neither field is commercial
+    NON-COMMERCIAL:
+        - neither field indicates commercial
     """
 
     is_commercial = (
@@ -82,56 +85,100 @@ def enforce_commercial_quota(user, profile):
 
 
 # ======================================================================
-# PROFILE SAVE → ENFORCE COMMERCIAL/NON-COMMERCIAL (ALL 4 WORKFLOWS)
+# COMMERCIAL EMAIL + ENFORCEMENT ON PROFILE SAVE (ALL 4 WORKFLOWS)
 # ======================================================================
 @receiver(post_save, sender=UserProfile)
 def enforce_commercial_on_profile_save(sender, instance, **kwargs):
     """
-    This handles ALL 4 workflows:
+    Handles ALL required workflows:
 
-    1. User declares commercial → org_type="commercial"
+    1. User declares org_type="commercial"
     2. Admin sets verification_status="commercial"
-    3. System auto-verifies a user as commercial
-    4. Admin changes them BACK to non-commercial → downgrade to standard
-
-    This ensures VariantQuota stays perfectly in sync with profile data.
+    3. System auto-verifies commercial via email-confirmed
+    4. Admin changes user back → downgrade to standard
     """
+
     user = instance.user
     profile = instance
 
+    # -------------------------------------------------------
+    # Detect previous values (for transition-based email)
+    # -------------------------------------------------------
+    try:
+        old = UserProfile.objects.get(pk=instance.pk)
+        old_org = old.org_type
+        old_status = old.verification_status
+    except UserProfile.DoesNotExist:
+        old_org = None
+        old_status = None
+
+    new_org = profile.org_type
+    new_status = profile.verification_status
+
+    # Detect promotion to commercial
+    became_commercial = (
+        (old_org != "commercial" and new_org == "commercial") or
+        (old_status != "commercial" and new_status == "commercial")
+    )
+
+    # -------------------------------------------------------
+    # Send commercial email on promotion
+    # -------------------------------------------------------
+    if became_commercial:
+        logger.info(f"[commercial_email] Sending commercial activation email to {user.username}")
+
+        send_mail(
+            subject="VariantValidator – Commercial Access Required",
+            message=(
+                f"Hello {user.username},\n\n"
+                "Your VariantValidator account has been classified as *commercial use*.\n\n"
+                "Commercial users require a paid licence to perform variant validations.\n\n"
+                "If you would like to request a manual trial allocation, please email:\n"
+                "admin@variantvalidator.org\n\n"
+                "Paid licensing options will be available soon.\n\n"
+                "Thank you for supporting VariantValidator — your contributions help keep the service available "
+                "for the global genomics community.\n\n"
+                "— VariantValidator Team"
+            ),
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@variantvalidator.org"),
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+
+    # -------------------------------------------------------
+    # Enforce quota after email logic
+    # -------------------------------------------------------
     enforce_commercial_quota(user, profile)
 
 
 # ======================================================================
-# EMAIL CONFIRMED → SYNC PROFILE + INSTITUTION MEMBERSHIP + COMMERCIAL ENFORCEMENT
+# EMAIL CONFIRMED → INSTITUTION SYNC + COMMERCIAL ENFORCEMENT
 # ======================================================================
 @receiver(email_confirmed)
 def handle_email_verified(sender, request, email_address, **kwargs):
     """
-    When a user verifies an email:
-      1. Mark the UserProfile email_verified flag.
-      2. Update completion percentage.
-      3. Recompute institution membership.
-      4. Update VariantQuota institution pointer.
-      5. Enforce commercial logic (covers auto-commercial verification).
+    When a user verifies email:
+      - Mark profile email verified
+      - Compute completion %
+      - Compute institutional membership
+      - Update VariantQuota institution link
+      - Enforce commercial logic (auto/commercial users)
     """
 
     user = email_address.user
     logger.info(f"[email_confirmed] Fired for user={user.username} email={email_address.email}")
 
-    # -------------------------------------------------------
-    # 1. Update profile
-    # -------------------------------------------------------
+    # ---------------------------
+    # 1. Profile update
+    # ---------------------------
     profile, _ = UserProfile.objects.get_or_create(user=user)
     profile.email_is_verified = True
     profile.completion_level = profile.get_completion_level()
     profile.save()
 
-    logger.info(f"[email_confirmed] email_is_verified=True set for {user.username}")
-
-    # -------------------------------------------------------
-    # 2. Gather verified domains
-    # -------------------------------------------------------
+    # ---------------------------
+    # 2. Verified domains
+    # ---------------------------
     verified_emails = EmailAddress.objects.filter(user=user, verified=True)
     verified_domains = []
 
@@ -147,13 +194,12 @@ def handle_email_verified(sender, request, email_address, **kwargs):
         InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
         VariantQuota.objects.filter(user=user).update(institution=None)
 
-        logger.info(f"[email_confirmed] No verified domains → cleared institution for {user.username}")
         enforce_commercial_quota(user, profile)
         return
 
-    # -------------------------------------------------------
-    # 3. Match institutions by suffix
-    # -------------------------------------------------------
+    # ---------------------------
+    # 3. Institution matching
+    # ---------------------------
     matches = []
 
     for inst_domain in InstitutionDomain.objects.select_related("institution"):
@@ -166,19 +212,18 @@ def handle_email_verified(sender, request, email_address, **kwargs):
         InstitutionMembership.objects.filter(user=user, active=True).update(active=False)
         VariantQuota.objects.filter(user=user).update(institution=None)
 
-        logger.info(f"[email_confirmed] No institution match for {user.username}")
         enforce_commercial_quota(user, profile)
         return
 
-    # -------------------------------------------------------
-    # 4. Choose best match (longest suffix)
-    # -------------------------------------------------------
+    # ---------------------------
+    # 4. Best match
+    # ---------------------------
     matches.sort(key=lambda x: len(x[1]), reverse=True)
     best_institution, best_domain = matches[0]
 
-    # -------------------------------------------------------
+    # ---------------------------
     # 5. Create/update membership
-    # -------------------------------------------------------
+    # ---------------------------
     membership, created = InstitutionMembership.objects.get_or_create(
         user=user,
         institution=best_institution,
@@ -196,21 +241,17 @@ def handle_email_verified(sender, request, email_address, **kwargs):
         membership.verified_at = timezone.now()
         membership.save()
 
-    logger.info(
-        f"[email_confirmed] {user.username} → institution '{best_institution.name}' (domain '{best_domain}')"
-    )
-
-    # -------------------------------------------------------
+    # ---------------------------
     # 6. Deactivate other memberships
-    # -------------------------------------------------------
+    # ---------------------------
     InstitutionMembership.objects.filter(
         user=user,
         active=True
     ).exclude(institution=best_institution).update(active=False)
 
-    # -------------------------------------------------------
+    # ---------------------------
     # 7. Update quota institution pointer
-    # -------------------------------------------------------
+    # ---------------------------
     try:
         quota = VariantQuota.objects.get(user=user)
     except VariantQuota.DoesNotExist:
@@ -220,13 +261,9 @@ def handle_email_verified(sender, request, email_address, **kwargs):
         quota.institution = best_institution
         quota.save()
 
-        logger.info(
-            f"[email_confirmed] quota institution → {best_institution.name}"
-        )
-
-    # -------------------------------------------------------
-    # 8. ENFORCE COMMERCIAL LOGIC AGAIN AFTER EMAIL CONFIRMATION
-    # -------------------------------------------------------
+    # ---------------------------
+    # 8. Commercial enforcement (auto/commercial)
+    # ---------------------------
     enforce_commercial_quota(user, profile)
 
 
