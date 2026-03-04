@@ -1,5 +1,3 @@
-# web/admin.py
-
 from django.contrib import admin, messages
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
@@ -77,7 +75,11 @@ def clear_custom_limit(modeladmin, request, queryset):
 @admin.action(description="Upgrade to PRO (1 calendar month)")
 def upgrade_to_pro(modeladmin, request, queryset):
     if not request.user.is_superuser:
-        modeladmin.message_user(request, "Only superusers can upgrade plans.", level=messages.ERROR)
+        modeladmin.message_user(
+            request,
+            "Only superusers can upgrade plans.",
+            level=messages.ERROR,
+        )
         return
 
     for quota in queryset:
@@ -87,13 +89,20 @@ def upgrade_to_pro(modeladmin, request, queryset):
         quota.last_reset = timezone.now()
         quota.save()
 
-    modeladmin.message_user(request, f"{queryset.count()} user(s) upgraded to PRO (1 month).")
+    modeladmin.message_user(
+        request,
+        f"{queryset.count()} user(s) upgraded to PRO (1 month)."
+    )
 
 
 @admin.action(description="Upgrade to ENTERPRISE (1 calendar month)")
 def upgrade_to_enterprise(modeladmin, request, queryset):
     if not request.user.is_superuser:
-        modeladmin.message_user(request, "Only superusers can upgrade to Enterprise.", level=messages.ERROR)
+        modeladmin.message_user(
+            request,
+            "Only superusers can upgrade to Enterprise.",
+            level=messages.ERROR,
+        )
         return
 
     for quota in queryset:
@@ -103,13 +112,20 @@ def upgrade_to_enterprise(modeladmin, request, queryset):
         quota.last_reset = timezone.now()
         quota.save()
 
-    modeladmin.message_user(request, f"{queryset.count()} user(s) upgraded to ENTERPRISE (1 month).")
+    modeladmin.message_user(
+        request,
+        f"{queryset.count()} user(s) upgraded to ENTERPRISE (1 month)."
+    )
 
 
 @admin.action(description="Downgrade to STANDARD")
 def downgrade_to_standard(modeladmin, request, queryset):
     if not request.user.is_superuser:
-        modeladmin.message_user(request, "Only superusers can downgrade plans.", level=messages.ERROR)
+        modeladmin.message_user(
+            request,
+            "Only superusers can downgrade plans.",
+            level=messages.ERROR,
+        )
         return
 
     for quota in queryset:
@@ -120,7 +136,10 @@ def downgrade_to_standard(modeladmin, request, queryset):
         quota.last_reset = timezone.now()
         quota.save()
 
-    modeladmin.message_user(request, f"{queryset.count()} user(s) downgraded to STANDARD.")
+    modeladmin.message_user(
+        request,
+        f"{queryset.count()} user(s) downgraded to STANDARD."
+    )
 
 
 # ======================================================================
@@ -130,7 +149,11 @@ def downgrade_to_standard(modeladmin, request, queryset):
 @admin.action(description="Extend subscription by 1 calendar month")
 def extend_subscription_1_month(modeladmin, request, queryset):
     if not request.user.is_superuser:
-        modeladmin.message_user(request, "Only superusers can extend subscriptions.", level=messages.ERROR)
+        modeladmin.message_user(
+            request,
+            "Only superusers can extend subscriptions.",
+            level=messages.ERROR,
+        )
         return
 
     for quota in queryset:
@@ -140,17 +163,27 @@ def extend_subscription_1_month(modeladmin, request, queryset):
             quota.subscription_expires = timezone.now() + relativedelta(months=1)
         quota.save()
 
-    modeladmin.message_user(request, f"{queryset.count()} subscription(s) extended by 1 month.")
+    modeladmin.message_user(
+        request,
+        f"{queryset.count()} subscription(s) extended by 1 month."
+    )
 
 
 @admin.action(description="Expire subscription immediately")
 def expire_subscription_now(modeladmin, request, queryset):
     if not request.user.is_superuser:
-        modeladmin.message_user(request, "Only superusers can expire subscriptions.", level=messages.ERROR)
+        modeladmin.message_user(
+            request,
+            "Only superusers can expire subscriptions.",
+            level=messages.ERROR,
+        )
         return
 
     updated = queryset.update(subscription_expires=timezone.now())
-    modeladmin.message_user(request, f"{updated} subscription(s) expired immediately.")
+    modeladmin.message_user(
+        request,
+        f"{updated} subscription(s) expired immediately."
+    )
 
 
 # ======================================================================
@@ -161,7 +194,10 @@ def expire_subscription_now(modeladmin, request, queryset):
 def force_recalculation(modeladmin, request, queryset):
     for quota in queryset:
         quota.save()
-    modeladmin.message_user(request, f"{queryset.count()} quota(s) recalculated.")
+    modeladmin.message_user(
+        request,
+        f"{queryset.count()} quota(s) recalculated."
+    )
 
 
 # ======================================================================
@@ -177,6 +213,7 @@ class VariantQuotaAdmin(admin.ModelAdmin):
         "verification_status",
         "plan",
         "institution",
+        "institution_status",        # NEW
         "variant_limit_display",
         "count",
         "effective_allowance",
@@ -190,7 +227,12 @@ class VariantQuotaAdmin(admin.ModelAdmin):
 
     search_fields = ("user__username", "user__email")
 
-    list_filter = ("plan", "institution", "last_reset", "subscription_expires")
+    list_filter = (
+        "plan",
+        "institution",
+        "last_reset",
+        "subscription_expires",
+    )
 
     actions = [
         reset_variant_count,
@@ -208,6 +250,7 @@ class VariantQuotaAdmin(admin.ModelAdmin):
     # ---------------------------
     # Extra helpful display methods
     # ---------------------------
+
     def primary_email_domain(self, obj):
         return primary_email_domain(obj.user)
     primary_email_domain.short_description = "Primary Domain"
@@ -222,10 +265,50 @@ class VariantQuotaAdmin(admin.ModelAdmin):
         return "-"
     variant_limit_display.short_description = "Institution Limit"
 
+    # ---------------------------
+    # NEW: Institution Active Indicator
+    # ---------------------------
+    def institution_status(self, obj):
+        inst = obj.institution
+        if not inst:
+            return "-"
+        return "✔" if inst.is_active else "✘"
+    institution_status.short_description = "Inst. Active?"
+
 
 # ======================================================================
-# INSTITUTION ADMIN
+# INSTITUTION ADMIN with ACTIVE/EXPIRED INDICATOR + FILTER
 # ======================================================================
+
+class InstitutionActiveFilter(admin.SimpleListFilter):
+    title = "Institution Status"
+    parameter_name = "inst_status"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("active", "Active"),
+            ("expired", "Expired"),
+        ]
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        value = self.value()
+        if value == "active":
+            return queryset.filter(
+                active=True
+            ).filter(
+                subscription_expires__isnull=True
+            ) | queryset.filter(
+                active=True,
+                subscription_expires__gt=now
+            )
+        if value == "expired":
+            return queryset.filter(
+                active=True,
+                subscription_expires__lt=now
+            )
+        return queryset
+
 
 class InstitutionDomainInline(admin.TabularInline):
     model = InstitutionDomain
@@ -242,7 +325,7 @@ class InstitutionMembershipInline(admin.TabularInline):
 class InstitutionAdmin(admin.ModelAdmin):
     list_display = (
         "name",
-        "active",
+        "active_indicator",          # NEW
         "subscription_expires",
         "variant_limit",
         "seats_allowed",
@@ -250,35 +333,19 @@ class InstitutionAdmin(admin.ModelAdmin):
     )
 
     search_fields = ("name",)
-    list_filter = ("active", "level")
+    list_filter = (
+        InstitutionActiveFilter,     # NEW
+        "active",
+        "level",
+    )
 
     inlines = [InstitutionDomainInline, InstitutionMembershipInline]
     readonly_fields = ("seats_in_use",)
 
-
-# ======================================================================
-# MEMBERSHIP ADMIN
-# ======================================================================
-
-@admin.register(InstitutionMembership)
-class InstitutionMembershipAdmin(admin.ModelAdmin):
-    list_display = (
-        "user",
-        "institution",
-        "active",
-        "source",
-        "email_used",
-        "verified_at",
-    )
-    list_filter = ("active", "source", "institution")
-    search_fields = ("user__username", "user__email", "institution__name")
-
-
-# ======================================================================
-# CONTACT ADMIN
-# ======================================================================
-
-admin.site.register(Contact)
+    # NEW: Active/Expired icon in admin list
+    def active_indicator(self, obj):
+        return "✔" if obj.is_active else "✘"
+    active_indicator.short_description = "Active?"
 
 
 # <LICENSE>
