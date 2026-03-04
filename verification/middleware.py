@@ -1,5 +1,3 @@
-# verification/middleware.py
-
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.contrib.auth import logout
@@ -37,7 +35,7 @@ class TierEnforcementMiddleware:
         if request.path.startswith("/accounts/logout"):
             return self.get_response(request)
 
-        # Admin + static always allowed
+        # Admin panel always allowed
         if request.path.startswith("/admin/"):
             return self.get_response(request)
 
@@ -48,10 +46,10 @@ class TierEnforcementMiddleware:
         # ===============================
         if user.is_authenticated:
 
-            # Lowercase user.email on every request
+            # Always normalise email
             if user.email:
                 lower = user.email.lower().strip()
-                if user.email != lower:
+                if lower != user.email:
                     user.email = lower
                     user.save(update_fields=["email"])
 
@@ -65,42 +63,53 @@ class TierEnforcementMiddleware:
             status = profile.verification_status
 
             # ============================================================
-            # 1. BANNED USERS → immediate logout and block
+            # 1. BANNED USERS → immediate logout
             # ============================================================
             if status == "banned":
                 logout(request)
                 return redirect("/banned/")
 
             # ============================================================
-            # 2. COMMERCIAL USERS → allowed only if effective_allowance > 0
+            # 2. COMMERCIAL USERS
             # ============================================================
             if status == "commercial":
 
                 quota = getattr(user, "variant_quota", None)
 
-                # No quota = treat as blocked
+                # No quota = blocked
                 if quota is None:
                     if not request.path.startswith("/commercial/"):
                         return redirect("/commercial/")
                     return self.get_response(request)
 
-                # Commercial uplift / trial / paid institution
+                # **CRITICAL FIX** – recalc subscription, institution expiry, monthly reset
+                quota.check_subscription_status()
+                quota.reset_if_needed()
+
+                # Commercial user WITH allowance (trial or institutional)
                 if quota.effective_allowance > 0:
                     return self.get_response(request)
 
-                # No allowance → force into commercial landing
+                # Commercial user with NO allowance → must go to /commercial/
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
                 return self.get_response(request)
 
             # ============================================================
-            # 3. VERIFIED USERS → full access
+            # 3. VERIFIED or AUTO_VERIFIED USERS
             # ============================================================
             if status in ("verified", "auto_verified"):
+
+                quota = getattr(user, "variant_quota", None)
+                if quota:
+                    # **CRITICAL FIX** – handle expiry and reset each request
+                    quota.check_subscription_status()
+                    quota.reset_if_needed()
+
                 return self.get_response(request)
 
             # ============================================================
-            # 4. NOT VERIFIED (pending, not_started) → HARD LOCKOUT
+            # 4. NOT VERIFIED → HARD LOCKOUT
             # ============================================================
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
@@ -108,7 +117,7 @@ class TierEnforcementMiddleware:
 
             return redirect("/verify/")
 
-        # Anonymous → allow normal behaviour
+        # Anonymous users unaffected
         return self.get_response(request)
 
 

@@ -159,7 +159,6 @@ class VariantQuota(models.Model):
         ("enterprise", "Enterprise"),
     ]
 
-    # One per user
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -172,20 +171,21 @@ class VariantQuota(models.Model):
         default="standard"
     )
 
+    # Personal subscription expiry (Pro/Enterprise)
     subscription_expires = models.DateTimeField(null=True, blank=True)
 
-    # Monthly counts
+    # Monthly usage
     count = models.PositiveIntegerField(default=0)
     last_reset = models.DateTimeField(default=timezone.now)
 
-    # Manual override (used for commercial trial variants)
+    # Trial override (manual admin allocation)
     custom_limit = models.PositiveIntegerField(null=True, blank=True)
 
-    # Stripe metadata
+    # Stripe
     stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
     stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
 
-    # Institution pointer (if membership active)
+    # Institution pointer
     institution = models.ForeignKey(
         Institution,
         on_delete=models.SET_NULL,
@@ -195,7 +195,7 @@ class VariantQuota(models.Model):
     )
 
     # -------------------------------------------------------
-    # PERSONAL ALLOWANCE (incl. commercial fix)
+    # PERSONAL ALLOWANCE
     # -------------------------------------------------------
     @property
     def personal_allowance(self):
@@ -204,19 +204,19 @@ class VariantQuota(models.Model):
 
         Order:
           1. custom_limit → trial override
-          2. commercial plan → COMMERCIAL_TRIAL_LIMIT
-          3. plan defaults (standard/pro/enterprise)
+          2. commercial plan → COMMERCIAL_TRIAL_LIMIT (usually 0)
+          3. plan defaults
         """
 
         # 1. Trial override
         if self.custom_limit is not None:
             return self.custom_limit
 
-        # 2. Commercial plan inherits COMMERCIAL_TRIAL_LIMIT
+        # 2. Commercial default plan — ALWAYS use COMMERCIAL_TRIAL_LIMIT
         if self.plan == "commercial":
             return getattr(settings, "COMMERCIAL_TRIAL_LIMIT", 0)
 
-        # 3. Default plans
+        # 3. Standard plans
         if self.plan == "standard":
             return getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
 
@@ -229,16 +229,16 @@ class VariantQuota(models.Model):
         return getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
 
     # -------------------------------------------------------
-    # EFFECTIVE ALLOWANCE (institutional uplift with correct rules)
+    # EFFECTIVE ALLOWANCE — institutional uplift logic
     # -------------------------------------------------------
     @property
     def effective_allowance(self):
         """
-        Institutional uplift:
+        Applies institutional uplift WHEN APPROPRIATE.
 
-        • Verified non‑commercial users ALWAYS receive uplift from institution.
-        • Commercial users ONLY receive uplift if their primary email maps to
-          a commercial-paying institution (already enforced via signals).
+        • Verified non-commercial users ALWAYS receive institution uplift.
+        • Commercial users ONLY receive uplift if their primary email matches
+          a commercial-paying institution (signals guarantee correctness).
         • Unverified users NEVER receive uplift.
         """
 
@@ -246,53 +246,73 @@ class VariantQuota(models.Model):
 
         profile = getattr(self.user, "profile", None)
         if not profile:
-            return base  # Should never happen
+            return base
 
         status = profile.verification_status
 
-        # No institution → no uplift
+        # If no institution or expired → no uplift
         if not self.institution or not self.institution.is_active:
             return base
 
-        # VERIFIED / AUTO VERIFIED → ALWAYS uplift
+        # Verified / auto_verified → always uplift
         if status in ("verified", "auto_verified"):
             return max(base, self.institution.variant_limit)
 
-        # COMMERCIAL → uplift allowed ONLY if institution matches employer
-        # (this is enforced by signals: wrong-domain users never get institution pointer)
+        # Commercial → allowed only if institution pointer exists (signals enforce rule)
         if status == "commercial":
             return max(base, self.institution.variant_limit)
 
-        # UNVERIFIED → NEVER uplift
+        # Pending/unverified → no uplift
         return base
 
     # -------------------------------------------------------
-    # CHECK PERSONAL SUBSCRIPTION EXPIRY
+    # CHECK PERSONAL SUBSCRIPTION EXPIRY (PRO/ENTERPRISE)
     # -------------------------------------------------------
     def check_subscription_status(self):
+        """
+        Handles expiry of PRO/ENTERPRISE plans.
+
+        IMPORTANT BUSINESS RULES:
+        • Commercial users revert to COMMERCIAL after expiry.
+        • Non-commercial users revert to STANDARD after expiry.
+        """
+
         if (
-                self.plan not in ("standard", "commercial")
-                and self.subscription_expires
-                and timezone.now() >= self.subscription_expires
+            self.plan not in ("standard", "commercial") and
+            self.subscription_expires and
+            timezone.now() >= self.subscription_expires
         ):
-            self.plan = "standard"
+
+            # Determine correct fallback
+            profile = getattr(self.user, "profile", None)
+            if profile and profile.verification_status == "commercial":
+                self.plan = "commercial"
+            else:
+                self.plan = "standard"
+
+            # Clean up on expiry
             self.subscription_expires = None
+            self.custom_limit = None
             self.count = 0
             self.last_reset = timezone.now()
-            self.custom_limit = None
             self.save()
 
     # -------------------------------------------------------
     # MONTHLY RESET
     # -------------------------------------------------------
     def reset_if_needed(self):
+        """
+        Monthly reset applies to:
+        • usage count
+        • custom_limit (trial)
+        """
         now = timezone.now()
         next_reset = self.last_reset + relativedelta(months=1)
 
         if now >= next_reset:
             self.count = 0
+            self.custom_limit = None
             self.last_reset = now
-            self.custom_limit = None  # trial expires
             self.save()
 
     # -------------------------------------------------------
