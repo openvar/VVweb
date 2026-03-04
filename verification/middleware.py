@@ -11,14 +11,14 @@ class TierEnforcementMiddleware:
 
       • BANNED → logout + /banned/
       • COMMERCIAL → allow only if effective_allowance > 0 (institutional or trial)
-      • VERIFIED (non-commercial) → allow access
+      • VERIFIED (non-commercial) → allow access, with institutional uplift if active
       • PENDING / NOT_STARTED → locked to /verify/
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
-        # Paths allowed before full verification
+        # Paths allowed during verification lockout
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -31,22 +31,22 @@ class TierEnforcementMiddleware:
 
     def __call__(self, request):
 
-        # Allow logout to proceed before ANY enforcement
+        # Allow logout before enforcement
         if request.path.startswith("/accounts/logout"):
             return self.get_response(request)
 
-        # Admin panel always allowed
+        # Admin panel allowed
         if request.path.startswith("/admin/"):
             return self.get_response(request)
 
         user = request.user
 
-        # ===============================
-        # Only enforce for authenticated users
-        # ===============================
+        # ============================================================
+        # AUTHENTICATED USERS ONLY
+        # ============================================================
         if user.is_authenticated:
 
-            # Always normalise email
+            # Always normalise stored email
             if user.email:
                 lower = user.email.lower().strip()
                 if lower != user.email:
@@ -55,7 +55,7 @@ class TierEnforcementMiddleware:
 
             profile = getattr(user, "profile", None)
 
-            # Safety: missing profile → force logout
+            # Safety check
             if profile is None:
                 logout(request)
                 return redirect(reverse("account_login"))
@@ -63,7 +63,7 @@ class TierEnforcementMiddleware:
             status = profile.verification_status
 
             # ============================================================
-            # 1. BANNED USERS → immediate logout
+            # 1. BANNED USERS
             # ============================================================
             if status == "banned":
                 logout(request)
@@ -73,24 +73,22 @@ class TierEnforcementMiddleware:
             # 2. COMMERCIAL USERS
             # ============================================================
             if status == "commercial":
-
                 quota = getattr(user, "variant_quota", None)
 
-                # No quota = blocked
                 if quota is None:
                     if not request.path.startswith("/commercial/"):
                         return redirect("/commercial/")
                     return self.get_response(request)
 
-                # **CRITICAL FIX** – recalc subscription, institution expiry, monthly reset
+                # CRITICAL: recalc expiry + resets EVERY request
                 quota.check_subscription_status()
                 quota.reset_if_needed()
 
-                # Commercial user WITH allowance (trial or institutional)
+                # Allow access ONLY if allowance > 0
                 if quota.effective_allowance > 0:
                     return self.get_response(request)
 
-                # Commercial user with NO allowance → must go to /commercial/
+                # Otherwise redirect
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
                 return self.get_response(request)
@@ -102,14 +100,14 @@ class TierEnforcementMiddleware:
 
                 quota = getattr(user, "variant_quota", None)
                 if quota:
-                    # **CRITICAL FIX** – handle expiry and reset each request
+                    # CRITICAL: recalc expiry + resets EVERY request
                     quota.check_subscription_status()
                     quota.reset_if_needed()
 
                 return self.get_response(request)
 
             # ============================================================
-            # 4. NOT VERIFIED → HARD LOCKOUT
+            # 4. NOT VERIFIED (pending / not_started)
             # ============================================================
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
@@ -117,9 +115,10 @@ class TierEnforcementMiddleware:
 
             return redirect("/verify/")
 
-        # Anonymous users unaffected
+        # ============================================================
+        # ANONYMOUS USERS
+        # ============================================================
         return self.get_response(request)
-
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
