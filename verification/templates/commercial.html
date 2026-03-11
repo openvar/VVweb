@@ -53,9 +53,7 @@
       <!-- ======================================================= -->
       <!-- TRIAL BUTTON BLOCK -->
       <!-- ======================================================= -->
-      {% if request.user.is_authenticated
-            and request.user.profile.verification_status == "commercial"
-            and not request.user.variant_quota.trial_redeemed %}
+      {% if request.user.is_authenticated and request.user.profile.verification_status == "commercial" and not request.user.variant_quota.trial_redeemed %}
 
       <div class="my-3 p-3 bg-light border rounded">
 
@@ -73,9 +71,7 @@
 
       </div>
 
-      {% elif request.user.is_authenticated
-            and request.user.profile.verification_status == "commercial"
-            and request.user.variant_quota.trial_redeemed %}
+      {% elif request.user.is_authenticate and request.user.profile.verification_status == "commercial" and request.user.variant_quota.trial_redeemed %}
 
       <div class="alert alert-success">
         <strong>Trial Activated</strong><br>
