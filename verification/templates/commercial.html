@@ -51,9 +51,8 @@
       </p>
 
       <!-- ======================================================= -->
-      <!-- TRIAL BUTTON BLOCK (ONE-TIME ONLY) -->
+      <!-- TRIAL BUTTON BLOCK -->
       <!-- ======================================================= -->
-
       {% if request.user.is_authenticated
             and request.user.profile.verification_status == "commercial"
             and not request.user.variant_quota.trial_redeemed %}
@@ -84,7 +83,6 @@
       </div>
 
       {% endif %}
-
       <!-- END TRIAL BLOCK -->
 
       <div class="bg-light p-3 rounded mb-4 mt-4">
