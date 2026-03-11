@@ -1,3 +1,4 @@
+# userprofiles/views.py
 from django.urls import reverse_lazy
 from django.http import HttpResponseRedirect
 from django.views.generic.edit import UpdateView
