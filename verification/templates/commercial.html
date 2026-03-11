@@ -50,7 +50,10 @@
         This grants the same variant allowance as our free tier.
       </p>
 
-      <!-- TRIAL BUTTON BLOCK -->
+      <!-- ======================================================= -->
+      <!-- TRIAL BUTTON BLOCK (ONE-TIME ONLY) -->
+      <!-- ======================================================= -->
+
       {% if request.user.is_authenticated
             and request.user.profile.verification_status == "commercial"
             and not request.user.variant_quota.trial_redeemed %}
@@ -81,6 +84,7 @@
       </div>
 
       {% endif %}
+
       <!-- END TRIAL BLOCK -->
 
       <div class="bg-light p-3 rounded mb-4 mt-4">
