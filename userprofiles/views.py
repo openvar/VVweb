@@ -1,9 +1,13 @@
 # userprofiles/views.py
+
 from django.urls import reverse_lazy
 from django.http import HttpResponseRedirect
 from django.views.generic.edit import UpdateView
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils import timezone
+from datetime import timedelta
+
 from .models import UserProfile
 from .forms import IdentityForm
 
@@ -13,13 +17,38 @@ class ProfileHomeView(LoginRequiredMixin, TemplateView):
     user_check_failure_path = reverse_lazy("account_signup")
 
     def check_user(self, user):
-        if user.is_active:
-            return True
-        return False
+        return user.is_active
 
     def get_context_data(self, **kwargs):
         context = super(ProfileHomeView, self).get_context_data(**kwargs)
-        profile = UserProfile.objects.get_or_create(user=self.request.user)[0]
+
+        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+
+        # ------------------------------
+        # ANNUAL RE-VERIFICATION CHECK
+        # ------------------------------
+        if profile.terms_accepted_at:
+            one_year_later = profile.terms_accepted_at + timedelta(days=365)
+
+            if timezone.now() >= one_year_later:
+                # Reset verification requirements
+                profile.email_is_verified = False
+                profile.terms_accepted_at = None
+                profile.org_type = None
+                profile.verification_status = "not_started"
+                profile.verified_at = None
+                profile.verified_by = None
+                profile.rejection_reason = ""
+
+                profile.save()
+
+                # Add a flag to template: "You must re-verify"
+                context["reverify_required"] = True
+
+        else:
+            # terms never accepted -> also require verification
+            context["reverify_required"] = True
+
         context['profile'] = profile
         return context
 
@@ -31,21 +60,23 @@ class ProfileIdentity(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy("profile-home")
 
     def get_queryset(self):
-        queryset = UserProfile.objects.filter(user=self.request.user)
-        return queryset
+        return UserProfile.objects.filter(user=self.request.user)
 
     def form_valid(self, form, **kwargs):
         super(ProfileIdentity, self).form_valid(form)
         profile = form.save(commit=False)
+
         user = self.request.user
         user.first_name = form.cleaned_data['first_name']
         user.last_name = form.cleaned_data['last_name']
         user.save()
+
         profile.institution = form.cleaned_data['institution']
         profile.jobrole = form.cleaned_data['jobrole']
         profile.personal_info_is_completed = True
         profile.completion_level = profile.get_completion_level()
         profile.save()
+
         return HttpResponseRedirect(self.get_success_url())
 
 # <LICENSE>
