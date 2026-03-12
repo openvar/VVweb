@@ -1,3 +1,5 @@
+# verification/middleware.py
+
 from datetime import timedelta
 
 from django.contrib.auth import logout
@@ -32,6 +34,7 @@ class TierEnforcementMiddleware:
           IMPORTANT: we DO NOT set terms_accepted_at = None for auto-expiry.
                      We leave the old timestamp so the system can still
                      recognize “annual mode” after logout/login.
+
         - On every request while terms > 1 year:
             * If email NOT verified -> /accounts/confirm-email/?annual=1
             * If email verified     -> /verify/
@@ -41,6 +44,7 @@ class TierEnforcementMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+        # Paths allowed during verification to avoid redirect loops
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -48,9 +52,9 @@ class TierEnforcementMiddleware:
             "/accounts/login/",
             "/accounts/logout/",
             "/accounts/signup/",
-            "/accounts/confirm-email/",       # Allauth confirm-email landing & key URLs
-            "/accounts/email/",               # Allauth email management
-            "/accounts/resend-confirmation/", # custom resend endpoint
+            "/accounts/confirm-email/",
+            "/accounts/email/",
+            "/accounts/resend-confirmation/",
             "/static/",
         ]
 
@@ -78,18 +82,20 @@ class TierEnforcementMiddleware:
         # ---- Resolve Allauth email state (robust) ----
         # Ensure at least one row exists; ensure one primary; then determine
         # 'email_verified_now' by checking ANY verified row for this user.
-        email_obj = None
+        email_row = None
         if user.email:
-            email_obj = EmailAddress.objects.filter(
+            email_row = EmailAddress.objects.filter(
                 user=user, email__iexact=user.email
             ).order_by("-primary").first()
-            if not email_obj:
-                email_obj = EmailAddress.objects.filter(user=user).order_by("-primary").first()
-            if not email_obj:
-                email_obj = EmailAddress.objects.create(user=user, email=user.email, primary=True, verified=False)
-            elif not email_obj.primary:
-                email_obj.primary = True
-                email_obj.save(update_fields=["primary"])
+            if not email_row:
+                email_row = EmailAddress.objects.filter(user=user).order_by("-primary").first()
+            if not email_row:
+                email_row = EmailAddress.objects.create(
+                    user=user, email=user.email, primary=True, verified=False
+                )
+            elif not email_row.primary:
+                email_row.primary = True
+                email_row.save(update_fields=["primary"])
 
         email_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
 
@@ -99,9 +105,11 @@ class TierEnforcementMiddleware:
         is_new_user_terms = (terms is None)
         is_auto_expired = (terms is not None) and (now >= terms + timedelta(days=365))
 
-        # ---- NEW USER (no reset) ----
+        # -----------------------------
+        # NEW USER (no reset)
+        # -----------------------------
         if is_new_user_terms and not is_auto_expired:
-            # Always expose email for template
+            # Expose email for template (resend button)
             if user.email:
                 request.session["account_email"] = user.email
 
@@ -115,7 +123,9 @@ class TierEnforcementMiddleware:
                     return redirect("/verify/")
                 return self.get_response(request)
 
-        # ---- AUTO-EXPIRED (idempotent FULL RESET, keep terms timestamp) ----
+        # -----------------------------
+        # ANNUAL EXPIRED (idempotent FULL RESET, keep terms timestamp)
+        # -----------------------------
         if is_auto_expired:
             # Perform the full reset only if the profile is NOT already in pre-verification state
             profile_needs_reset = (
@@ -144,16 +154,16 @@ class TierEnforcementMiddleware:
                 profile.save()
 
                 # ALLAUTH: ensure exists, primary, and unverified
-                if email_obj:
-                    email_obj.verified = False
-                    email_obj.primary = True
-                    email_obj.save()
-                    EmailAddress.objects.filter(user=user).exclude(pk=email_obj.pk).update(primary=False)
+                if email_row:
+                    email_row.verified = False
+                    email_row.primary = True
+                    email_row.save()
+                    EmailAddress.objects.filter(user=user).exclude(pk=email_row.pk).update(primary=False)
 
-                # IMPORTANT: reflect the unverified state immediately for routing below
+                # reflect unverified immediately for routing below
                 email_verified_now = False
 
-            # <<< CHANGE #1: ALWAYS set session context whenever expired >>>
+            # <<< ALWAYS set session context while expired (even if reset already happened) >>>
             if user.email:
                 request.session["account_email"] = user.email
             request.session["annual_revalidation"] = True
@@ -163,24 +173,27 @@ class TierEnforcementMiddleware:
                 # Ensure we ALWAYS have ?annual=1 on the confirm page
                 if request.path.startswith("/accounts/confirm-email/"):
                     if request.GET.get("annual") != "1":
-                        # Redirect to same path with the annual flag
                         return redirect(reverse("account_email_verification_sent") + "?annual=1")
                     return self.get_response(request)
                 # Not already on confirm page -> send to annual confirm URL
                 return redirect(reverse("account_email_verification_sent") + "?annual=1")
 
-            # <<< CHANGE #2: as soon as ANY email is verified, proceed to /verify/ >>>
+            # Email verified; continue to user verification (/verify/)
             if not request.path.startswith("/verify/"):
                 return redirect("/verify/")
             return self.get_response(request)
 
-        # ---- Recent terms: standard enforcement ----
+        # -----------------------------
+        # RECENT TERMS: standard enforcement
+        # -----------------------------
         status = profile.verification_status
 
+        # 1) BANNED
         if status == "banned":
             logout(request)
             return redirect("/banned/")
 
+        # 2) COMMERCIAL
         if status == "commercial":
             quota = getattr(user, "variant_quota", None)
             if quota is None:
@@ -188,24 +201,30 @@ class TierEnforcementMiddleware:
                     return redirect("/commercial/")
                 return self.get_response(request)
 
-            # Your existing quota checks can run here if needed
-            # quota.check_subscription_status(); quota.reset_if_needed()
+            # If you recalc quota per request, call here:
+            # quota.check_subscription_status()
+            # quota.reset_if_needed()
 
-            # Minimal: if allowance > 0 allow; otherwise send to /commercial/
             try:
                 if quota.effective_allowance > 0:
                     return self.get_response(request)
             except Exception:
                 pass
+
             if not request.path.startswith("/commercial/"):
                 return redirect("/commercial/")
             return self.get_response(request)
 
+        # 3) VERIFIED / AUTO_VERIFIED (non-commercial)
         if status in ("verified", "auto_verified"):
-            # (Keep your quota recalcs if required)
+            # If you recalc quota per request, call here:
+            # quota = getattr(user, "variant_quota", None)
+            # if quota:
+            #     quota.check_subscription_status()
+            #     quota.reset_if_needed()
             return self.get_response(request)
 
-        # Pending/not_started with recent terms → allow only whitelisted paths
+        # 4) NOT VERIFIED with recent terms -> allow only whitelisted paths
         for allowed in self.allowed_prefixes:
             if request.path.startswith(allowed):
                 return self.get_response(request)
