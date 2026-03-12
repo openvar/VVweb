@@ -12,6 +12,9 @@
 
       <h2 class="mb-4">Email Confirmation Required</h2>
 
+      <!-- ========================================= -->
+      <!--  ANNUAL RE-VERIFICATION USERS             -->
+      <!-- ========================================= -->
       {% if request.GET.annual %}
         <div class="alert alert-warning">
           <strong>Your annual verification has expired.</strong><br>
@@ -19,23 +22,37 @@
         </div>
 
         <p class="text-muted">
-          We periodically require users to reconfirm their identity to maintain
-          security, accuracy and compliance. Please check your inbox for the
-          verification email we just sent.
+          For security and compliance reasons, we periodically require users to
+          reconfirm their identity and organisational affiliation.
         </p>
 
+        <p class="text-muted">
+          Please check your inbox for the confirmation email we just sent.
+          Once confirmed, you will be prompted to review your organisation,
+          job role and terms of use.
+        </p>
+
+      <!-- ========================================= -->
+      <!--  STANDARD NEW USER SIGNUP FLOW            -->
+      <!-- ========================================= -->
       {% else %}
         <p class="text-muted">
-          A verification email has been sent to your address. Please check your
-          inbox and click the confirmation link to activate your account.
+          A verification email has been sent to your address.
+          Please check your inbox and click the confirmation link to activate your account.
         </p>
       {% endif %}
 
       <hr>
 
+      <!-- ========================================= -->
+      <!--  RESEND CONFIRMATION LINK                 -->
+      <!-- ========================================= -->
+
       <p class="mb-0">
         Didn’t receive the email?
-        <a href="{% url 'resend_confirmation' %}">Click here to resend it</a>.
+        <a href="{% url 'resend_confirmation' %}{% if request.GET.annual %}?annual=1{% endif %}">
+          Click here to resend it
+        </a>.
       </p>
 
     </div>
