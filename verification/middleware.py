@@ -1,10 +1,12 @@
 # verification/middleware.py
 
 from datetime import timedelta
+
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
+
 from allauth.account.models import EmailAddress
 
 
@@ -13,12 +15,12 @@ class TierEnforcementMiddleware:
     Entitlement + annual re-validation middleware (logout/login safe).
 
     • New user (terms_accepted_at is None):
-        - email NOT verified -> /accounts/confirm-email/ (no ?annual=1)
+        - email NOT verified -> /accounts/confirm-email/        (no ?annual=1)
         - email verified     -> /verify/
       (No reset for new users)
 
     • Existing user (auto-expired: terms_accepted_at + 365d <= now):
-        - FULL RESET the first time we detect expiry:
+        - Perform FULL RESET the first time we detect expiry:
             * profile.email_is_verified = False
             * profile.verification_status = "not_started"
             * profile.org_type = None
@@ -97,6 +99,10 @@ class TierEnforcementMiddleware:
 
         # ---- NEW USER (no reset) ----
         if is_new_user_terms and not is_auto_expired:
+            # Keep a helpful email in session for the template
+            if user.email:
+                request.session["account_email"] = user.email
+
             if not email_verified_now:
                 if not request.path.startswith("/accounts/confirm-email/"):
                     return redirect(reverse("account_email_verification_sent"))
@@ -140,6 +146,16 @@ class TierEnforcementMiddleware:
                     email_obj.primary = True
                     email_obj.save()
                     EmailAddress.objects.filter(user=user).exclude(pk=email_obj.pk).update(primary=False)
+
+                    # IMPORTANT: reflect the unverified state immediately for routing below
+                    email_verified_now = False
+
+                # Make the email address visible on landing (even after logout)
+                if user.email:
+                    request.session["account_email"] = user.email
+
+                # Mark this browser session as being in annual mode so the template can show annual copy
+                request.session["annual_revalidation"] = True
 
             # Route while terms still > 1 year:
             if not email_verified_now:
@@ -190,6 +206,7 @@ class TierEnforcementMiddleware:
                 return self.get_response(request)
 
         return redirect("/verify/")
+
 
 
 # <LICENSE>
