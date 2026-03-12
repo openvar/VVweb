@@ -606,6 +606,7 @@ class StyledSignupView(SignupView):
 
 
 
+
 class StrictLoginView(LoginView):
     """
     • Lowercase login input
@@ -646,7 +647,7 @@ class StrictLoginView(LoginView):
             email_obj.primary = True
             email_obj.save(update_fields=["primary"])
 
-        # Make the email available to the confirm page (also useful if later anonymous)
+        # Make the email available to the confirm page
         self.request.session["account_email"] = lowered
 
         # Detect annual expiry
@@ -655,18 +656,18 @@ class StrictLoginView(LoginView):
         if profile and profile.terms_accepted_at:
             expired = timezone.now() >= profile.terms_accepted_at + timedelta(days=365)
 
-        # -------- Expired (annual re-validation) --------
+        # EXPIRED: route strictly on current verification (NO auto-send/message here)
         if expired:
-            # Mark session so templates can show annual copy if needed
             self.request.session["annual_revalidation"] = True
 
-            # Route strictly by current verification state (no auto-send, no banner)
-            if not email_obj.verified:
+            # Use ANY verified row to decide (robust to legacy rows/case)
+            is_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
+
+            if not is_verified_now:
                 return redirect(reverse("account_email_verification_sent") + "?annual=1")
             return redirect("/verify/")
 
-        # -------- Not expired --------
-        # Keep your existing new-user behavior: auto-send + banner
+        # NOT expired: keep your existing behavior for new-user style
         if not email_obj.verified:
             send_email_confirmation(self.request, user)
             messages.error(
@@ -677,6 +678,7 @@ class StrictLoginView(LoginView):
 
         # Verified & not expired → normal success path
         return super().form_valid(form)
+
 
 
 # <LICENSE>

@@ -44,7 +44,6 @@ class TierEnforcementMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
-        # Paths allowed during verification to avoid redirect loops
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -109,12 +108,10 @@ class TierEnforcementMiddleware:
         # NEW USER (no reset)
         # -----------------------------
         if is_new_user_terms and not is_auto_expired:
-            # Expose email for template (resend button)
             if user.email:
                 request.session["account_email"] = user.email
 
             if not email_verified_now:
-                # Standard confirm page (no annual flag)
                 if not request.path.startswith("/accounts/confirm-email/"):
                     return redirect(reverse("account_email_verification_sent"))
                 return self.get_response(request)
