@@ -1,4 +1,3 @@
-# verification/middleware.py
 from datetime import timedelta
 
 from django.contrib.auth import logout
@@ -13,15 +12,24 @@ class TierEnforcementMiddleware:
     """
     Enforces VariantValidator’s identity, verification and entitlement rules.
 
-    ADDITION: Annual re-validation.
-    If terms_accepted_at is None or >= 1 year old:
-        The user is reset EXACTLY to a new-account state and forced through
-        email confirmation -> verification flow.
+    Annual re‑validation (EXACT 'new account' behaviour):
+      • On/after the 1‑year mark (or if terms never accepted):
+          - Reset profile to a pre‑verification state.
+          - Require email confirmation again (Allauth).
+          - Then require terms/org/role via /verify/.
+
+    Session flag 'annual_reverify_required':
+      • Set to True the first time a user hits any page after annual expiry.
+      • While True:
+          - If email NOT verified => redirect to /accounts/confirm-email/
+          - If email verified    => clear flag and redirect to /verify/
+      • Prevents flipping verified status back to False after the user confirms.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
+        # Paths allowed during verification lockout (avoid redirect loops)
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -29,30 +37,26 @@ class TierEnforcementMiddleware:
             "/accounts/login/",
             "/accounts/logout/",
             "/accounts/signup/",
-            "/accounts/confirm-email/",
-            "/accounts/email/",
-            "/accounts/resend-confirmation/",
+            "/accounts/confirm-email/",       # allauth confirmation pages
+            "/accounts/email/",               # allauth email management
+            "/accounts/resend-confirmation/", # your resend endpoint
             "/static/",
         ]
 
     def __call__(self, request):
 
-        # Allow logout and admin before enforcement
-        if request.path.startswith("/accounts/logout"):
-            return self.get_response(request)
-
-        if request.path.startswith("/admin/"):
+        # Allow logout/admin early
+        if request.path.startswith("/accounts/logout") or request.path.startswith("/admin/"):
             return self.get_response(request)
 
         user = request.user
 
         if user.is_authenticated:
-
-            # Normalise email always
+            # Normalize stored email
             if user.email:
-                lower = user.email.lower().strip()
-                if lower != user.email:
-                    user.email = lower
+                lowered = user.email.lower().strip()
+                if lowered != user.email:
+                    user.email = lowered
                     user.save(update_fields=["email"])
 
             profile = getattr(user, "profile", None)
@@ -60,11 +64,10 @@ class TierEnforcementMiddleware:
                 logout(request)
                 return redirect(reverse("account_login"))
 
-            # =====================================================================
-            # ANNUAL REVALIDATION LOGIC
-            # =====================================================================
+            # ------------------------------------------------------------
+            # 1) Determine if annual re‑validation is required
+            # ------------------------------------------------------------
             needs_reset = False
-
             if profile.terms_accepted_at is None:
                 needs_reset = True
             else:
@@ -72,17 +75,22 @@ class TierEnforcementMiddleware:
                 if timezone.now() >= one_year_later:
                     needs_reset = True
 
-            # Check Allauth email verification state
-            email_obj = EmailAddress.objects.filter(
-                user=user, email=user.email
-            ).first()
-            email_verified_now = email_obj.verified if email_obj else False
+            # Resolve Allauth email record (may be missing)
+            email_obj = None
+            email_verified_now = False
+            if user.email:
+                email_obj = EmailAddress.objects.filter(user=user, email=user.email).first()
+                email_verified_now = bool(email_obj and email_obj.verified)
 
-            if needs_reset:
+            # Session flag controlling the 2‑phase flow (email → verify)
+            flag = request.session.get("annual_reverify_required", None)
 
-                # ============================================================
-                # Reset profile state to EXACT "new account" condition
-                # ============================================================
+            # ------------------------------------------------------------
+            # 2) First entry after annual expiry: perform the reset ONCE
+            #    and set session flag to drive the 2‑phase flow.
+            # ------------------------------------------------------------
+            if needs_reset and flag is None:
+                # Reset to 'brand new' profile state (idempotent on first pass)
                 profile.email_is_verified = False
                 profile.terms_accepted_at = None
                 profile.org_type = None
@@ -95,43 +103,62 @@ class TierEnforcementMiddleware:
                 profile.rejection_reason = ""
                 profile.save()
 
-                # ============================================================
-                # FIX 1 — Ensure Allauth EmailAddress exists + reset verification
-                # ============================================================
-                email_obj, created = EmailAddress.objects.get_or_create(
-                    user=user,
-                    email=user.email,
-                    defaults={"primary": True, "verified": False},
-                )
-
-                # Force "new user" state for Allauth
-                email_obj.verified = False
-                email_obj.primary = True
-                email_obj.save()
-
-                # ============================================================
-                # Redirect to Allauth confirm-email page like new users
-                # Add ?annual=1 so templates can behave differently if needed
-                # ============================================================
-                if not request.path.startswith("/accounts/"):
-                    return redirect(
-                        reverse("account_email_verification_sent") + "?annual=1"
+                # Ensure an Allauth EmailAddress row exists for this user/email
+                if user.email:
+                    email_obj, _ = EmailAddress.objects.get_or_create(
+                        user=user,
+                        email=user.email,
+                        defaults={"primary": True, "verified": False},
                     )
+                    # Force unverified exactly once at reset time
+                    email_obj.primary = True
+                    email_obj.verified = False
+                    email_obj.save()
 
-            # =====================================================================
-            # STANDARD ENFORCEMENT (same as your original)
-            # =====================================================================
+                # Arm the session flag so subsequent requests are guided
+                request.session["annual_reverify_required"] = True
+                flag = True
+                email_verified_now = False  # we've just forced unverified
+
+            # ------------------------------------------------------------
+            # 3) While the flag is set:
+            #    (a) If email not yet verified => go to email confirmation page
+            #    (b) If email verified => clear flag and progress to /verify/
+            # ------------------------------------------------------------
+            if flag is True:
+                # Recompute current verification (user may have just clicked the link)
+                if user.email:
+                    email_obj = EmailAddress.objects.filter(user=user, email=user.email).first()
+                    email_verified_now = bool(email_obj and email_obj.verified)
+
+                if not email_verified_now:
+                    # Keep the user at the Allauth 'email sent' screen unless already there
+                    if not request.path.startswith("/accounts/"):
+                        return redirect(
+                            reverse("account_email_verification_sent") + "?annual=1"
+                        )
+                    # Already on /accounts/... -> allow through to render/email resend
+                    return self.get_response(request)
+                else:
+                    # Email confirmed — clear flag and move into /verify/ flow
+                    request.session["annual_reverify_required"] = False
+                    if not request.path.startswith("/verify/"):
+                        return redirect("/verify/")
+                    return self.get_response(request)
+
+            # ------------------------------------------------------------
+            # 4) Post‑reset normal entitlement enforcement (unchanged)
+            # ------------------------------------------------------------
             status = profile.verification_status
 
-            # 1. BANNED USERS
+            # BANNED
             if status == "banned":
                 logout(request)
                 return redirect("/banned/")
 
-            # 2. COMMERCIAL USERS
+            # COMMERCIAL
             if status == "commercial":
                 quota = getattr(user, "variant_quota", None)
-
                 if quota is None:
                     if not request.path.startswith("/commercial/"):
                         return redirect("/commercial/")
@@ -147,7 +174,7 @@ class TierEnforcementMiddleware:
                     return redirect("/commercial/")
                 return self.get_response(request)
 
-            # 3. VERIFIED / AUTO_VERIFIED USERS
+            # VERIFIED / AUTO_VERIFIED
             if status in ("verified", "auto_verified"):
                 quota = getattr(user, "variant_quota", None)
                 if quota:
@@ -155,14 +182,14 @@ class TierEnforcementMiddleware:
                     quota.reset_if_needed()
                 return self.get_response(request)
 
-            # 4. NOT VERIFIED
+            # NOT VERIFIED — allow only whitelisted paths
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
                     return self.get_response(request)
 
             return redirect("/verify/")
 
-        # Anonymous users
+        # Anonymous
         return self.get_response(request)
 
 
