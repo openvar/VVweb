@@ -557,18 +557,49 @@ class StyledEmailSentView(EmailVerificationSentView):
         return ctx
 
 
+
 class StyledSignupView(SignupView):
     """
-    Custom signup: force lowercase email BEFORE allauth creates the user.
+    Custom signup:
+    • Lowercase email BEFORE user is created.
+    • Ensure EmailAddress exists (Allauth requirement).
+    • Always send confirmation email.
     """
 
     def form_valid(self, form):
+        # Normalize email
         email = form.cleaned_data.get("email", "").lower().strip()
         form.cleaned_data["email"] = email
 
+        # Let Allauth create the user
         response = super().form_valid(form)
+
+        user = self.user  # Allauth sets self.user after super()
+
+        # ============================================================
+        # ENSURE EmailAddress EXISTS — THIS FIXES YOUR WHOLE SYSTEM
+        # ============================================================
+        email_obj, created = EmailAddress.objects.get_or_create(
+            user=user,
+            email=email,
+            defaults={"primary": True, "verified": False},
+        )
+
+        # Guarantee correct state
+        email_obj.primary = True
+        email_obj.verified = False
+        email_obj.save()
+
+        # ============================================================
+        # SEND CONFIRMATION EMAIL (Allauth’s proper function)
+        # ============================================================
+        send_email_confirmation(self.request, user)
+
+        # Store email in session (your original behaviour)
         self.request.session["account_email"] = email
+
         return response
+
 
 
 class StrictLoginView(LoginView):
