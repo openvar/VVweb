@@ -605,15 +605,12 @@ class StyledSignupView(SignupView):
         return response
 
 
-
-
 class StrictLoginView(LoginView):
     """
-    Enforces:
     • Lowercase login input
     • Lowercase stored user.email
-    • Verified-primary-email requirement
-    • If terms are > 1 year, always land on the ANNUAL confirm page (?annual=1)
+    • If terms are > 1 year → route to annual confirm page (?annual=1) WITHOUT auto-sending or messages.
+    • Otherwise (not expired) and email is unverified → keep your existing behavior (auto-send + banner).
     """
 
     def post(self, request, *args, **kwargs):
@@ -634,47 +631,42 @@ class StrictLoginView(LoginView):
             user.save(update_fields=["email"])
 
         # Ensure EmailAddress exists / fetch it
-        email_address = EmailAddress.objects.filter(
-            user=user, email__iexact=lowered
-        ).first()
-        if not email_address:
-            email_address = EmailAddress.objects.create(
-                user=user, email=lowered, primary=True, verified=False
-            )
-        elif not email_address.primary:
-            email_address.primary = True
-            email_address.save(update_fields=["primary"])
+        email_obj, _ = EmailAddress.objects.get_or_create(
+            user=user,
+            email=lowered,
+            defaults={"primary": True, "verified": False},
+        )
+        if not email_obj.primary:
+            email_obj.primary = True
+            email_obj.save(update_fields=["primary"])
 
-        # Make the email visible to the template even if user later appears anonymous
+        # Make target address available to the confirm page
         self.request.session["account_email"] = lowered
 
-        # ---- NEW: detect annual expiry
+        # Detect annual expiry
         expired = False
         profile = getattr(user, "profile", None)
         if profile and profile.terms_accepted_at:
             expired = timezone.now() >= profile.terms_accepted_at + timedelta(days=365)
 
-        # If email is not verified, send (as you do today) and redirect appropriately
-        if not email_address.verified:
-            # auto-send (you said this is fine)
-            send_email_confirmation(self.request, user)
+        # EXPIRED → show annual re-validation landing, no auto-send, no success/error banner
+        if expired:
+            self.request.session["annual_revalidation"] = True
+            return redirect(reverse("account_email_verification_sent") + "?annual=1")
 
-            # your existing banner
+        # NOT expired: preserve your current behavior for unverified emails
+        if not email_obj.verified:
+            # keep auto-send on normal (new-user) path if you want that behavior
+            send_email_confirmation(self.request, user)
             messages.error(
                 self.request,
                 "Your email address is not verified. A new confirmation email has been sent.",
             )
-
-            # ensure annual copy shows for expired accounts after login
-            if expired:
-                self.request.session["annual_revalidation"] = True
-                return redirect(reverse("account_email_verification_sent") + "?annual=1")
-
-            # otherwise, standard confirm page (new‑user style)
             return redirect("account_email_verification_sent")
 
-        # Email is verified -> proceed normally
+        # Verified & not expired → normal success path
         return super().form_valid(form)
+
 
 
 # <LICENSE>

@@ -13,14 +13,18 @@
       <h2 class="mb-4">Email Confirmation Required</h2>
 
       {% comment %}
-        Render any feedback from the resend endpoint (blue/green banners).
+        Render feedback from the resend endpoint (blue/green banners).
+        We suppress messages in annual mode so the page doesn’t show the
+        “email sent” banner after logout→login during re-validation.
       {% endcomment %}
-      {% if messages %}
-        {% for message in messages %}
-          <div class="alert alert-{{ message.tags|default:'info' }} mb-3">
-            {{ message }}
-          </div>
-        {% endfor %}
+      {% if not request.GET.annual %}
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} mb-3">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
       {% endif %}
 
       {% comment %}
@@ -28,6 +32,7 @@
           1) session['account_email'] (set by signup/login/middleware)
           2) request.user.email (ONLY if authenticated)
           3) otherwise: none (page still renders; resend works without &email=)
+
         We render the body in three branches to avoid accessing AnonymousUser.email.
       {% endcomment %}
 
