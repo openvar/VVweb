@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from django.contrib.auth import logout
 from django.shortcuts import redirect
-from django.urls import reverse
+from django.urls import reverse, resolve, Resolver404
 from django.utils import timezone
 
 from allauth.account.models import EmailAddress
@@ -159,22 +159,30 @@ class TierEnforcementMiddleware:
                 # reflect unverified immediately for routing below
                 email_verified_now = False
 
-            # <<< ALWAYS set session context while expired (even if reset already happened) >>>
+            # ALWAYS set session context while expired (even if reset already happened)
             if user.email:
                 request.session["account_email"] = user.email
             request.session["annual_revalidation"] = True
 
             # ROUTE while terms still > 1 year
             if not email_verified_now:
-                # Allow confirm-email AND resend-confirmation AND accounts/email to pass through
+                # ---- Allow Allauth token confirmation view to pass through (consumes key & fires signal) ----
                 if request.path.startswith("/accounts/confirm-email/"):
-                    # Normalize flag
+                    try:
+                        match = resolve(request.path_info)
+                        if match.url_name == "account_confirm_email":
+                            # Let Allauth confirm the token URL: sets verified=True and emits email_confirmed
+                            return self.get_response(request)
+                    except Resolver404:
+                        pass
+
+                    # On the landing URL (no key): normalize to include ?annual=1
                     if request.GET.get("annual") != "1":
                         return redirect(reverse("account_email_verification_sent") + "?annual=1")
                     return self.get_response(request)
 
+                # Let resend/email management views run so the first click works
                 if request.path.startswith("/accounts/resend-confirmation/") or request.path.startswith("/accounts/email/"):
-                    # Let the resend/email management views run so the first click works
                     return self.get_response(request)
 
                 # Otherwise, force the annual confirm page

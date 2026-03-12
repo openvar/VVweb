@@ -69,14 +69,14 @@ def resend_confirmation(request):
             email=email,
             defaults={"primary": True, "verified": False},
         )
-        # Ensure primary; do not toggle verified state here
+
+        # Ensure this is the sole primary; do not toggle verified state here
         if not email_obj.primary:
-            # demote others first, then promote this row to primary
             EmailAddress.objects.filter(user=request.user).update(primary=False)
             email_obj.primary = True
             email_obj.save(update_fields=["primary"])
 
-        # keep for the template regardless of auth state on return
+        # Keep for the template regardless of auth state on return
         request.session["account_email"] = email
 
         # Send confirmation

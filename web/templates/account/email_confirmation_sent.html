@@ -12,12 +12,14 @@
 
       <h2 class=" mb-4">Email Confirmation Required</h2>
 
-        {# Show banners only after a resend, i.e. when ?resent=1 #}
+        {# Show banners only after a resend and only show 'success' messages #}
         {% if request.GET.resent == '1' and messages %}
           {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }} mb-3">
-              {{ message }}
-            </div>
+            {% if 'success' in message.tags %}
+              <div class="alert alert-success mb-3">
+                {{ message }}
+              </div>
+            {% endif %}
           {% endfor %}
         {% endif %}
 
