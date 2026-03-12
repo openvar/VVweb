@@ -159,7 +159,7 @@ class TierEnforcementMiddleware:
 
         # Anonymous users
         return self.get_response(request)
-``
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
