@@ -21,9 +21,6 @@
         {% endfor %}
       {% endif %}
 
-      {# SAFELY determine the email we’ll display/send to:
-         1) session['account_email']; 2) request.user.email (if authenticated); else none #}
-
       {% if request.session.account_email %}
         {% with email_to_show=request.session.account_email %}
 
@@ -150,4 +147,3 @@
 </div>
 
 {% endblock %}
-``
