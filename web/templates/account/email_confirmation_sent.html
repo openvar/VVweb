@@ -1,31 +1,46 @@
-{% extends "account/base.html" %}
-{% load i18n %}
+{% extends "base.html" %}
 {% load static %}
 
-{% block page_content %}
-<div class="card shadow-sm p-4" style="max-width: 600px; margin: 0 auto;">
+{% block title %}Confirm Your Email{% endblock %}
 
-    <h4 class="mb-3">{% trans "Verify Your Email" %}</h4>
+{% block content %}
 
-    <p class="text-muted mb-4">
-        {% blocktrans with email=email %}
-            We’ve sent a confirmation email to <strong>{{ email }}</strong>.
-            Please check your inbox and click the link inside to verify your account.
-        {% endblocktrans %}
-    </p>
+<div class="container my-5" style="max-width: 720px;">
 
-    <div class="alert alert-info" role="alert">
-        <strong>{% trans "Didn't receive the email?" %}</strong><br>
-        {% trans "It may take a minute to arrive, or may be in your spam/junk folder." %}
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-5">
+
+      <h2 class="mb-4">Email Confirmation Required</h2>
+
+      {% if request.GET.annual %}
+        <div class="alert alert-warning">
+          <strong>Your annual verification has expired.</strong><br>
+          To continue using VariantValidator, please confirm your email address.
+        </div>
+
+        <p class="text-muted">
+          We periodically require users to reconfirm their identity to maintain
+          security, accuracy and compliance. Please check your inbox for the
+          verification email we just sent.
+        </p>
+
+      {% else %}
+        <p class="text-muted">
+          A verification email has been sent to your address. Please check your
+          inbox and click the confirmation link to activate your account.
+        </p>
+      {% endif %}
+
+      <hr>
+
+      <p class="mb-0">
+        Didn’t receive the email?
+        <a href="{% url 'resend_confirmation' %}">Click here to resend it</a>.
+      </p>
+
     </div>
-
-    <p class="mt-3 mb-2">
-        {% trans "If you need us to resend it, click below:" %}
-    </p>
-
-    <a href="{% url 'resend_confirmation' %}?email={{ email }}" class="btn btn-outline-primary">
-        {% trans "Resend confirmation email" %}
-    </a>
+  </div>
 
 </div>
+
 {% endblock %}
