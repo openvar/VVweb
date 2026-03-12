@@ -1,3 +1,4 @@
+# verification/middleware.py
 from datetime import timedelta
 
 from django.contrib.auth import logout
@@ -94,9 +95,11 @@ class TierEnforcementMiddleware:
 
                 profile.save()
 
-                # FORCE COMPLETE VERIFICATION FLOW
-                if not request.path.startswith("/verify/"):
-                    return redirect("/verify/")
+                # ========================================================
+                # IMPORTANT:
+                # Redirect to email-confirmation flow, EXACTLY like new user
+                # ========================================================
+                return redirect(reverse("account_email_verification_sent"))
 
             # ============================================================
             # CONTINUE NORMAL ENFORCEMENT AFTER RESET
