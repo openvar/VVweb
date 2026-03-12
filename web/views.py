@@ -18,13 +18,14 @@ import sys
 import traceback
 from web.models import VariantQuota
 import logging
-from allauth.account.views import EmailVerificationSentView, SignupView, LoginView
+from allauth.account.views import SignupView, LoginView
 from allauth.account.utils import send_email_confirmation
 from allauth.account.models import EmailAddress
 from django.contrib import messages
 from datetime import timedelta
 from django.utils import timezone
-
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
@@ -548,18 +549,36 @@ def bed_file(request):
 # ======================================================================
 # CUSTOM EMAIL VIEWS
 # ======================================================================
+class StyledEmailSentView(LoginRequiredMixin, TemplateView):
+    """
+    Renders the confirm-email landing page.
 
-class StyledEmailSentView(EmailVerificationSentView):
+    • DOES NOT auto-send a confirmation email.
+    • DOES NOT add any messages.
+    • Only prepares context so the template can show the target email and
+      whether we're in annual re-validation mode.
+
+    The actual sending happens via /accounts/resend-confirmation/.
+    """
     template_name = "account/email_confirmation_sent.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["email"] = self.request.session.get(
-            "account_email",
-            self.request.GET.get("email", "your email"),
-        )
-        return ctx
 
+        # Display address priority: session['account_email'] -> user.email -> None
+        email_in_session = self.request.session.get("account_email")
+        if email_in_session:
+            ctx["email_to_show"] = email_in_session
+        elif self.request.user.is_authenticated and self.request.user.email:
+            ctx["email_to_show"] = self.request.user.email
+        else:
+            ctx["email_to_show"] = None
+
+        # Whether this render is an "annual" landing (copy toggle in the template)
+        ctx["annual"] = (self.request.GET.get("annual") == "1")
+
+        # Whether we just resent (controls green banner only when resent=1)
+        ctx["resent"] = (self.request.GET.get("resent") == "1")
 
 
 class StyledSignupView(SignupView):
