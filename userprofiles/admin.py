@@ -6,7 +6,6 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 from allauth.account.models import EmailAddress
-
 from datetime import timedelta
 
 from .models import UserProfile
@@ -109,6 +108,7 @@ def mark_verified(modeladmin, request, queryset):
 
         notify_user(profile, subject, message)
 
+        # Trigger quota update (signal handles institution logic)
         try:
             quota = user.variant_quota
             quota.save()  # triggers recalculation
@@ -128,6 +128,7 @@ def mark_commercial(modeladmin, request, queryset):
                 user.email = lower
                 user.save(update_fields=["email"])
 
+        # Apply commercial status
         profile.verification_status = "commercial"
         profile.save()
 
@@ -141,6 +142,7 @@ def mark_commercial(modeladmin, request, queryset):
 
         notify_user(profile, subject, message)
 
+        # Trigger quota recalculation
         try:
             quota = user.variant_quota
             quota.save()
@@ -173,6 +175,7 @@ def ban_users(modeladmin, request, queryset):
 
         notify_user(profile, subject, message)
 
+        # Force quota update
         try:
             quota = user.variant_quota
             quota.save()
@@ -181,30 +184,66 @@ def ban_users(modeladmin, request, queryset):
 
 
 # ======================================================================
-# NEW ADMIN ACTION: FORCE RE‑VALIDATION
+# NEW ADMIN ACTION: FORCE RE‑VALIDATION (CORRECTED)
 # ======================================================================
 
 @admin.action(description="Force re-validation for selected users")
 def force_revalidation(modeladmin, request, queryset):
     """
-    DOES NOT modify verification pipeline.
-    DOES NOT alter models.
-    DOES NOT change any user data except terms_accepted_at.
-
-    This simply backdates 'terms_accepted_at' by 1 year+1 day.
-    Your view logic will detect the expiry and automatically
-    force the user back into the full verification flow.
+    Correct re-validation reset:
+      • Backdate terms_accepted_at
+      • Set profile.email_is_verified = False
+      • Reset verification_status, org_type, jobrole, completion stats
+      • Ensure Allauth EmailAddress exists
+      • Set EmailAddress.verified = False, primary = True
     """
 
     cutoff = timezone.now() - timedelta(days=366)
+    updated = 0
 
     for profile in queryset:
+        user = profile.user
+
+        # Normalize Django User email
+        if user.email:
+            lower = user.email.lower().strip()
+            if user.email != lower:
+                user.email = lower
+                user.save(update_fields=["email"])
+
+        # Reset profile fields
         profile.terms_accepted_at = cutoff
-        profile.save(update_fields=["terms_accepted_at"])
+        profile.email_is_verified = False
+        profile.verification_status = "not_started"
+        profile.org_type = None
+        profile.jobrole = ""
+        profile.personal_info_is_completed = False
+        profile.completion_level = 0
+        profile.verified_at = None
+        profile.verified_by = None
+        profile.rejection_reason = ""
+        profile.save()
+
+        # Reset Allauth email row
+        if user.email:
+            email_obj, _ = EmailAddress.objects.get_or_create(
+                user=user,
+                email=user.email,
+                defaults={"primary": True, "verified": False},
+            )
+
+            email_obj.verified = False
+            email_obj.primary = True
+            email_obj.save()
+
+            # Remove primary from any other rows
+            EmailAddress.objects.filter(user=user).exclude(pk=email_obj.pk).update(primary=False)
+
+        updated += 1
 
     modeladmin.message_user(
         request,
-        f"Forced re-validation for {queryset.count()} profile(s).",
+        f"Forced re-validation for {updated} profile(s): terms reset, email unverified.",
         level=messages.SUCCESS,
     )
 
@@ -244,7 +283,7 @@ class UserProfileAdmin(admin.ModelAdmin):
         mark_verified,
         mark_commercial,
         ban_users,
-        force_revalidation,  # <-- OUR NEW SAFE BUTTON
+        force_revalidation,
     ]
 
     def primary_email(self, obj):
@@ -263,6 +302,9 @@ class UserProfileAdmin(admin.ModelAdmin):
         return get_effective_allowance(obj.user)
     effective_allowance_display.short_description = "Eff. Allowance"
 
+    # -------------------------
+    # Auto-normalize email & trigger messages
+    # -------------------------
     def save_model(self, request, obj, form, change):
         user = obj.user
 
@@ -295,6 +337,7 @@ class UserProfileAdmin(admin.ModelAdmin):
             quota.save()
         except Exception:
             pass
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
