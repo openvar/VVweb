@@ -7,6 +7,8 @@ from django.conf import settings
 
 from allauth.account.models import EmailAddress
 
+from datetime import timedelta
+
 from .models import UserProfile
 from web.models import VariantQuota
 
@@ -97,7 +99,6 @@ def mark_verified(modeladmin, request, queryset):
         profile.verified_by = request.user
         profile.save()
 
-        # Friendly sustainability message
         subject = "Your VariantValidator account has been approved"
         message = (
             f"Hello {user.username},\n\n"
@@ -108,7 +109,6 @@ def mark_verified(modeladmin, request, queryset):
 
         notify_user(profile, subject, message)
 
-        # Trigger quota update (signal handles institution logic)
         try:
             quota = user.variant_quota
             quota.save()  # triggers recalculation
@@ -122,18 +122,15 @@ def mark_commercial(modeladmin, request, queryset):
     for profile in queryset:
         user = profile.user
 
-        # Normalise email
         if user.email:
             lower = user.email.lower().strip()
             if user.email != lower:
                 user.email = lower
                 user.save(update_fields=["email"])
 
-        # Apply commercial status
         profile.verification_status = "commercial"
         profile.save()
 
-        # Commercial access message
         subject = "VariantValidator – Commercial Access Required"
         message = (
             f"Hello {user.username},\n\n"
@@ -144,7 +141,6 @@ def mark_commercial(modeladmin, request, queryset):
 
         notify_user(profile, subject, message)
 
-        # Trigger quota recalculation
         try:
             quota = user.variant_quota
             quota.save()
@@ -158,7 +154,6 @@ def ban_users(modeladmin, request, queryset):
     for profile in queryset:
         user = profile.user
 
-        # Normalise email
         if user.email:
             lower = user.email.lower().strip()
             if user.email != lower:
@@ -178,12 +173,40 @@ def ban_users(modeladmin, request, queryset):
 
         notify_user(profile, subject, message)
 
-        # Force quota update
         try:
             quota = user.variant_quota
             quota.save()
         except Exception:
             pass
+
+
+# ======================================================================
+# NEW ADMIN ACTION: FORCE RE‑VALIDATION
+# ======================================================================
+
+@admin.action(description="Force re-validation for selected users")
+def force_revalidation(modeladmin, request, queryset):
+    """
+    DOES NOT modify verification pipeline.
+    DOES NOT alter models.
+    DOES NOT change any user data except terms_accepted_at.
+
+    This simply backdates 'terms_accepted_at' by 1 year+1 day.
+    Your view logic will detect the expiry and automatically
+    force the user back into the full verification flow.
+    """
+
+    cutoff = timezone.now() - timedelta(days=366)
+
+    for profile in queryset:
+        profile.terms_accepted_at = cutoff
+        profile.save(update_fields=["terms_accepted_at"])
+
+    modeladmin.message_user(
+        request,
+        f"Forced re-validation for {queryset.count()} profile(s).",
+        level=messages.SUCCESS,
+    )
 
 
 # ======================================================================
@@ -209,6 +232,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "user__email", "country", "org_type")
     list_filter = ("org_type", "verification_status", "country")
 
+    # TERMS ACCEPTED REMAINS READ-ONLY (your requirement)
     readonly_fields = (
         "verified_at",
         "verified_by",
@@ -220,11 +244,9 @@ class UserProfileAdmin(admin.ModelAdmin):
         mark_verified,
         mark_commercial,
         ban_users,
+        force_revalidation,  # <-- OUR NEW SAFE BUTTON
     ]
 
-    # -------------------------
-    # Display helpers in list
-    # -------------------------
     def primary_email(self, obj):
         return get_primary_email(obj.user)
     primary_email.short_description = "Primary Email"
@@ -241,20 +263,15 @@ class UserProfileAdmin(admin.ModelAdmin):
         return get_effective_allowance(obj.user)
     effective_allowance_display.short_description = "Eff. Allowance"
 
-    # -------------------------
-    # Auto-normalize email & trigger messages
-    # -------------------------
     def save_model(self, request, obj, form, change):
         user = obj.user
 
-        # Normalise primary email always
         if user.email:
             lower = user.email.lower().strip()
             if lower != user.email:
                 user.email = lower
                 user.save(update_fields=["email"])
 
-        # Handle verification transition manually
         changed = getattr(form, "changed_data", [])
         if change and "verification_status" in changed:
             if obj.verification_status == "verified":
@@ -271,10 +288,8 @@ class UserProfileAdmin(admin.ModelAdmin):
                 )
                 notify_user(obj, subject, message)
 
-        # Save profile
         super().save_model(request, obj, form, change)
 
-        # Trigger quota recalculation
         try:
             quota = user.variant_quota
             quota.save()
