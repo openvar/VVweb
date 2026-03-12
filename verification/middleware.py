@@ -1,5 +1,3 @@
-# verification/middleware.py (TierEnforcementMiddleware with annual re‑validation)
-
 from datetime import timedelta
 
 from django.contrib.auth import logout
@@ -7,27 +5,22 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 
+from allauth.account.models import EmailAddress
+
 
 class TierEnforcementMiddleware:
     """
-    Enforces VariantValidator’s mandatory verification & entitlement model.
+    Enforces VariantValidator’s identity, verification and entitlement rules.
 
-    Rules:
-
-      • BANNED → logout + /banned/
-      • COMMERCIAL → allow only if effective_allowance > 0 (institutional or trial)
-      • VERIFIED (non-commercial) → allow access, with institutional uplift if active
-      • PENDING / NOT_STARTED → locked to /verify/
-
-    Additionally:
-      • ANNUAL RE-VALIDATION → if terms_accepted_at is None or >= 1 year old,
-        reset verification state and redirect to /verify/.
+    ADDITION: Annual re-validation.
+    If terms_accepted_at is None or >= 1 year old:
+        The user is reset EXACTLY to a new-account state and forced through
+        the full verification flow again.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
-        # Paths allowed during verification lockout
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -39,20 +32,17 @@ class TierEnforcementMiddleware:
         ]
 
     def __call__(self, request):
-        # Allow logout before enforcement
+
         if request.path.startswith("/accounts/logout"):
             return self.get_response(request)
 
-        # Admin panel allowed
         if request.path.startswith("/admin/"):
             return self.get_response(request)
 
         user = request.user
 
-        # ============================================================
-        # AUTHENTICATED USERS ONLY
-        # ============================================================
         if user.is_authenticated:
+
             # Always normalise stored email
             if user.email:
                 lower = user.email.lower().strip()
@@ -61,52 +51,62 @@ class TierEnforcementMiddleware:
                     user.save(update_fields=["email"])
 
             profile = getattr(user, "profile", None)
-
-            # Safety check
             if profile is None:
                 logout(request)
                 return redirect(reverse("account_login"))
 
             # ============================================================
-            # ANNUAL RE‑VALIDATION (runs on every authenticated request)
-            #   • If terms_accepted_at is None OR now >= terms_accepted_at + 365 days:
-            #       - Reset verification-critical fields
-            #       - Redirect to verification entry (/verify/)
+            # ANNUAL RE-VALIDATION CHECK
             # ============================================================
-            needs_revalidation = False
+            needs_reset = False
+
             if profile.terms_accepted_at is None:
-                needs_revalidation = True
+                needs_reset = True
             else:
                 one_year_later = profile.terms_accepted_at + timedelta(days=365)
                 if timezone.now() >= one_year_later:
-                    needs_revalidation = True
+                    needs_reset = True
 
-            if needs_revalidation:
-                # Reset verification requirements
+            if needs_reset:
+
+                # ========================================================
+                # RESET USER TO EXACTLY “NEW ACCOUNT” STATE
+                # ========================================================
+
+                # Email: both internal flag and allauth table
                 profile.email_is_verified = False
+                EmailAddress.objects.filter(user=user).update(verified=False)
+
+                # Terms and verification
                 profile.terms_accepted_at = None
-                profile.org_type = None
                 profile.verification_status = "not_started"
+
+                # Organisation and role
+                profile.org_type = None
+                profile.jobrole = ""                # wipes job role selection
+                profile.personal_info_is_completed = False
+                profile.completion_level = 0
+
+                # Admin verification audit
                 profile.verified_at = None
                 profile.verified_by = None
                 profile.rejection_reason = ""
+
                 profile.save()
 
-                # If not already inside verification flow, send them there
+                # FORCE COMPLETE VERIFICATION FLOW
                 if not request.path.startswith("/verify/"):
                     return redirect("/verify/")
 
             # ============================================================
-            # CONTINUE NORMAL ENFORCEMENT AFTER POSSIBLE RESET
+            # CONTINUE NORMAL ENFORCEMENT AFTER RESET
             # ============================================================
             status = profile.verification_status
 
-            # 1. BANNED USERS
             if status == "banned":
                 logout(request)
                 return redirect("/banned/")
 
-            # 2. COMMERCIAL USERS
             if status == "commercial":
                 quota = getattr(user, "variant_quota", None)
 
@@ -115,40 +115,31 @@ class TierEnforcementMiddleware:
                         return redirect("/commercial/")
                     return self.get_response(request)
 
-                # CRITICAL: recalc expiry + resets EVERY request
                 quota.check_subscription_status()
                 quota.reset_if_needed()
 
-                # Allow access ONLY if allowance > 0
                 if quota.effective_allowance > 0:
                     return self.get_response(request)
 
-                # Otherwise redirect
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
                 return self.get_response(request)
 
-            # 3. VERIFIED or AUTO_VERIFIED USERS
             if status in ("verified", "auto_verified"):
                 quota = getattr(user, "variant_quota", None)
                 if quota:
-                    # CRITICAL: recalc expiry + resets EVERY request
                     quota.check_subscription_status()
                     quota.reset_if_needed()
                 return self.get_response(request)
 
-            # 4. NOT VERIFIED (pending / not_started)
+            # NOT VERIFIED
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
                     return self.get_response(request)
 
             return redirect("/verify/")
 
-        # ============================================================
-        # ANONYMOUS USERS
-        # ============================================================
         return self.get_response(request)
-
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
