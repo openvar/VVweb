@@ -1,6 +1,11 @@
+# verification/middleware.py (TierEnforcementMiddleware with annual re‑validation)
+
+from datetime import timedelta
+
+from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.contrib.auth import logout
+from django.utils import timezone
 
 
 class TierEnforcementMiddleware:
@@ -13,6 +18,10 @@ class TierEnforcementMiddleware:
       • COMMERCIAL → allow only if effective_allowance > 0 (institutional or trial)
       • VERIFIED (non-commercial) → allow access, with institutional uplift if active
       • PENDING / NOT_STARTED → locked to /verify/
+
+    Additionally:
+      • ANNUAL RE-VALIDATION → if terms_accepted_at is None or >= 1 year old,
+        reset verification state and redirect to /verify/.
     """
 
     def __init__(self, get_response):
@@ -30,7 +39,6 @@ class TierEnforcementMiddleware:
         ]
 
     def __call__(self, request):
-
         # Allow logout before enforcement
         if request.path.startswith("/accounts/logout"):
             return self.get_response(request)
@@ -45,7 +53,6 @@ class TierEnforcementMiddleware:
         # AUTHENTICATED USERS ONLY
         # ============================================================
         if user.is_authenticated:
-
             # Always normalise stored email
             if user.email:
                 lower = user.email.lower().strip()
@@ -60,18 +67,46 @@ class TierEnforcementMiddleware:
                 logout(request)
                 return redirect(reverse("account_login"))
 
-            status = profile.verification_status
+            # ============================================================
+            # ANNUAL RE‑VALIDATION (runs on every authenticated request)
+            #   • If terms_accepted_at is None OR now >= terms_accepted_at + 365 days:
+            #       - Reset verification-critical fields
+            #       - Redirect to verification entry (/verify/)
+            # ============================================================
+            needs_revalidation = False
+            if profile.terms_accepted_at is None:
+                needs_revalidation = True
+            else:
+                one_year_later = profile.terms_accepted_at + timedelta(days=365)
+                if timezone.now() >= one_year_later:
+                    needs_revalidation = True
+
+            if needs_revalidation:
+                # Reset verification requirements
+                profile.email_is_verified = False
+                profile.terms_accepted_at = None
+                profile.org_type = None
+                profile.verification_status = "not_started"
+                profile.verified_at = None
+                profile.verified_by = None
+                profile.rejection_reason = ""
+                profile.save()
+
+                # If not already inside verification flow, send them there
+                if not request.path.startswith("/verify/"):
+                    return redirect("/verify/")
 
             # ============================================================
-            # 1. BANNED USERS
+            # CONTINUE NORMAL ENFORCEMENT AFTER POSSIBLE RESET
             # ============================================================
+            status = profile.verification_status
+
+            # 1. BANNED USERS
             if status == "banned":
                 logout(request)
                 return redirect("/banned/")
 
-            # ============================================================
             # 2. COMMERCIAL USERS
-            # ============================================================
             if status == "commercial":
                 quota = getattr(user, "variant_quota", None)
 
@@ -93,22 +128,16 @@ class TierEnforcementMiddleware:
                     return redirect("/commercial/")
                 return self.get_response(request)
 
-            # ============================================================
             # 3. VERIFIED or AUTO_VERIFIED USERS
-            # ============================================================
             if status in ("verified", "auto_verified"):
-
                 quota = getattr(user, "variant_quota", None)
                 if quota:
                     # CRITICAL: recalc expiry + resets EVERY request
                     quota.check_subscription_status()
                     quota.reset_if_needed()
-
                 return self.get_response(request)
 
-            # ============================================================
             # 4. NOT VERIFIED (pending / not_started)
-            # ============================================================
             for allowed in self.allowed_prefixes:
                 if request.path.startswith(allowed):
                     return self.get_response(request)
@@ -119,6 +148,7 @@ class TierEnforcementMiddleware:
         # ANONYMOUS USERS
         # ============================================================
         return self.get_response(request)
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
