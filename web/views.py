@@ -634,7 +634,7 @@ class StrictLoginView(LoginView):
             user.email = lowered
             user.save(update_fields=["email"])
 
-        # Ensure an EmailAddress row exists and is primary
+        # Ensure EmailAddress exists and is primary
         email_obj, _ = EmailAddress.objects.get_or_create(
             user=user,
             email=lowered,
@@ -644,7 +644,7 @@ class StrictLoginView(LoginView):
             email_obj.primary = True
             email_obj.save(update_fields=["primary"])
 
-        # Make email available to the confirm page
+        # Make available to the confirm page
         self.request.session["account_email"] = lowered
 
         # Detect annual expiry
@@ -653,18 +653,18 @@ class StrictLoginView(LoginView):
         if profile and profile.terms_accepted_at:
             expired = timezone.now() >= profile.terms_accepted_at + timedelta(days=365)
 
-        # *** IMPORTANT: Log the user in FIRST so redirects are authenticated ***
+        # *** Log the user in first so subsequent redirects are authenticated ***
         response = super().form_valid(form)
 
         if expired:
             self.request.session["annual_revalidation"] = True
-            # Decide by ANY verified row
+            # Decide by ANY verified email row
             is_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
             if not is_verified_now:
                 return redirect(reverse("account_email_verification_sent") + "?annual=1")
             return redirect("/verify/")
 
-        # NOT expired: keep your previous "auto-send + banner" behavior for unverified emails
+        # Not expired: keep your existing behavior
         if not email_obj.verified:
             send_email_confirmation(self.request, user)
             messages.error(
@@ -673,10 +673,8 @@ class StrictLoginView(LoginView):
             )
             return redirect("account_email_verification_sent")
 
-        # Verified & not expired → normal success path from Allauth
+        # Verified & not expired → normal success path
         return response
-
-
 
 
 # <LICENSE>

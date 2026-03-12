@@ -12,11 +12,8 @@
 
       <h2 class=" mb-4">Email Confirmation Required</h2>
 
-      {% comment %}
-        Render feedback from the resend endpoint (blue/green banners).
-        Unconditional: we do NOT suppress in annual mode so users see success banners immediately.
-      {% endcomment %}
-      {% if messages %}
+      {# Show banners only after a resend, i.e. when ?resent=1 #}
+      {% if request.GET.resent == '1' and messages %}
         {% for message in messages %}
           <div class="alert alert-{{ message.tags|default:'info' }} mb-3">
             {{ message }}
@@ -24,14 +21,8 @@
         {% endfor %}
       {% endif %}
 
-      {% comment %}
-        SAFELY determine the email we’ll display/send to:
-          1) session['account_email'] (set by signup/login/middleware)
-          2) request.user.email (ONLY if authenticated)
-          3) otherwise: none (page still renders; resend works without &email=)
-
-        We render the body in three branches to avoid accessing AnonymousUser.email.
-      {% endcomment %}
+      {# SAFELY determine the email we’ll display/send to:
+         1) session['account_email']; 2) request.user.email (if authenticated); else none #}
 
       {% if request.session.account_email %}
         {% with email_to_show=request.session.account_email %}
@@ -57,14 +48,14 @@
           <div class="d-grid gap-2">
             {% if request.GET.annual %}
               <a
-                href="{% url 'resend_confirmation' %}?annual=1&email={{ email_to_show|urlencode }}"
+                href="{% url 'resend_confirmation' %}?annual=1&resent=1&email={{ email_to_show|urlencode }}"
                 class="btn btn-primary btn-lg"
               >
                 Send verification email
               </a>
             {% else %}
               <a
-                href="{% url 'resend_confirmation' %}?email={{ email_to_show|urlencode }}"
+                href="{% url 'resend_confirmation' %}?resent=1&email={{ email_to_show|urlencode }}"
                 class="btn btn-primary btn-lg"
               >
                 Send verification email
@@ -98,14 +89,14 @@
           <div class="d-grid gap-2">
             {% if request.GET.annual %}
               <a
-                href="{% url 'resend_confirmation' %}?annual=1&email={{ email_to_show|urlencode }}"
+                href="{% url 'resend_confirmation' %}?annual=1&resent=1&email={{ email_to_show|urlencode }}"
                 class="btn btn-primary btn-lg"
               >
                 Send verification email
               </a>
             {% else %}
               <a
-                href="{% url 'resend_confirmation' %}?email={{ email_to_show|urlencode }}"
+                href="{% url 'resend_confirmation' %}?resent=1&email={{ email_to_show|urlencode }}"
                 class="btn btn-primary btn-lg"
               >
                 Send verification email
@@ -136,14 +127,14 @@
         <div class="d-grid gap-2">
           {% if request.GET.annual %}
             <a
-              href="{% url 'resend_confirmation' %}?annual=1"
+              href="{% url 'resend_confirmation' %}?annual=1&resent=1"
               class="btn btn-primary btn-lg"
             >
               Send verification email
             </a>
           {% else %}
             <a
-              href="{% url 'resend_confirmation' %}"
+              href="{% url 'resend_confirmation' %}?resent=1"
               class="btn btn-primary btn-lg"
             >
               Send verification email
@@ -159,3 +150,4 @@
 </div>
 
 {% endblock %}
+``
