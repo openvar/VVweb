@@ -22,6 +22,10 @@ from allauth.account.views import EmailVerificationSentView, SignupView, LoginVi
 from allauth.account.utils import send_email_confirmation
 from allauth.account.models import EmailAddress
 from django.contrib import messages
+from datetime import timedelta
+from django.utils import timezone
+
+
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 logger = logging.getLogger("vv")
@@ -602,19 +606,22 @@ class StyledSignupView(SignupView):
 
 
 
+
 class StrictLoginView(LoginView):
     """
     Enforces:
     • Lowercase login input
     • Lowercase stored user.email
     • Verified-primary-email requirement
+    • If terms are > 1 year, always land on the ANNUAL confirm page (?annual=1)
     """
 
     def post(self, request, *args, **kwargs):
         if request.method == "POST":
-            request.POST = request.POST.copy()
-            if "login" in request.POST and request.POST["login"]:
-                request.POST["login"] = request.POST["login"].lower().strip()
+            data = request.POST.copy()
+            if "login" in data and data["login"]:
+                data["login"] = data["login"].lower().strip()
+            request.POST = data
         return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -626,21 +633,49 @@ class StrictLoginView(LoginView):
             user.email = lowered
             user.save(update_fields=["email"])
 
-        # Verified?
+        # Ensure EmailAddress exists / fetch it
         email_address = EmailAddress.objects.filter(
-            user=user, email__iexact=user.email
+            user=user, email__iexact=lowered
         ).first()
+        if not email_address:
+            email_address = EmailAddress.objects.create(
+                user=user, email=lowered, primary=True, verified=False
+            )
+        elif not email_address.primary:
+            email_address.primary = True
+            email_address.save(update_fields=["primary"])
 
-        if email_address and not email_address.verified:
+        # Make the email visible to the template even if user later appears anonymous
+        self.request.session["account_email"] = lowered
+
+        # ---- NEW: detect annual expiry
+        expired = False
+        profile = getattr(user, "profile", None)
+        if profile and profile.terms_accepted_at:
+            expired = timezone.now() >= profile.terms_accepted_at + timedelta(days=365)
+
+        # If email is not verified, send (as you do today) and redirect appropriately
+        if not email_address.verified:
+            # auto-send (you said this is fine)
             send_email_confirmation(self.request, user)
-            self.request.session["account_email"] = lowered
+
+            # your existing banner
             messages.error(
                 self.request,
                 "Your email address is not verified. A new confirmation email has been sent.",
             )
+
+            # ensure annual copy shows for expired accounts after login
+            if expired:
+                self.request.session["annual_revalidation"] = True
+                return redirect(reverse("account_email_verification_sent") + "?annual=1")
+
+            # otherwise, standard confirm page (new‑user style)
             return redirect("account_email_verification_sent")
 
+        # Email is verified -> proceed normally
         return super().form_valid(form)
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
