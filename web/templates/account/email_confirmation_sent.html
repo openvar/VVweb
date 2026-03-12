@@ -12,14 +12,14 @@
 
       <h2 class=" mb-4">Email Confirmation Required</h2>
 
-      {# Show banners only after a resend, i.e. when ?resent=1 #}
-      {% if request.GET.resent == '1' and messages %}
-        {% for message in messages %}
-          <div class="alert alert-{{ message.tags|default:'info' }} mb-3">
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endif %}
+        {# Show banners only after a resend, i.e. when ?resent=1 #}
+        {% if request.GET.resent == '1' and messages %}
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} mb-3">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
 
       {% if request.session.account_email %}
         {% with email_to_show=request.session.account_email %}

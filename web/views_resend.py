@@ -20,7 +20,7 @@ def _resolve_target_email(request) -> str:
     """
     Order of precedence:
       1) Explicit query or form param:  ?email=<addr>
-      2) Session value set by signup/login: session["account_email"]
+      2) Session value set by signup/login/middleware: session["account_email"]
       3) Logged-in user's email
     """
     email = request.GET.get("email") or request.POST.get("email")
@@ -31,66 +31,77 @@ def _resolve_target_email(request) -> str:
     return _normalize(email)
 
 
+def _suffix_with_resent_and_annual(request) -> str:
+    """
+    Always append ?resent=1 so the landing page shows messages
+    exactly after a resend, and preserve ?annual=1 when present.
+    """
+    parts = ["resent=1"]
+    if request.GET.get("annual") == "1":
+        parts.append("annual=1")
+    return "?" + "&".join(parts)
+
+
 @require_http_methods(["GET", "POST"])
 def resend_confirmation(request):
     """
     Resend confirmation email for a user, whether authenticated or not.
 
-    Robust behavior:
-      • Finds the target email from query/session/logged-in user.
-      • Ensures an EmailAddress row exists (creates if missing for logged-in user).
-      • Forces it to primary & unverified.
-      • Sends the allauth confirmation email.
-      • Redirects back to the 'email sent' page, preserving ?annual=1 if present.
+    Behavior:
+      • Resolve the target email from query/session/logged-in user.
+      • If logged in, ensure an EmailAddress row exists and is primary.
+      • DO NOT flip 'verified' here (annual reset/middleware handles that).
+      • Send the Allauth confirmation email.
+      • Redirect back to the confirm page with ?resent=1 (and ?annual=1 if present).
     """
-    # Keep the 'annual' context flag for UX differentiation on the confirm page
-    annual_flag = "?annual=1" if request.GET.get("annual") == "1" else ""
+    suffix = _suffix_with_resent_and_annual(request)
+    return_to = reverse("account_email_verification_sent") + suffix
 
     email = _resolve_target_email(request)
     if not email:
         messages.error(request, "No email address provided.")
-        return redirect(reverse("account_email_verification_sent") + annual_flag)
+        return redirect(return_to)
 
-    # If the requester is logged in, ensure their EmailAddress exists/repairs cleanly
+    # Logged-in path: create/repair row, make it primary, then send
     if request.user.is_authenticated:
-        # Create or fetch the email row for this user specifically
         email_obj, _ = EmailAddress.objects.get_or_create(
             user=request.user,
             email=email,
             defaults={"primary": True, "verified": False},
         )
-        # Guarantee "new-account" style state
-        email_obj.primary = True
-        email_obj.verified = False
-        email_obj.save()
+        # Ensure primary; do not toggle verified state here
+        if not email_obj.primary:
+            # demote others first, then promote this row to primary
+            EmailAddress.objects.filter(user=request.user).update(primary=False)
+            email_obj.primary = True
+            email_obj.save(update_fields=["primary"])
 
-        # Optional: if user somehow had multiple email rows, make this the only primary
-        EmailAddress.objects.filter(user=request.user).exclude(pk=email_obj.pk).update(primary=False)
+        # keep for the template regardless of auth state on return
+        request.session["account_email"] = email
 
         # Send confirmation
         send_email_confirmation(request, request.user)
         messages.success(request, f"A new confirmation email has been sent to {email}.")
-        return redirect(reverse("account_email_verification_sent") + annual_flag)
+        return redirect(return_to)
 
-    # Anonymous path: find an existing EmailAddress row by email
+    # Anonymous path: try resolve by EmailAddress
     email_obj = EmailAddress.objects.filter(email__iexact=email).first()
     if not email_obj:
         messages.error(request, "Unknown email address.")
-        return redirect(reverse("account_email_verification_sent") + annual_flag)
+        return redirect(return_to)
 
-    # Force "needs confirmation" state for that account
-    email_obj.verified = False
-    email_obj.primary = True
-    email_obj.save()
-
-    # Also make it the only primary for that user
-    EmailAddress.objects.filter(user=email_obj.user).exclude(pk=email_obj.pk).update(primary=False)
+    # Prefer the matched row as primary (do not change verified here)
+    if not email_obj.primary:
+        EmailAddress.objects.filter(user=email_obj.user).update(primary=False)
+        email_obj.primary = True
+        email_obj.save(update_fields=["primary"])
 
     # Send confirmation to the owning user
     send_email_confirmation(request, email_obj.user)
     messages.success(request, f"A new confirmation email has been sent to {email}.")
 
-    return redirect(reverse("account_email_verification_sent") + annual_flag)
+    return redirect(return_to)
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
