@@ -12,9 +12,7 @@
 
       <h2 class="mb-4">Email Confirmation Required</h2>
 
-      {# ------------------------------------------------------------ #}
-      {# Show Django messages (blue/green banners)                    #}
-      {# ------------------------------------------------------------ #}
+      <!-- Django messages (success/info/errors from resend handler) -->
       {% if messages %}
         {% for message in messages %}
           <div class="alert alert-{{ message.tags|default:'info' }} mb-3">
@@ -23,119 +21,142 @@
         {% endfor %}
       {% endif %}
 
-      {# ------------------------------------------------------------ #}
-      {# Safely determine the email to display                        #}
-      {# 1) session email (set by login/signup/middleware)            #}
-      {# 2) request.user.email IF authenticated                       #}
-      {# 3) otherwise None                                            #}
-      {# ------------------------------------------------------------ #}
+      {# ----------------------------------------------------------------
+         We render the page in three safe branches to avoid touching
+         request.user.email when the user is anonymous.
+         Priority:
+           1) session['account_email'] (set by signup/login/middleware)
+           2) request.user.email        (ONLY if authenticated)
+           3) otherwise show generic copy (no explicit email)
+         ---------------------------------------------------------------- #}
 
-      {% with session_email=request.session.account_email %}
-        {% if session_email %}
-          {% with target_email=session_email %}
-            {% include "noop.html" %}{# not used—just structure placeholder #}
-          {% endwith %}
-        {% elif request.user.is_authenticated and request.user.email %}
-          {% with target_email=request.user.email %}
-            {% include "noop.html" %}
-          {% endwith %}
-        {% else %}
-          {% with target_email=None %}
-            {% include "noop.html" %}
-          {% endwith %}
-        {% endif %}
-      {% endwith %}
+      {% if request.session.account_email %}
+        {% with email_to_show=request.session.account_email %}
 
-      {# IMPORTANT:
-         We now have a variable `target_email` in scope.
-         Recompute it cleanly below without any includes.
-      #}
+          {% if request.GET.annual %}
+            <div class="alert alert-warning">
+              <strong>Your annual verification has expired.</strong><br>
+              To continue using VariantValidator, please confirm your email address.
+            </div>
+            <p class="text-muted">
+              A verification email will be sent to
+              <strong>{{ email_to_show }}</strong> when you click the button below.
+              After confirming, you’ll be asked to verify your organisation, job role,
+              and re‑accept the terms of use.
+            </p>
+          {% else %}
+            <p class="text-muted">
+              A verification email will be sent to
+              <strong>{{ email_to_show }}</strong> when you click the button below.
+            </p>
+          {% endif %}
 
-      {% with session_email=request.session.account_email %}
-        {% if session_email %}
-          {% with email_to_show=session_email %}
-            {% include "noop.html" %}
-          {% endwith %}
-        {% elif request.user.is_authenticated and request.user.email %}
-          {% with email_to_show=request.user.email %}
-            {% include "noop.html" %}
-          {% endwith %}
-        {% else %}
-          {% with email_to_show=None %}
-            {% include "noop.html" %}
-          {% endwith %}
-        {% endif %}
-      {% endwith %}
+          <hr>
 
-      {# Now use `email_to_show` in the real body #}
+          <div class="d-grid gap-2">
+            {% if request.GET.annual %}
+              <a
+                href="{% url 'resend_confirmation' %}?annual=1&email={{ email_to_show|urlencode }}"
+                class="btn btn-primary btn-lg"
+              >
+                Send verification email
+              </a>
+            {% else %}
+              <a
+                href="{% url 'resend_confirmation' %}?email={{ email_to_show|urlencode }}"
+                class="btn btn-primary btn-lg"
+              >
+                Send verification email
+              </a>
+            {% endif %}
+          </div>
 
-      {% if request.GET.annual %}
-        <div class="alert alert-warning">
-          <strong>Your annual verification has expired.</strong><br>
-          To continue using VariantValidator, please confirm your email address.
-        </div>
+        {% endwith %}
 
-        {% if email_to_show %}
-          <p class="text-muted">
-            A verification email will be sent to
-            <strong>{{ email_to_show }}</strong> when you click the button below.
-          </p>
-        {% else %}
-          <p class="text-muted">
-            A verification email will be sent to the email address registered
-            with your account. If you do not see the email listed here, try
-            logging in first.
-          </p>
-        {% endif %}
+      {% elif request.user.is_authenticated and request.user.email %}
+        {% with email_to_show=request.user.email %}
+
+          {% if request.GET.annual %}
+            <div class="alert alert-warning">
+              <strong>Your annual verification has expired.</strong><br>
+              To continue using VariantValidator, please confirm your email address.
+            </div>
+            <p class="text-muted">
+              A verification email will be sent to
+              <strong>{{ email_to_show }}</strong> when you click the button below.
+              After confirming, you’ll be asked to verify your organisation, job role,
+              and re‑accept the terms of use.
+            </p>
+          {% else %}
+            <p class="text-muted">
+              A verification email will be sent to
+              <strong>{{ email_to_show }}</strong> when you click the button below.
+            </p>
+          {% endif %}
+
+          <hr>
+
+          <div class="d-grid gap-2">
+            {% if request.GET.annual %}
+              <a
+                href="{% url 'resend_confirmation' %}?annual=1&email={{ email_to_show|urlencode }}"
+                class="btn btn-primary btn-lg"
+              >
+                Send verification email
+              </a>
+            {% else %}
+              <a
+                href="{% url 'resend_confirmation' %}?email={{ email_to_show|urlencode }}"
+                class="btn btn-primary btn-lg"
+              >
+                Send verification email
+              </a>
+            {% endif %}
+          </div>
+
+        {% endwith %}
 
       {% else %}
+        {# No email available to show (anonymous session & no session email) #}
 
-        {% if email_to_show %}
+        {% if request.GET.annual %}
+          <div class="alert alert-warning">
+            <strong>Your annual verification has expired.</strong><br>
+            To continue using VariantValidator, please confirm your email address.
+          </div>
           <p class="text-muted">
-            A verification email will be sent to
-            <strong>{{ email_to_show }}</strong> when you click the button below.
+            We will send a verification email to the address registered on your account
+            when you click the button below. If you do not see your email shown here,
+            log in first so we can display it.
           </p>
         {% else %}
           <p class="text-muted">
-            A verification email will be sent to the email address on your account.
+            We will send a verification email to the address registered on your account
+            when you click the button below.
           </p>
         {% endif %}
+
+        <hr>
+
+        <div class="d-grid gap-2">
+          {% if request.GET.annual %}
+            <a
+              href="{% url 'resend_confirmation' %}?annual=1"
+              class="btn btn-primary btn-lg"
+            >
+              Send verification email
+            </a>
+          {% else %}
+            <a
+              href="{% url 'resend_confirmation' %}"
+              class="btn btn-primary btn-lg"
+            >
+              Send verification email
+            </a>
+          {% endif %}
+        </div>
 
       {% endif %}
-
-      <hr>
-
-      {# ------------------------------------------------------------ #}
-      {# "Send verification email" button                              #}
-      {# ------------------------------------------------------------ #}
-
-      <div class="d-grid gap-2">
-        {% if request.GET.annual %}
-          {% if email_to_show %}
-            <a href="{% url 'resend_confirmation' %}?annual=1&email={{ email_to_show|urlencode }}"
-               class="btn btn-primary btn-lg">
-              Send verification email
-            </a>
-          {% else %}
-            <a href="{% url 'resend_confirmation' %}?annual=1"
-               class="btn btn-primary btn-lg">
-              Send verification email
-            </a>
-          {% endif %}
-        {% else %}
-          {% if email_to_show %}
-            <a href="{% url 'resend_confirmation' %}?email={{ email_to_show|urlencode }}"
-               class="btn btn-primary btn-lg">
-              Send verification email
-            </a>
-          {% else %}
-            <a href="{% url 'resend_confirmation' %}"
-               class="btn btn-primary btn-lg">
-              Send verification email
-            </a>
-          {% endif %}
-        {% endif %}
-      </div>
 
     </div>
   </div>
