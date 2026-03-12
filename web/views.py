@@ -18,14 +18,13 @@ import sys
 import traceback
 from web.models import VariantQuota
 import logging
-from allauth.account.views import SignupView, LoginView
+from allauth.account.views import EmailVerificationSentView, SignupView, LoginView
 from allauth.account.utils import send_email_confirmation
 from allauth.account.models import EmailAddress
 from django.contrib import messages
 from datetime import timedelta
 from django.utils import timezone
-from django.views.generic import TemplateView
-from django.contrib.auth.mixins import LoginRequiredMixin
+
 
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
@@ -549,36 +548,18 @@ def bed_file(request):
 # ======================================================================
 # CUSTOM EMAIL VIEWS
 # ======================================================================
-class StyledEmailSentView(LoginRequiredMixin, TemplateView):
-    """
-    Renders the confirm-email landing page.
 
-    • DOES NOT auto-send a confirmation email.
-    • DOES NOT add any messages.
-    • Only prepares context so the template can show the target email and
-      whether we're in annual re-validation mode.
-
-    The actual sending happens via /accounts/resend-confirmation/.
-    """
+class StyledEmailSentView(EmailVerificationSentView):
     template_name = "account/email_confirmation_sent.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        ctx["email"] = self.request.session.get(
+            "account_email",
+            self.request.GET.get("email", "your email"),
+        )
+        return ctx
 
-        # Display address priority: session['account_email'] -> user.email -> None
-        email_in_session = self.request.session.get("account_email")
-        if email_in_session:
-            ctx["email_to_show"] = email_in_session
-        elif self.request.user.is_authenticated and self.request.user.email:
-            ctx["email_to_show"] = self.request.user.email
-        else:
-            ctx["email_to_show"] = None
-
-        # Whether this render is an "annual" landing (copy toggle in the template)
-        ctx["annual"] = (self.request.GET.get("annual") == "1")
-
-        # Whether we just resent (controls green banner only when resent=1)
-        ctx["resent"] = (self.request.GET.get("resent") == "1")
 
 
 class StyledSignupView(SignupView):
@@ -623,6 +604,18 @@ class StyledSignupView(SignupView):
 
         return response
 
+
+
+from datetime import timedelta
+
+from django.utils import timezone
+from django.shortcuts import redirect
+from django.urls import reverse
+from django.contrib import messages
+
+from allauth.account.models import EmailAddress
+from allauth.account.utils import send_email_confirmation
+from allauth.account.views import LoginView
 
 
 class StrictLoginView(LoginView):
@@ -678,7 +671,8 @@ class StrictLoginView(LoginView):
 
         if expired:
             self.request.session["annual_revalidation"] = True
-            # Decide by ANY verified row (robust to legacy rows/case)
+
+            # Decide by ANY verified row (robust)
             is_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
             if not is_verified_now:
                 return redirect(reverse("account_email_verification_sent") + "?annual=1")
@@ -687,9 +681,10 @@ class StrictLoginView(LoginView):
         # Not expired: keep your new-user path (auto-send + banner)
         if not email_obj.verified:
             send_email_confirmation(self.request, user)
-            messages.error(
+            # Use success so the standard confirm page (non-annual) shows a green banner
+            messages.success(
                 self.request,
-                "Your email address is not verified. A new confirmation email has been sent.",
+                "A new confirmation email has been sent.",
             )
             return redirect("account_email_verification_sent")
 
