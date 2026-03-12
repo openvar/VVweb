@@ -44,6 +44,7 @@ class TierEnforcementMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+        # Allowed during verification to avoid redirect loops (general)
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -79,8 +80,7 @@ class TierEnforcementMiddleware:
             return redirect(reverse("account_login"))
 
         # ---- Resolve Allauth email state (robust) ----
-        # Ensure at least one row exists; ensure one primary; then determine
-        # 'email_verified_now' by checking ANY verified row for this user.
+        # Ensure a row exists; ensure one primary
         email_row = None
         if user.email:
             email_row = EmailAddress.objects.filter(
@@ -96,6 +96,7 @@ class TierEnforcementMiddleware:
                 email_row.primary = True
                 email_row.save(update_fields=["primary"])
 
+        # ANY verified row indicates confirmed
         email_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
 
         # ---- Determine states ----
@@ -124,21 +125,20 @@ class TierEnforcementMiddleware:
         # ANNUAL EXPIRED (idempotent FULL RESET, keep terms timestamp)
         # -----------------------------
         if is_auto_expired:
-            # Perform the full reset only if the profile is NOT already in pre-verification state
+            # One-time FULL RESET (only if not already in pre-verification state)
             profile_needs_reset = (
-                profile.verification_status != "not_started" or
-                profile.org_type is not None or
-                profile.jobrole != "" or
-                profile.personal_info_is_completed or
-                profile.completion_level != 0 or
-                profile.verified_at is not None or
-                profile.verified_by is not None or
-                profile.rejection_reason != "" or
-                profile.email_is_verified  # any True here means it's not fully reset
+                profile.verification_status != "not_started"
+                or profile.org_type is not None
+                or profile.jobrole != ""
+                or profile.personal_info_is_completed
+                or profile.completion_level != 0
+                or profile.verified_at is not None
+                or profile.verified_by is not None
+                or profile.rejection_reason != ""
+                or profile.email_is_verified
             )
 
             if profile_needs_reset:
-                # FULL PROFILE reset (leave terms_accepted_at unchanged)
                 profile.email_is_verified = False
                 profile.verification_status = "not_started"
                 profile.org_type = None
@@ -150,7 +150,6 @@ class TierEnforcementMiddleware:
                 profile.rejection_reason = ""
                 profile.save()
 
-                # ALLAUTH: ensure exists, primary, and unverified
                 if email_row:
                     email_row.verified = False
                     email_row.primary = True
@@ -167,12 +166,18 @@ class TierEnforcementMiddleware:
 
             # ROUTE while terms still > 1 year
             if not email_verified_now:
-                # Ensure we ALWAYS have ?annual=1 on the confirm page
+                # Allow confirm-email AND resend-confirmation AND accounts/email to pass through
                 if request.path.startswith("/accounts/confirm-email/"):
+                    # Normalize flag
                     if request.GET.get("annual") != "1":
                         return redirect(reverse("account_email_verification_sent") + "?annual=1")
                     return self.get_response(request)
-                # Not already on confirm page -> send to annual confirm URL
+
+                if request.path.startswith("/accounts/resend-confirmation/") or request.path.startswith("/accounts/email/"):
+                    # Let the resend/email management views run so the first click works
+                    return self.get_response(request)
+
+                # Otherwise, force the annual confirm page
                 return redirect(reverse("account_email_verification_sent") + "?annual=1")
 
             # Email verified; continue to user verification (/verify/)
@@ -185,12 +190,10 @@ class TierEnforcementMiddleware:
         # -----------------------------
         status = profile.verification_status
 
-        # 1) BANNED
         if status == "banned":
             logout(request)
             return redirect("/banned/")
 
-        # 2) COMMERCIAL
         if status == "commercial":
             quota = getattr(user, "variant_quota", None)
             if quota is None:
@@ -199,8 +202,7 @@ class TierEnforcementMiddleware:
                 return self.get_response(request)
 
             # If you recalc quota per request, call here:
-            # quota.check_subscription_status()
-            # quota.reset_if_needed()
+            # quota.check_subscription_status(); quota.reset_if_needed()
 
             try:
                 if quota.effective_allowance > 0:
@@ -212,16 +214,10 @@ class TierEnforcementMiddleware:
                 return redirect("/commercial/")
             return self.get_response(request)
 
-        # 3) VERIFIED / AUTO_VERIFIED (non-commercial)
         if status in ("verified", "auto_verified"):
-            # If you recalc quota per request, call here:
-            # quota = getattr(user, "variant_quota", None)
-            # if quota:
-            #     quota.check_subscription_status()
-            #     quota.reset_if_needed()
             return self.get_response(request)
 
-        # 4) NOT VERIFIED with recent terms -> allow only whitelisted paths
+        # NOT VERIFIED with recent terms -> allow only whitelisted paths
         for allowed in self.allowed_prefixes:
             if request.path.startswith(allowed):
                 return self.get_response(request)
