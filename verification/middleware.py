@@ -14,13 +14,13 @@ class TierEnforcementMiddleware:
     """
     Entitlement + annual re-validation middleware (logout/login safe).
 
-    • New user (terms_accepted_at is None):
-        - email NOT verified -> /accounts/confirm-email/        (no ?annual=1)
+    NEW USER (terms_accepted_at is None):
+        - email NOT verified -> /accounts/confirm-email/              (no ?annual=1)
         - email verified     -> /verify/
       (No reset for new users)
 
-    • Existing user (auto-expired: terms_accepted_at + 365d <= now):
-        - Perform FULL RESET the first time we detect expiry:
+    EXISTING USER (auto-expired: terms_accepted_at + 365d <= now):
+        - Perform FULL RESET the first time expiry is detected:
             * profile.email_is_verified = False
             * profile.verification_status = "not_started"
             * profile.org_type = None
@@ -32,17 +32,23 @@ class TierEnforcementMiddleware:
             * profile.rejection_reason = ""
             * Allauth EmailAddress: ensure exists, primary=True, verified=False
           IMPORTANT: we DO NOT set terms_accepted_at = None for auto-expiry.
-                     We leave the old timestamp so the system can still
-                     recognize “annual mode” after logout/login.
-        - On every request while terms > 1 year:
-            * If email NOT verified -> /accounts/confirm-email/?annual=1
+                     We leave the old timestamp so expiry is still detectable after logout/login.
+
+        - While terms remain > 1 year:
+            * If email NOT verified -> redirect to /accounts/confirm-email/?annual=1
+                                       and set session flags:
+                                         - session['annual_revalidation'] = True
+                                         - session['account_email'] = user.email
             * If email verified     -> /verify/
-      (Reset is idempotent: performed only if not already in pre-verification state)
+
+      The reset is idempotent: performed only if the profile is not already in
+      the pre-verification state (so we don’t keep blanking on every request).
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
+        # Paths allowed during verification lockout (avoid redirect loops)
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -65,21 +71,22 @@ class TierEnforcementMiddleware:
         if not (user and user.is_authenticated):
             return self.get_response(request)
 
-        # Normalize stored email
+        # Normalize stored email (consistent casing)
         if user.email:
             lowered = user.email.lower().strip()
             if lowered != user.email:
                 user.email = lowered
                 user.save(update_fields=["email"])
 
+        # Ensure a profile exists
         profile = getattr(user, "profile", None)
         if not profile:
             logout(request)
             return redirect(reverse("account_login"))
 
-        # Resolve Allauth email entry (create if missing); do not auto-send here
-        email_verified_now = False
+        # Resolve (or create) Allauth EmailAddress; DO NOT auto-send here
         email_obj = None
+        email_verified_now = False
         if user.email:
             email_obj, _ = EmailAddress.objects.get_or_create(
                 user=user,
@@ -91,15 +98,17 @@ class TierEnforcementMiddleware:
                 email_obj.save(update_fields=["primary"])
             email_verified_now = bool(email_obj.verified)
 
-        # ---- Determine states ----
+        # Current states
         now = timezone.now()
         terms = profile.terms_accepted_at
         is_new_user_terms = (terms is None)
         is_auto_expired = (terms is not None) and (now >= terms + timedelta(days=365))
 
-        # ---- NEW USER (no reset) ----
+        # -----------------------------
+        # NEW USER (no reset)
+        # -----------------------------
         if is_new_user_terms and not is_auto_expired:
-            # Keep a helpful email in session for the template
+            # helpful: keep address in session for the template
             if user.email:
                 request.session["account_email"] = user.email
 
@@ -112,23 +121,25 @@ class TierEnforcementMiddleware:
                     return redirect("/verify/")
                 return self.get_response(request)
 
-        # ---- AUTO-EXPIRED (idempotent FULL RESET, but keep terms timestamp) ----
+        # -----------------------------
+        # ANNUAL EXPIRED (idempotent reset)
+        # -----------------------------
         if is_auto_expired:
-            # Perform the full reset only if the profile is NOT already in pre-verification state
+            # One-time FULL RESET (only if not already in pre-verification state)
             profile_needs_reset = (
-                profile.verification_status != "not_started" or
-                profile.org_type is not None or
-                profile.jobrole != "" or
-                profile.personal_info_is_completed or
-                profile.completion_level != 0 or
-                profile.verified_at is not None or
-                profile.verified_by is not None or
-                profile.rejection_reason != "" or
-                profile.email_is_verified  # any True here means it's not fully reset
+                profile.verification_status != "not_started"
+                or profile.org_type is not None
+                or profile.jobrole != ""
+                or profile.personal_info_is_completed
+                or profile.completion_level != 0
+                or profile.verified_at is not None
+                or profile.verified_by is not None
+                or profile.rejection_reason != ""
+                or profile.email_is_verified  # any True implies not fully reset
             )
 
             if profile_needs_reset:
-                # FULL PROFILE reset (leave terms_accepted_at unchanged)
+                # PROFILE reset (keep terms_accepted_at unchanged)
                 profile.email_is_verified = False
                 profile.verification_status = "not_started"
                 profile.org_type = None
@@ -140,42 +151,43 @@ class TierEnforcementMiddleware:
                 profile.rejection_reason = ""
                 profile.save()
 
-                # ALLAUTH: ensure exists, primary, and unverified
+                # ALLAUTH email: ensure exists, force unverified & primary
                 if email_obj:
                     email_obj.verified = False
                     email_obj.primary = True
                     email_obj.save()
                     EmailAddress.objects.filter(user=user).exclude(pk=email_obj.pk).update(primary=False)
-
-                    # IMPORTANT: reflect the unverified state immediately for routing below
+                    # reflect unverified immediately for routing below
                     email_verified_now = False
 
-                # Make the email address visible on landing (even after logout)
-                if user.email:
-                    request.session["account_email"] = user.email
+            # Always support the confirm page with session details during annual mode
+            if user.email:
+                request.session["account_email"] = user.email
+            request.session["annual_revalidation"] = True
 
-                # Mark this browser session as being in annual mode so the template can show annual copy
-                request.session["annual_revalidation"] = True
-
-            # Route while terms still > 1 year:
+            # Route: while terms still expired
             if not email_verified_now:
-                # Always show annual landing (logout/login safe)
+                # annual landing (with flag), unless already on it
                 if not request.path.startswith("/accounts/confirm-email/"):
                     return redirect(reverse("account_email_verification_sent") + "?annual=1")
                 return self.get_response(request)
             else:
-                # Email verified; proceed to profile verification (/verify/)
+                # email verified; proceed to user verification (/verify/)
                 if not request.path.startswith("/verify/"):
                     return redirect("/verify/")
                 return self.get_response(request)
 
-        # ---- Recent terms: standard enforcement ----
+        # -----------------------------
+        # RECENT TERMS: standard enforcement (unchanged)
+        # -----------------------------
         status = profile.verification_status
 
+        # 1) BANNED
         if status == "banned":
             logout(request)
             return redirect("/banned/")
 
+        # 2) COMMERCIAL
         if status == "commercial":
             quota = getattr(user, "variant_quota", None)
             if quota is None:
@@ -193,6 +205,7 @@ class TierEnforcementMiddleware:
                 return redirect("/commercial/")
             return self.get_response(request)
 
+        # 3) VERIFIED / AUTO_VERIFIED (non-commercial)
         if status in ("verified", "auto_verified"):
             quota = getattr(user, "variant_quota", None)
             if quota:
@@ -200,14 +213,12 @@ class TierEnforcementMiddleware:
                 quota.reset_if_needed()
             return self.get_response(request)
 
-        # Pending/not_started with recent terms → allow only whitelisted paths
+        # 4) NOT VERIFIED with recent terms -> allow only whitelisted paths
         for allowed in self.allowed_prefixes:
             if request.path.startswith(allowed):
                 return self.get_response(request)
 
         return redirect("/verify/")
-
-
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
