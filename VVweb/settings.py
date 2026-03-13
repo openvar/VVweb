@@ -185,7 +185,7 @@ ACCOUNT_FORMS = {
 
 # Custom display name function
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
-``
+
 
 # -------------------------------------------------------------------
 # SESSION MANAGEMENT (prevents stale-session redirect loops)
