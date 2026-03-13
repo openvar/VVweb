@@ -71,17 +71,20 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # ENFORCEMENT MIDDLEWARE
+    # Your main enforcement
     'verification.middleware.TierEnforcementMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Allauth runs here
     'allauth.account.middleware.AccountMiddleware',
-    'verification.middleware_postallauth.PostAllauthLoginRedirectFix'
+    # MUST COME IMMEDIATELY AFTER ALLAUTH
+    'verification.middleware_postallauth.PostAllauthLoginRedirectFix',
 ]
+
 
 
 ROOT_URLCONF = 'VVweb.urls'

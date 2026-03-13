@@ -610,8 +610,6 @@ class StyledSignupView(SignupView):
         return response
 
 
-
-
 class StrictLoginView(LoginView):
     """
     Routing on login:

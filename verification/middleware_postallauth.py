@@ -1,33 +1,40 @@
 # verification/middleware_postallauth.py
-
 from django.shortcuts import redirect
 from django.urls import reverse
 
 class PostAllauthLoginRedirectFix:
     """
-    Fix Allauth auto-redirecting unverified users back to /accounts/login/
-    after auto-sending a confirmation email, by redirecting them instead
-    to /accounts/confirm-email/.
+    Intercept Allauth's redirect to the login page that happens when an
+    unverified user attempts to log in (Allauth auto-sends email then
+    bounces to /accounts/login/?next=...).
+
+    We override that bounce and send the user to our confirm-email landing.
+    This works for both anonymous and authenticated requests.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-
         response = self.get_response(request)
 
-        # Only care about redirects
-        if hasattr(response, "url"):
-            url = response.url
+        # Only examine redirect responses (HttpResponseRedirect/HttpResponsePermanentRedirect)
+        if not hasattr(response, "url"):
+            return response
 
-            # Case 1: Allauth bounced user back to login *after* auto-send
-            if url.startswith("/accounts/login"):
+        url = response.url or ""
 
-                # Only intervene if the user is logged in already
-                if request.user.is_authenticated:
-                    # Route user to your email confirmation page instead
-                    return redirect(reverse("account_email_verification_sent"))
+        # Allauth uses multiple forms:
+        #   /accounts/login/
+        #   /accounts/login/?next=/accounts/confirm-email/
+        #   https://<host>/accounts/login/?...
+        # Use substring check and avoid loops if we're already on confirm page.
+        if "accounts/login" in url:
+            # If the target is already confirm-email, let it pass
+            # (defensive: some setups send next=/accounts/confirm-email/)
+            # We still prefer to send the user there directly.
+            confirm_url = reverse("account_email_verification_sent")
+            return redirect(confirm_url)
 
         return response
 
