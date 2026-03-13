@@ -1,15 +1,19 @@
 # verification/middleware_postallauth.py
+
 from django.shortcuts import redirect
 from django.urls import reverse
 
 class PostAllauthLoginRedirectFix:
     """
-    Intercept Allauth's redirect to the login page that happens when an
-    unverified user attempts to log in (Allauth auto-sends email then
-    bounces to /accounts/login/?next=...).
+    Intercept Allauth's redirect to /accounts/login/ that occurs AFTER login
+    (i.e., when the user is authenticated but Allauth tries to bounce them back
+    to the login form due to email not being verified yet).
 
-    We override that bounce and send the user to our confirm-email landing.
-    This works for both anonymous and authenticated requests.
+    Anonymous users MUST NOT be intercepted — Allauth intentionally redirects
+    anonymous users during the mandatory-email-verification workflow.
+
+    This middleware safely overrides the unwanted redirect AFTER login,
+    sending the user to /accounts/confirm-email/ instead.
     """
 
     def __init__(self, get_response):
@@ -18,23 +22,23 @@ class PostAllauthLoginRedirectFix:
     def __call__(self, request):
         response = self.get_response(request)
 
-        # Only examine redirect responses (HttpResponseRedirect/HttpResponsePermanentRedirect)
+        # Only handle redirect responses
         if not hasattr(response, "url"):
             return response
 
         url = response.url or ""
 
-        # Allauth uses multiple forms:
-        #   /accounts/login/
-        #   /accounts/login/?next=/accounts/confirm-email/
-        #   https://<host>/accounts/login/?...
-        # Use substring check and avoid loops if we're already on confirm page.
-        if "accounts/login" in url:
-            # If the target is already confirm-email, let it pass
-            # (defensive: some setups send next=/accounts/confirm-email/)
-            # We still prefer to send the user there directly.
-            confirm_url = reverse("account_email_verification_sent")
-            return redirect(confirm_url)
+        # Only intercept when the USER *IS AUTHENTICATED*
+        # (Anonymous bounce is part of Allauth's flow and must not be intercepted)
+        if request.user.is_authenticated:
+
+            # Allauth uses both absolute and relative login URLs:
+            #   /accounts/login/
+            #   /accounts/login/?next=...
+            #   https://www182.lamp.le.ac.uk/accounts/login/?...
+            if "accounts/login" in url:
+                # Route user to your confirm-email landing instead of bouncing to login
+                return redirect(reverse("account_email_verification_sent"))
 
         return response
 
