@@ -611,18 +611,21 @@ class StyledSignupView(SignupView):
 
 
 
+
 class StrictLoginView(LoginView):
     """
-    • Lowercase login input & stored user.email
-    • If terms > 1 year (EXPIRED):
-        - NOT verified -> /accounts/confirm-email/?annual=1 (no auto-send, no banner)
-        - verified     -> /verify/ (after login)
-    • If NOT expired:
-        - NOT verified -> auto-send + banner, then /accounts/confirm-email/
-        - verified     -> normal success path
+    Routing on login:
+      • Reset account (admin/auto): terms=None & reset_reason in {'admin','auto'}
+          - unverified -> /accounts/confirm-email/
+          - verified   -> /verify/
+      • True new user: terms=None & reset_reason is None
+          - unverified -> /accounts/confirm-email/
+          - verified   -> normal success
+      • Otherwise (terms set): keep normal success path (or your existing logic)
     """
 
     def post(self, request, *args, **kwargs):
+        # Normalize the username/email the user types into the login form
         if request.method == "POST":
             data = request.POST.copy()
             if "login" in data and data["login"]:
@@ -633,56 +636,56 @@ class StrictLoginView(LoginView):
     def form_valid(self, form):
         user = form.user
 
-        # Normalize stored email
+        # Normalize stored email on login
         lowered = (user.email or "").lower().strip()
         if user.email != lowered:
             user.email = lowered
             user.save(update_fields=["email"])
 
-        # Ensure EmailAddress row exists and is primary
-        email_obj, _ = EmailAddress.objects.get_or_create(
-            user=user,
-            email=lowered,
-            defaults={"primary": True, "verified": False},
-        )
-        if not email_obj.primary:
-            email_obj.primary = True
-            email_obj.save(update_fields=["primary"])
+        # Ensure an EmailAddress row exists and is primary
+        # (no auto-send here; we’re only routing)
+        ea = EmailAddress.objects.filter(user=user, email__iexact=lowered).order_by("-primary").first()
+        if not ea:
+            ea = EmailAddress.objects.create(user=user, email=lowered, primary=True, verified=False)
+        elif not ea.primary:
+            ea.primary = True
+            ea.save(update_fields=["primary"])
 
-        # Expose for landing template
+        # Make the email available to the confirm page
         self.request.session["account_email"] = lowered
 
-        # Detect annual expiry
-        expired = False
-        profile = getattr(user, "profile", None)
-        if profile and profile.terms_accepted_at:
-            expired = timezone.now() >= profile.terms_accepted_at + timedelta(days=365)
-
-        # Log the user in FIRST, so subsequent redirects are authenticated
+        # *** Log the user in FIRST so subsequent redirects are authenticated
         response = super().form_valid(form)
 
-        if expired:
-            self.request.session["annual_revalidation"] = True
-            # Decide by ANY verified row (robust)
-            is_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
-            if not is_verified_now:
-                return redirect(reverse("account_email_verification_sent") + "?annual=1")
+        # Snapshot Allauth/ Profile state
+        is_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
+        profile = getattr(user, "profile", None)
+        terms = getattr(profile, "terms_accepted_at", None)
+        reset_reason = getattr(profile, "reset_reason", None)
 
-            # SAFETY-NET: sync profile flag to Allauth verification
-            if profile and not profile.email_is_verified:
-                profile.email_is_verified = True
-                profile.save(update_fields=["email_is_verified"])
+        # ---------------------------
+        # TERMS == None  (new OR reset)
+        # ---------------------------
+        if terms is None:
+            # (A) Reset account (admin/auto)
+            if reset_reason in {"admin", "auto"}:
+                if not is_verified_now:
+                    return redirect(reverse("account_email_verification_sent"))
+                return redirect("/verify/")
 
-            return redirect("/verify/")
+            # (B) True new account (no reset marker)
+            if reset_reason is None:
+                if not is_verified_now:
+                    return redirect(reverse("account_email_verification_sent"))
+                # verified true new → normal success
+                return response
 
-        # Not expired: keep new-user behavior (auto-send + banner)
-        if not email_obj.verified:
-            send_email_confirmation(self.request, user)
-            messages.success(self.request, "A new confirmation email has been sent.")
-            return redirect("account_email_verification_sent")
-
+        # ---------------------------
+        # TERMS present (not new/reset)
+        # ---------------------------
+        # Keep your normal post-login path; if you want to require verify,
+        # you could bounce unverified users to the confirm page here.
         return response
-
 
 
 # <LICENSE>
