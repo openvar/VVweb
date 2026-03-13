@@ -92,7 +92,7 @@ class UserProfile(models.Model):
         verbose_name=_('Has been told account will be deleted')
     )
 
-    # -------- NEW mandatory fields --------
+    # -------- Mandatory fields --------
     org_type = models.CharField(
         max_length=50,
         choices=ORG_TYPES,
@@ -108,7 +108,7 @@ class UserProfile(models.Model):
         verbose_name=_("Verification Status")
     )
 
-    # -------- NEW identity evidence fields --------
+    # -------- Identity evidence fields --------
     orcid_id = models.CharField(
         max_length=50,
         blank=True,
@@ -130,7 +130,7 @@ class UserProfile(models.Model):
         verbose_name=_("Additional Verification Notes")
     )
 
-    # -------- NEW admin/audit-trail fields (REQUIRED BY YOUR ADMIN) --------
+    # -------- Admin/audit-trail fields --------
     terms_accepted_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -157,15 +157,38 @@ class UserProfile(models.Model):
         verbose_name=_("Rejection Reason")
     )
 
+    # -------- NEW: reset markers to distinguish NEW vs RESET --------
+    RESET_REASON_CHOICES = (
+        ("admin", "Admin"),
+        ("auto", "AutoExpired"),
+    )
+    reset_reason = models.CharField(
+        max_length=16,
+        choices=RESET_REASON_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name=_("Reset Reason"),
+        help_text=_("Blank for true new users; 'admin' for manual reset; 'auto' for auto-expiry reset.")
+    )
+    reset_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Reset At"),
+        help_text=_("Timestamp of the last reset to new-account state.")
+    )
 
     class Meta:
         verbose_name = _('User profile')
         verbose_name_plural = _('User profiles')
+        indexes = [
+            models.Index(fields=["reset_reason"]),
+            models.Index(fields=["terms_accepted_at"]),
+        ]
 
     def __str__(self):
         return f"User profile: {self.user.username}"
 
-    # Keep your completion logic unchanged
+    # -------- Completion helpers --------
     def get_completion_level(self):
         level = 0
         if self.email_is_verified:
@@ -176,9 +199,9 @@ class UserProfile(models.Model):
 
     def update_completion_level(self):
         self.completion_level = self.get_completion_level()
-        self.save()
+        self.save(update_fields=["completion_level"])
 
-    # Helpers for middleware / views
+    # -------- Convenience predicates --------
     def is_banned(self):
         return self.verification_status == "banned"
 
@@ -190,6 +213,13 @@ class UserProfile(models.Model):
 
     def requires_verification(self):
         return self.verification_status in ("not_started", "pending")
+
+    def is_revalidation(self) -> bool:
+        """
+        True when this profile was reset (admin or auto) and is currently in
+        a 'new-account' state (terms_accepted_at is None).
+        """
+        return self.terms_accepted_at is None and self.reset_reason is not None
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

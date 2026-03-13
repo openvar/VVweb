@@ -104,12 +104,18 @@ def verify_identity(request):
             org_type = form.cleaned_data["org_type"]
             profile.org_type = org_type
 
-            # NEW: Save country (required field on the form)
+            # Save country (required field on the form)
             profile.country = form.cleaned_data["country"]
 
             profile.orcid_id = form.cleaned_data.get("orcid_id", "")
             profile.verification_notes = form.cleaned_data.get("notes", "")
+
+            # User accepts terms here → start a new cycle
             profile.terms_accepted_at = timezone.now()
+
+            # 🔑 IMPORTANT: clear revalidation markers now that a new cycle starts
+            profile.reset_reason = None
+            profile.reset_at = None
 
             # Trusted-domain auto verification
             domain = extract_domain(request.user.email)
@@ -119,7 +125,7 @@ def verify_identity(request):
                 profile.verification_status = "auto_verified"
                 profile.verified_at = timezone.now()
                 profile.verified_by = None
-                profile.save()
+                profile.save()  # includes cleared reset markers
                 messages.success(request, "Your account was automatically verified.")
                 return redirect("/")
 
@@ -128,7 +134,7 @@ def verify_identity(request):
             # -----------------------------------------------------------------
             if org_type == "commercial":
                 profile.verification_status = "commercial"
-                profile.save()
+                profile.save()  # includes cleared reset markers
 
                 # Email user the commercial instructions
                 send_mail(
@@ -182,7 +188,7 @@ def verify_identity(request):
             # NON-COMMERCIAL UNTRUSTED USERS (PENDING → ADMIN REVIEW)
             # -----------------------------------------------------------------
             profile.verification_status = "pending"
-            profile.save()
+            profile.save()  # includes cleared reset markers
 
             # Save evidence URLs
             url1 = form.cleaned_data.get("evidence_url_1")

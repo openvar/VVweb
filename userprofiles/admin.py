@@ -183,24 +183,28 @@ def ban_users(modeladmin, request, queryset):
 
 
 # ======================================================================
-# NEW ADMIN ACTION: FORCE RE‑VALIDATION (CORRECTED)
+# ADMIN ACTION: FORCE RE‑VALIDATION (RESET TO NEW)
 # ======================================================================
 
-
-@admin.action(description="Force re-validation for selected users (reset to NEW)")
+@admin.action(description="Force re‑validation (reset to NEW) for selected users")
 def force_revalidation(modeladmin, request, queryset):
     """
-    Reset selected users to an exact 'new account' state so middleware treats
-    them as NEW (not 'expired') on the very next request.
+    Reset selected users to an exact 'new account' state so the middleware
+    treats them as NEW on the next request (not 'expired').
 
-      • terms_accepted_at = None       <-- critical to avoid 'stuck expired'
+      • terms_accepted_at = None          <-- critical for avoiding loops
       • email_is_verified = False
-      • verification_status = 'not_started'
-      • org_type = None, jobrole = "", personal_info_is_completed = False
-      • completion_level = 0, verified_at/by = None, rejection_reason = ""
-      • Allauth EmailAddress: ensure row exists, primary=True, verified=False
+      • verification_status = "not_started"
+      • org_type = None, jobrole = ""
+      • personal_info_is_completed = False
+      • completion_level = 0
+      • verified_at/by = None, rejection_reason = ""
+      • reset_reason = 'admin', reset_at = now   <-- new markers
+      • Allauth EmailAddress: ensure row exists for user.email,
+        set verified=False, and make it the sole primary
     """
     updated = 0
+    now = timezone.now()
 
     for profile in queryset.select_related("user"):
         user = profile.user
@@ -212,7 +216,7 @@ def force_revalidation(modeladmin, request, queryset):
                 user.email = lower
                 user.save(update_fields=["email"])
 
-        # ---- Profile -> NEW account state
+        # ---- Profile -> NEW account state + markers
         profile.email_is_verified = False
         profile.verification_status = "not_started"
         profile.org_type = None
@@ -222,28 +226,35 @@ def force_revalidation(modeladmin, request, queryset):
         profile.verified_at = None
         profile.verified_by = None
         profile.rejection_reason = ""
-        profile.terms_accepted_at = None   # <-- treat as NEW after reset (prevents "stuck expired")
-        profile.save()
+        profile.terms_accepted_at = None
+        profile.reset_reason = "admin"   # <-- mark this was admin-initiated
+        profile.reset_at = now
+        profile.save(update_fields=[
+            "email_is_verified", "verification_status", "org_type", "jobrole",
+            "personal_info_is_completed", "completion_level",
+            "verified_at", "verified_by", "rejection_reason",
+            "terms_accepted_at", "reset_reason", "reset_at",
+        ])
 
         # ---- Allauth email rows
         if user.email:
-            # ensure the row for user.email exists
             email_obj, _ = EmailAddress.objects.get_or_create(
                 user=user,
                 email=user.email,
                 defaults={"primary": True, "verified": False},
             )
-            # unverify and make this the sole primary
-            email_obj.verified = False
-            email_obj.primary = True
-            email_obj.save(update_fields=["verified", "primary"])
+            # Make this the sole primary and unverified
             EmailAddress.objects.filter(user=user).exclude(pk=email_obj.pk).update(primary=False)
+            if not email_obj.primary:
+                email_obj.primary = True
+            email_obj.verified = False
+            email_obj.save(update_fields=["primary", "verified"])
 
         updated += 1
 
     modeladmin.message_user(
         request,
-        f"Forced re‑validation for {updated} profile(s): reset to NEW (terms cleared, email unverified).",
+        f"Forced re‑validation for {updated} profile(s): reset to NEW (terms cleared, email unverified, admin marker set).",
         level=messages.SUCCESS,
     )
 
@@ -265,11 +276,13 @@ class UserProfileAdmin(admin.ModelAdmin):
         "institution_name",
         "effective_allowance_display",
         "terms_accepted_at",
+        "reset_reason",      # <-- surface the markers (helps ops)
+        "reset_at",
         "verified_at",
     )
 
     search_fields = ("user__username", "user__email", "country", "org_type")
-    list_filter = ("org_type", "verification_status", "country")
+    list_filter = ("org_type", "verification_status", "country", "reset_reason")
 
     # TERMS ACCEPTED REMAINS READ-ONLY (your requirement)
     readonly_fields = (
@@ -277,6 +290,8 @@ class UserProfileAdmin(admin.ModelAdmin):
         "verified_by",
         "terms_accepted_at",
         "rejection_reason",
+        "reset_reason",   # keep markers readonly; they’re system-set
+        "reset_at",
     )
 
     actions = [
@@ -310,7 +325,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 
         if user.email:
             lower = user.email.lower().strip()
-            if lower != user.email:
+            if user.email != lower:
                 user.email = lower
                 user.save(update_fields=["email"])
 
@@ -337,7 +352,6 @@ class UserProfileAdmin(admin.ModelAdmin):
             quota.save()
         except Exception:
             pass
-
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

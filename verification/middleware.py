@@ -32,6 +32,7 @@ class TierEnforcementMiddleware:
             * profile.rejection_reason = ""
             * Allauth EmailAddress: set verified=False for all rows
             * IMPORTANT: set profile.terms_accepted_at = None  (becomes "new" after reset)
+            * NEW: profile.reset_reason="auto", profile.reset_at=now  (differentiate from true new)
         - After reset (with terms_accepted_at=None), route as a new user.
     """
 
@@ -99,7 +100,15 @@ class TierEnforcementMiddleware:
             profile.rejection_reason = ""
             # IMPORTANT: blank terms so subsequent requests are treated as "new"
             profile.terms_accepted_at = None
-            profile.save()
+            # NEW: mark why/when this reset happened
+            profile.reset_reason = "auto"
+            profile.reset_at = now
+            profile.save(update_fields=[
+                "email_is_verified", "verification_status", "org_type", "jobrole",
+                "personal_info_is_completed", "completion_level",
+                "verified_at", "verified_by", "rejection_reason",
+                "terms_accepted_at", "reset_reason", "reset_at",
+            ])
 
             # Allauth: mark all addresses as unverified
             EmailAddress.objects.filter(user=user).update(verified=False)
