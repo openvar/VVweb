@@ -154,7 +154,7 @@ AUTHENTICATION_BACKENDS = (
 LOGIN_REDIRECT_URL = 'profile-home'
 
 # ==============================
-# Django Allauth Configuration (modern)
+# Django Allauth Configuration
 # ==============================
 
 # Allow login using either email or username
@@ -163,26 +163,29 @@ ACCOUNT_LOGIN_METHODS = {'email', 'username'}
 # Signup fields: all required
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 
-# Email verification is mandatory
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# IMPORTANT:
+# Let users LOG IN even if their email is not verified yet.
+# Your own middleware + StrictLoginView handle verification flow.
+ACCOUNT_EMAIL_VERIFICATION = "optional"        # was "mandatory"
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_PRESERVE_EMAIL_CASE = False
 
-# Automatically log user in after confirming email
+# Do NOT auto-send email confirmation on login or signup.
+# Your system sends email only when the user clicks "Send".
+ACCOUNT_EMAIL_CONFIRMATION_AUTO_SEND = False
+ACCOUNT_EMAIL_CONFIRMATION_AUTO_SEND_ON_LOGIN = False
+
+# Do NOT auto-log-in users after confirming email (you prefer login first).
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
-# ACCOUNT_SIGNUP_REDIRECT_URL = "/accounts/confirm-email/"
 
 # Custom signup form
 ACCOUNT_FORMS = {
     'signup': 'web.forms.UpdatedSignUpForm',
 }
 
-# Custom display name function for users
-ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
-
 # Custom display name function
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
-
-# Ensure lower case at login
-ACCOUNT_PRESERVE_EMAIL_CASE = False
+``
 
 # -------------------------------------------------------------------
 # SESSION MANAGEMENT (prevents stale-session redirect loops)
