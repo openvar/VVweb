@@ -170,8 +170,6 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
 # ACCOUNT_SIGNUP_REDIRECT_URL = "/accounts/confirm-email/"
 
-
-
 # Custom signup form
 ACCOUNT_FORMS = {
     'signup': 'web.forms.UpdatedSignUpForm',
@@ -180,15 +178,31 @@ ACCOUNT_FORMS = {
 # Custom display name function for users
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
 
-# Email must be unique — enforced via signup fields
-# (ACCOUNT_EMAIL_REQUIRED and ACCOUNT_UNIQUE_EMAIL are deprecated)
-
-
 # Custom display name function
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
 
 # Ensure lower case at login
 ACCOUNT_PRESERVE_EMAIL_CASE = False
+
+# -------------------------------------------------------------------
+# SESSION MANAGEMENT (prevents stale-session redirect loops)
+# -------------------------------------------------------------------
+
+# Two weeks — standard for authenticated sessions
+SESSION_COOKIE_AGE = 1209600
+
+# Refresh session expiry on every request (keeps sessions fresh)
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Do NOT expire session on browser close
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# IMPORTANT:
+# When you change authentication flow, middleware order,
+# login logic, or Allauth behavior, bump this cookie name.
+# It forces all users to receive a *fresh* session and
+# prevents ERR_TOO_MANY_REDIRECTS after deployments.
+SESSION_COOKIE_NAME = "vvsession_v2"
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
