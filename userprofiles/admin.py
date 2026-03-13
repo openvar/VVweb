@@ -9,7 +9,6 @@ from allauth.account.models import EmailAddress
 from datetime import timedelta
 
 from .models import UserProfile
-from web.models import VariantQuota
 
 
 # ======================================================================
@@ -187,21 +186,23 @@ def ban_users(modeladmin, request, queryset):
 # NEW ADMIN ACTION: FORCE RE‑VALIDATION (CORRECTED)
 # ======================================================================
 
-@admin.action(description="Force re-validation for selected users")
+
+@admin.action(description="Force re-validation for selected users (reset to NEW)")
 def force_revalidation(modeladmin, request, queryset):
     """
-    Correct re-validation reset:
-      • Backdate terms_accepted_at
-      • Set profile.email_is_verified = False
-      • Reset verification_status, org_type, jobrole, completion stats
-      • Ensure Allauth EmailAddress exists
-      • Set EmailAddress.verified = False, primary = True
-    """
+    Reset selected users to an exact 'new account' state so middleware treats
+    them as NEW (not 'expired') on the very next request.
 
-    cutoff = timezone.now() - timedelta(days=366)
+      • terms_accepted_at = None       <-- critical to avoid 'stuck expired'
+      • email_is_verified = False
+      • verification_status = 'not_started'
+      • org_type = None, jobrole = "", personal_info_is_completed = False
+      • completion_level = 0, verified_at/by = None, rejection_reason = ""
+      • Allauth EmailAddress: ensure row exists, primary=True, verified=False
+    """
     updated = 0
 
-    for profile in queryset:
+    for profile in queryset.select_related("user"):
         user = profile.user
 
         # Normalize Django User email
@@ -211,8 +212,7 @@ def force_revalidation(modeladmin, request, queryset):
                 user.email = lower
                 user.save(update_fields=["email"])
 
-        # Reset profile fields
-        profile.terms_accepted_at = cutoff
+        # ---- Profile -> NEW account state
         profile.email_is_verified = False
         profile.verification_status = "not_started"
         profile.org_type = None
@@ -222,28 +222,28 @@ def force_revalidation(modeladmin, request, queryset):
         profile.verified_at = None
         profile.verified_by = None
         profile.rejection_reason = ""
+        profile.terms_accepted_at = None   # <-- treat as NEW after reset (prevents "stuck expired")
         profile.save()
 
-        # Reset Allauth email row
+        # ---- Allauth email rows
         if user.email:
+            # ensure the row for user.email exists
             email_obj, _ = EmailAddress.objects.get_or_create(
                 user=user,
                 email=user.email,
                 defaults={"primary": True, "verified": False},
             )
-
+            # unverify and make this the sole primary
             email_obj.verified = False
             email_obj.primary = True
-            email_obj.save()
-
-            # Remove primary from any other rows
+            email_obj.save(update_fields=["verified", "primary"])
             EmailAddress.objects.filter(user=user).exclude(pk=email_obj.pk).update(primary=False)
 
         updated += 1
 
     modeladmin.message_user(
         request,
-        f"Forced re-validation for {updated} profile(s): terms reset, email unverified.",
+        f"Forced re‑validation for {updated} profile(s): reset to NEW (terms cleared, email unverified).",
         level=messages.SUCCESS,
     )
 

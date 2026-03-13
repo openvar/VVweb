@@ -1,10 +1,8 @@
-# verification/middleware.py
-
 from datetime import timedelta
 
 from django.contrib.auth import logout
 from django.shortcuts import redirect
-from django.urls import reverse, resolve, Resolver404
+from django.urls import reverse
 from django.utils import timezone
 
 from allauth.account.models import EmailAddress
@@ -12,183 +10,128 @@ from allauth.account.models import EmailAddress
 
 class TierEnforcementMiddleware:
     """
-    Entitlement + annual re-validation (logout/login safe).
+    Enforces VariantValidator’s identity, verification and entitlement rules.
 
-    NEW USER (terms_accepted_at is None):
-        - email NOT verified -> /accounts/confirm-email/            (no ?annual=1)
+    Annual re-validation (clean revert style):
+
+    • New user (terms_accepted_at is None):
+        - email NOT verified -> /accounts/confirm-email/
         - email verified     -> /verify/
       (No reset for new users)
 
-    EXPIRED USER (terms_accepted_at + 365d <= now):
-        - One-time FULL RESET to pre-verification (keep terms timestamp).
-        - While expired:
-            * NOT verified -> /accounts/confirm-email/?annual=1
-            * verified     -> /verify/
+    • Auto-expired (terms_accepted_at + 365d <= now):
+        - FULL RESET exactly once:
+            * profile.email_is_verified = False
+            * profile.verification_status = "not_started"
+            * profile.org_type = None
+            * profile.jobrole = ""
+            * profile.personal_info_is_completed = False
+            * profile.completion_level = 0
+            * profile.verified_at = None
+            * profile.verified_by = None
+            * profile.rejection_reason = ""
+            * Allauth EmailAddress: set verified=False for all rows
+            * IMPORTANT: set profile.terms_accepted_at = None  (becomes "new" after reset)
+        - After reset (with terms_accepted_at=None), route as a new user.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
-
-        self.allowed_prefixes = [
-            "/verify/",
-            "/commercial/",
-            "/logout/",
+        # Minimal allowlist to avoid loops while unverified
+        self.allow_while_unverified = (
+            "/accounts/confirm-email/",        # landing and token views
+            "/accounts/resend-confirmation/",  # resend endpoint
+            "/accounts/email/",                # email mgmt
             "/accounts/login/",
             "/accounts/logout/",
             "/accounts/signup/",
-            "/accounts/confirm-email/",
-            "/accounts/email/",
-            "/accounts/resend-confirmation/",
+            "/verify/",                        # verification UI
+            "/commercial/",
+            "/logout/",
             "/static/",
-        ]
+        )
 
     def __call__(self, request):
-        # Allow logout/admin before enforcement
-        if request.path.startswith("/accounts/logout") or request.path.startswith("/admin/"):
+        # Always allow admin + logout before enforcement
+        if request.path.startswith("/admin/") or request.path.startswith("/accounts/logout"):
             return self.get_response(request)
 
-        user = getattr(request, "user", None)
-        if not (user and user.is_authenticated):
-            # Anonymous requests (e.g., clicking token from email) must pass to Allauth
+        user = request.user
+        if not user.is_authenticated:
+            # Anonymous (e.g., clicking the token from email) → let Allauth run
             return self.get_response(request)
 
         # Normalize stored email
         if user.email:
-            lowered = user.email.lower().strip()
-            if lowered != user.email:
-                user.email = lowered
+            lower = user.email.lower().strip()
+            if lower != user.email:
+                user.email = lower
                 user.save(update_fields=["email"])
 
+        # Require profile
         profile = getattr(user, "profile", None)
         if not profile:
             logout(request)
             return redirect(reverse("account_login"))
 
-        # Ensure an Allauth EmailAddress row exists; prefer one matching user.email and make it primary
-        email_row = None
-        if user.email:
-            email_row = EmailAddress.objects.filter(
-                user=user, email__iexact=user.email
-            ).order_by("-primary").first()
-            if not email_row:
-                email_row = EmailAddress.objects.filter(user=user).order_by("-primary").first()
-            if not email_row:
-                email_row = EmailAddress.objects.create(
-                    user=user, email=user.email, primary=True, verified=False
-                )
-            elif not email_row.primary:
-                email_row.primary = True
-                email_row.save(update_fields=["primary"])
-
-        # ANY verified row indicates confirmed
+        # Allauth verification state (any verified row counts)
         email_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
 
-        # States
+        # Terms state
         now = timezone.now()
         terms = profile.terms_accepted_at
-        is_new_user_terms = terms is None
-        is_auto_expired = (terms is not None) and (now >= terms + timedelta(days=365))
+        is_new = (terms is None)
+        is_expired = (terms is not None) and (now >= terms + timedelta(days=365))
 
-        # -----------------------------
-        # NEW USER (no reset)
-        # -----------------------------
-        if is_new_user_terms and not is_auto_expired:
+        # -------------------------------------------------
+        # AUTO-EXPIRED → one-time full reset, then behave as "new"
+        # -------------------------------------------------
+        if is_expired:
+            # FULL PROFILE reset (leave user object intact)
+            profile.email_is_verified = False
+            profile.verification_status = "not_started"
+            profile.org_type = None
+            profile.jobrole = ""
+            profile.personal_info_is_completed = False
+            profile.completion_level = 0
+            profile.verified_at = None
+            profile.verified_by = None
+            profile.rejection_reason = ""
+            # IMPORTANT: blank terms so subsequent requests are treated as "new"
+            profile.terms_accepted_at = None
+            profile.save()
+
+            # Allauth: mark all addresses as unverified
+            EmailAddress.objects.filter(user=user).update(verified=False)
+            email_verified_now = False  # reflect immediately
+
+            # From next request onward, the branch below ("new") will apply.
+            # Fall through to the "new" logic without further redirects here.
+
+        # -------------------------------------------------
+        # NEW (terms is None)  — includes auto-expired after reset
+        # -------------------------------------------------
+        if profile.terms_accepted_at is None:
+            # helpful: show address on landing
             if user.email:
                 request.session["account_email"] = user.email
 
             if not email_verified_now:
-                if not request.path.startswith("/accounts/confirm-email/"):
-                    return redirect(reverse("account_email_verification_sent"))
-                return self.get_response(request)
-
-            if not request.path.startswith("/verify/"):
-                return redirect("/verify/")
-            return self.get_response(request)
-
-        # -----------------------------
-        # EXPIRED (idempotent reset)
-        # -----------------------------
-        if is_auto_expired:
-            # One-time FULL RESET (only if not already in pre-verification state)
-            profile_needs_reset = (
-                profile.verification_status != "not_started"
-                or profile.org_type is not None
-                or profile.jobrole != ""
-                or profile.personal_info_is_completed
-                or profile.completion_level != 0
-                or profile.verified_at is not None
-                or profile.verified_by is not None
-                or profile.rejection_reason != ""
-                or profile.email_is_verified
-            )
-
-            if profile_needs_reset:
-                # PROFILE reset; keep terms timestamp
-                profile.email_is_verified = False
-                profile.verification_status = "not_started"
-                profile.org_type = None
-                profile.jobrole = ""
-                profile.personal_info_is_completed = False
-                profile.completion_level = 0
-                profile.verified_at = None
-                profile.verified_by = None
-                profile.rejection_reason = ""
-                profile.save()
-
-                if email_row:
-                    email_row.verified = False
-                    email_row.primary = True
-                    email_row.save()
-                    EmailAddress.objects.filter(user=user).exclude(pk=email_row.pk).update(primary=False)
-
-                email_verified_now = False  # reflect immediately
-
-            # Always prep landing context while expired
-            if user.email:
-                request.session["account_email"] = user.email
-            request.session["annual_revalidation"] = True
-
-            # Routing while still expired
-            if not email_verified_now:
-                # 1) Allow Allauth token confirm to pass:
-                #    - query style: /accounts/confirm-email/?key=<token>
-                #    - path  style: /accounts/confirm-email/<key>/
-                if request.path.startswith("/accounts/confirm-email/"):
-                    # query-style token
-                    if request.GET.get("key"):
+                # Allow confirm-email landing/token/resend/email mgmt to run
+                for allowed in self.allow_while_unverified:
+                    if request.path.startswith(allowed):
                         return self.get_response(request)
-                    # path-style token
-                    try:
-                        rm = resolve(request.path_info)
-                        if rm.url_name == "account_confirm_email":
-                            return self.get_response(request)
-                    except Resolver404:
-                        pass
-                    # landing: normalize ?annual=1
-                    if request.GET.get("annual") != "1":
-                        return redirect(reverse("account_email_verification_sent") + "?annual=1")
-                    return self.get_response(request)
+                # Otherwise send to confirm-email landing
+                return redirect(reverse("account_email_verification_sent"))
 
-                # 2) Allow resend + email management so first click works
-                if request.path.startswith("/accounts/resend-confirmation/") or request.path.startswith("/accounts/email/"):
-                    return self.get_response(request)
-
-                # 3) Otherwise force annual landing
-                return redirect(reverse("account_email_verification_sent") + "?annual=1")
-
-            # SAFETY-NET: If Allauth says verified, sync the profile flag so routing never sticks
-            if not profile.email_is_verified:
-                profile.email_is_verified = True
-                profile.save(update_fields=["email_is_verified"])
-
-            # Verified -> proceed to profile verification
+            # Verified → proceed to profile verification UI
             if not request.path.startswith("/verify/"):
                 return redirect("/verify/")
             return self.get_response(request)
 
-        # -----------------------------
-        # RECENT TERMS: standard enforcement
-        # -----------------------------
+        # -------------------------------------------------
+        # RECENT TERMS (not expired): standard enforcement
+        # -------------------------------------------------
         status = profile.verification_status
 
         if status == "banned":
@@ -201,11 +144,20 @@ class TierEnforcementMiddleware:
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
                 return self.get_response(request)
+
+            # If your quota model exposes these, keep them; otherwise omit.
             try:
-                if quota.effective_allowance > 0:
+                quota.check_subscription_status()
+                quota.reset_if_needed()
+            except Exception:
+                pass
+
+            try:
+                if getattr(quota, "effective_allowance", 0) > 0:
                     return self.get_response(request)
             except Exception:
                 pass
+
             if not request.path.startswith("/commercial/"):
                 return redirect("/commercial/")
             return self.get_response(request)
@@ -213,8 +165,8 @@ class TierEnforcementMiddleware:
         if status in ("verified", "auto_verified"):
             return self.get_response(request)
 
-        # Not verified (recent terms) -> allow only whitelisted paths
-        for allowed in self.allowed_prefixes:
+        # Not verified with recent terms → allow only the whitelist
+        for allowed in self.allow_while_unverified:
             if request.path.startswith(allowed):
                 return self.get_response(request)
 
