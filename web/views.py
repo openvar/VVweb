@@ -18,12 +18,15 @@ import sys
 import traceback
 from web.models import VariantQuota
 import logging
-from allauth.account.views import EmailVerificationSentView, SignupView, LoginView
+from allauth.account.views import SignupView, LoginView
 from allauth.account.utils import send_email_confirmation
 from allauth.account.models import EmailAddress
 from django.contrib import messages
 from datetime import timedelta
 from django.utils import timezone
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+
 
 
 
@@ -549,17 +552,19 @@ def bed_file(request):
 # CUSTOM EMAIL VIEWS
 # ======================================================================
 
-class StyledEmailSentView(EmailVerificationSentView):
+class StyledEmailSentView(LoginRequiredMixin, TemplateView):
     template_name = "account/email_confirmation_sent.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["email"] = self.request.session.get(
+        # address for the template
+        ctx["email_to_show"] = self.request.session.get(
             "account_email",
-            self.request.GET.get("email", "your email"),
+            self.request.user.email if self.request.user.is_authenticated else None,
         )
-        return ctx
-
+        # for copy switching and banners
+        ctx["annual"] = (self.request.GET.get("annual") == "1")
+        ctx["resent"] = (self.request.GET.get("resent") == "1")
 
 
 class StyledSignupView(SignupView):
@@ -603,19 +608,6 @@ class StyledSignupView(SignupView):
         self.request.session["account_email"] = email
 
         return response
-
-
-
-from datetime import timedelta
-
-from django.utils import timezone
-from django.shortcuts import redirect
-from django.urls import reverse
-from django.contrib import messages
-
-from allauth.account.models import EmailAddress
-from allauth.account.utils import send_email_confirmation
-from allauth.account.views import LoginView
 
 
 class StrictLoginView(LoginView):

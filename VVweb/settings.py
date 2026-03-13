@@ -158,6 +158,10 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
 # ACCOUNT_SIGNUP_REDIRECT_URL = "/accounts/confirm-email/"
 
+# Always hop through login after a successful email confirmation
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "account_login"
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = "account_login"
+
 # Custom signup form
 ACCOUNT_FORMS = {
     'signup': 'web.forms.UpdatedSignUpForm',

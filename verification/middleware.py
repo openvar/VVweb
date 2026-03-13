@@ -17,34 +17,16 @@ class TierEnforcementMiddleware:
     • New user (terms_accepted_at is None):
         - email NOT verified -> /accounts/confirm-email/        (no ?annual=1)
         - email verified     -> /verify/
-      (No reset for new users)
 
     • Existing user (auto-expired: terms_accepted_at + 365d <= now):
-        - Perform FULL RESET the first time we detect expiry:
-            * profile.email_is_verified = False
-            * profile.verification_status = "not_started"
-            * profile.org_type = None
-            * profile.jobrole = ""
-            * profile.personal_info_is_completed = False
-            * profile.completion_level = 0
-            * profile.verified_at = None
-            * profile.verified_by = None
-            * profile.rejection_reason = ""
-            * Allauth EmailAddress: ensure exists, primary=True, verified=False
-          IMPORTANT: we DO NOT set terms_accepted_at = None for auto-expiry.
-                     We leave the old timestamp so the system can still
-                     recognize “annual mode” after logout/login.
-
-        - On every request while terms > 1 year:
-            * If email NOT verified -> /accounts/confirm-email/?annual=1
-            * If email verified     -> /verify/
-      (Reset is idempotent: performed only if not already in pre-verification state)
+        - FULL RESET once (profile fields + Allauth unverified; keep terms timestamp).
+        - While expired:
+            - NOT verified -> /accounts/confirm-email/?annual=1
+            - verified     -> /verify/
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
-
-        # Allowed during verification to avoid redirect loops (general)
         self.allowed_prefixes = [
             "/verify/",
             "/commercial/",
@@ -59,7 +41,6 @@ class TierEnforcementMiddleware:
         ]
 
     def __call__(self, request):
-        # Allow logout/admin before enforcement
         if request.path.startswith("/accounts/logout") or request.path.startswith("/admin/"):
             return self.get_response(request)
 
@@ -79,35 +60,28 @@ class TierEnforcementMiddleware:
             logout(request)
             return redirect(reverse("account_login"))
 
-        # ---- Resolve Allauth email state (robust) ----
-        # Ensure a row exists; ensure one primary
+        # Ensure Allauth row exists and one is primary
         email_row = None
         if user.email:
-            email_row = EmailAddress.objects.filter(
-                user=user, email__iexact=user.email
-            ).order_by("-primary").first()
+            email_row = EmailAddress.objects.filter(user=user, email__iexact=user.email).order_by("-primary").first()
             if not email_row:
                 email_row = EmailAddress.objects.filter(user=user).order_by("-primary").first()
             if not email_row:
-                email_row = EmailAddress.objects.create(
-                    user=user, email=user.email, primary=True, verified=False
-                )
+                email_row = EmailAddress.objects.create(user=user, email=user.email, primary=True, verified=False)
             elif not email_row.primary:
                 email_row.primary = True
                 email_row.save(update_fields=["primary"])
 
-        # ANY verified row indicates confirmed
+        # ANY verified row is considered confirmed
         email_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
 
-        # ---- Determine states ----
+        # States
         now = timezone.now()
         terms = profile.terms_accepted_at
         is_new_user_terms = (terms is None)
         is_auto_expired = (terms is not None) and (now >= terms + timedelta(days=365))
 
-        # -----------------------------
         # NEW USER (no reset)
-        # -----------------------------
         if is_new_user_terms and not is_auto_expired:
             if user.email:
                 request.session["account_email"] = user.email
@@ -116,16 +90,12 @@ class TierEnforcementMiddleware:
                 if not request.path.startswith("/accounts/confirm-email/"):
                     return redirect(reverse("account_email_verification_sent"))
                 return self.get_response(request)
-            else:
-                if not request.path.startswith("/verify/"):
-                    return redirect("/verify/")
-                return self.get_response(request)
+            if not request.path.startswith("/verify/"):
+                return redirect("/verify/")
+            return self.get_response(request)
 
-        # -----------------------------
-        # ANNUAL EXPIRED (idempotent FULL RESET, keep terms timestamp)
-        # -----------------------------
+        # EXPIRED (idempotent reset)
         if is_auto_expired:
-            # One-time FULL RESET (only if not already in pre-verification state)
             profile_needs_reset = (
                 profile.verification_status != "not_started"
                 or profile.org_type is not None
@@ -137,7 +107,6 @@ class TierEnforcementMiddleware:
                 or profile.rejection_reason != ""
                 or profile.email_is_verified
             )
-
             if profile_needs_reset:
                 profile.email_is_verified = False
                 profile.verification_status = "not_started"
@@ -156,46 +125,47 @@ class TierEnforcementMiddleware:
                     email_row.save()
                     EmailAddress.objects.filter(user=user).exclude(pk=email_row.pk).update(primary=False)
 
-                # reflect unverified immediately for routing below
-                email_verified_now = False
+                email_verified_now = False  # reflect immediately
 
-            # ALWAYS set session context while expired (even if reset already happened)
+            # Always prep the landing page context while expired
             if user.email:
                 request.session["account_email"] = user.email
             request.session["annual_revalidation"] = True
 
-            # ROUTE while terms still > 1 year
+            # Routing while still expired
             if not email_verified_now:
-                # ---- Allow Allauth token confirmation view to pass through (consumes key & fires signal) ----
+                # 1) Allow Allauth token URL to pass:
+                #    - path style:  /accounts/confirm-email/<key>/
+                #    - query style: /accounts/confirm-email/?key=<token>
                 if request.path.startswith("/accounts/confirm-email/"):
+                    # query-style token
+                    if request.GET.get("key"):
+                        return self.get_response(request)
+                    # path-style token
                     try:
-                        match = resolve(request.path_info)
-                        if match.url_name == "account_confirm_email":
-                            # Let Allauth confirm the token URL: sets verified=True and emits email_confirmed
+                        rm = resolve(request.path_info)
+                        if rm.url_name == "account_confirm_email":
                             return self.get_response(request)
                     except Resolver404:
                         pass
-
-                    # On the landing URL (no key): normalize to include ?annual=1
+                    # landing: normalize ?annual=1
                     if request.GET.get("annual") != "1":
                         return redirect(reverse("account_email_verification_sent") + "?annual=1")
                     return self.get_response(request)
 
-                # Let resend/email management views run so the first click works
+                # 2) Allow resend + email management
                 if request.path.startswith("/accounts/resend-confirmation/") or request.path.startswith("/accounts/email/"):
                     return self.get_response(request)
 
-                # Otherwise, force the annual confirm page
+                # 3) Otherwise force the annual landing
                 return redirect(reverse("account_email_verification_sent") + "?annual=1")
 
-            # Email verified; continue to user verification (/verify/)
+            # Verified -> proceed to profile verification
             if not request.path.startswith("/verify/"):
                 return redirect("/verify/")
             return self.get_response(request)
 
-        # -----------------------------
         # RECENT TERMS: standard enforcement
-        # -----------------------------
         status = profile.verification_status
 
         if status == "banned":
@@ -208,16 +178,11 @@ class TierEnforcementMiddleware:
                 if not request.path.startswith("/commercial/"):
                     return redirect("/commercial/")
                 return self.get_response(request)
-
-            # If you recalc quota per request, call here:
-            # quota.check_subscription_status(); quota.reset_if_needed()
-
             try:
                 if quota.effective_allowance > 0:
                     return self.get_response(request)
             except Exception:
                 pass
-
             if not request.path.startswith("/commercial/"):
                 return redirect("/commercial/")
             return self.get_response(request)
@@ -231,6 +196,7 @@ class TierEnforcementMiddleware:
                 return self.get_response(request)
 
         return redirect("/verify/")
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
