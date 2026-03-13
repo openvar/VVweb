@@ -70,18 +70,26 @@ INSTALLED_APPS = [
 
 
 MIDDLEWARE = [
+    # 1) Security + required Django stack
     'django.middleware.security.SecurityMiddleware',
-    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+
+    # 2) Authentication
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # Your main enforcement
+
+    # 3) Your enforcement middleware (runs while authenticated)
     'verification.middleware.TierEnforcementMiddleware',
+
+    # 4) Django messages + clickjacking
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Allauth runs here
+
+    # 5) Allauth middleware
     'allauth.account.middleware.AccountMiddleware',
-    # MUST COME IMMEDIATELY AFTER ALLAUTH
+
+    # 6) Your post‑Allauth login bounce interceptor
     'verification.middleware_postallauth.PostAllauthLoginRedirectFix',
 ]
 
