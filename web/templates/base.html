@@ -20,7 +20,7 @@
   <!-- Custom styles for this template -->
   <link href="{% static 'css/business-frontpage.css' %}" rel="stylesheet">
 
-  <link href="{% static 'css/vvweb.css' %}" rel="stylesheet">
+  <link href="{% sta</navtic 'css/vvweb.css' %}" rel="stylesheet">
   <link href="{% static 'cookielaw/css/cookielaw.css' %}" rel="stylesheet">
 
   <!-- <script src="https://kit.fontawesome.com/81e2c5cfce.js" crossorigin="anonymous"></script> -->
@@ -150,20 +150,28 @@
           <li class="nav-item">
             <a class="nav-link" href="{% url 'account_login' %}">Login</a>
           </li>
-          {% endif %}
-            {% if user.is_authenticated %}
-            <li class="nav-item">
-              <span id="quota-display"
-                    class="nav-link badge badge-info text-white"
-                    style="font-size: 0.85rem; display: none;">
-                Loading…
-              </span>
-            </li>
-            {% endif %}
         </ul>
       </div>
     </div>
   </nav>
+
+  {% if user.is_authenticated %}
+    <div id="account-status-banner"
+         class="text-center text-white py-1"
+         style="
+            width: 100%;
+            background-color: #007bff;   /* Bootstrap primary */
+            position: fixed;
+            top: 56px;                   /* height of navbar */
+            left: 0;
+            z-index: 1000;
+            font-size: 0.85rem;
+         ">
+        <span id="banner-plan">Loading plan…</span>
+        &nbsp;•&nbsp;
+        <span id="banner-quota">Loading variants…</span>
+    </div>
+    {% endif %}
 
   {% cookielaw_banner %}
 
@@ -264,14 +272,30 @@
   <script src="{% static 'js/vvweb.js' %}"></script>
 
   <script>
-  $(document).ready(function() {
-      $('body').css('padding-top', $('.navbar').outerHeight() + 'px');
-  });
+    $(document).ready(function() {
+        const navHeight  = $('.navbar').outerHeight();
+        const bannerHeight = $('#account-status-banner').outerHeight() || 0;
+        $('body').css('padding-top', (navHeight + bannerHeight + 10) + 'px');
+    });
 
   $(window).resize(function() {
       $('body').css('padding-top', $('.navbar').outerHeight() + 'px');
   });
   </script>
+
+  <script>
+    $(document).ready(function() {
+        // Example: your API endpoint / JS updating quota
+        $.getJSON("/api/account/status/", function(data) {
+
+            // Expecting data like:
+            // { plan: "Free Trial", quota_remaining: 19500 }
+
+            $('#banner-plan').text("Plan: " + data.plan);
+            $('#banner-quota').text(data.quota_remaining + " variants left this month");
+        });
+    });
+    </script>
 
   <script>
   $(function () {
