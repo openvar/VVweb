@@ -610,16 +610,16 @@ class StyledSignupView(SignupView):
         return response
 
 
+
 class StrictLoginView(LoginView):
     """
-    • Lowercase login input
-    • Lowercase stored user.email
-    • If terms are > 1 year:
-        - email NOT verified -> /accounts/confirm-email/?annual=1 (no auto-send, no banner)
-        - email verified     -> /verify/
-    • If terms are NOT expired:
-        - email NOT verified -> auto-send + banner, then /accounts/confirm-email/
-        - email verified     -> normal success path
+    • Lowercase login input & stored user.email
+    • If terms > 1 year (EXPIRED):
+        - NOT verified -> /accounts/confirm-email/?annual=1 (no auto-send, no banner)
+        - verified     -> /verify/ (after login)
+    • If NOT expired:
+        - NOT verified -> auto-send + banner, then /accounts/confirm-email/
+        - verified     -> normal success path
     """
 
     def post(self, request, *args, **kwargs):
@@ -649,7 +649,7 @@ class StrictLoginView(LoginView):
             email_obj.primary = True
             email_obj.save(update_fields=["primary"])
 
-        # Expose for template
+        # Expose for landing template
         self.request.session["account_email"] = lowered
 
         # Detect annual expiry
@@ -658,29 +658,31 @@ class StrictLoginView(LoginView):
         if profile and profile.terms_accepted_at:
             expired = timezone.now() >= profile.terms_accepted_at + timedelta(days=365)
 
-        # *** Log in FIRST so subsequent redirects are authenticated ***
+        # Log the user in FIRST, so subsequent redirects are authenticated
         response = super().form_valid(form)
 
         if expired:
             self.request.session["annual_revalidation"] = True
-
             # Decide by ANY verified row (robust)
             is_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
             if not is_verified_now:
                 return redirect(reverse("account_email_verification_sent") + "?annual=1")
+
+            # SAFETY-NET: sync profile flag to Allauth verification
+            if profile and not profile.email_is_verified:
+                profile.email_is_verified = True
+                profile.save(update_fields=["email_is_verified"])
+
             return redirect("/verify/")
 
-        # Not expired: keep your new-user path (auto-send + banner)
+        # Not expired: keep new-user behavior (auto-send + banner)
         if not email_obj.verified:
             send_email_confirmation(self.request, user)
-            # Use success so the standard confirm page (non-annual) shows a green banner
-            messages.success(
-                self.request,
-                "A new confirmation email has been sent.",
-            )
+            messages.success(self.request, "A new confirmation email has been sent.")
             return redirect("account_email_verification_sent")
 
         return response
+
 
 
 # <LICENSE>
