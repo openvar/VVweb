@@ -181,7 +181,6 @@ class TierEnforcementMiddleware:
 
         return redirect("/verify/")
 
-
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
 #
