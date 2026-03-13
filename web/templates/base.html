@@ -189,7 +189,7 @@
         &nbsp;•&nbsp;
 
         {% if remaining is not None and total is not None %}
-          <span><strong>{{ remaining|intcomma }}</strong> / <strong>{{ total|intcomma }}</strong> variants left</span>
+          <span><strong>{{ remaining|intcomma }}</strong> / <strong>{{ total|intcomma }}</strong> variants remaining</span>
         {% elif total is not None %}
           <span><strong>{{ total|intcomma }}</strong> variants this month</span>
         {% else %}
