@@ -1,6 +1,7 @@
 {% load static %}
 {% load cookielaw_tags %}
 {% load account %}
+{% load humanize %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -37,7 +38,7 @@
           position: fixed;
           left: 0;
           right: 0;
-          background-color: #007bff;
+          background-color: #007bff; /* Bootstrap primary */
           color: #fff;
           font-size: 0.85rem;
           padding: 4px 0;
@@ -177,12 +178,27 @@
 
     <!-- ACCOUNT STATUS BANNER -->
     {% if user.is_authenticated %}
+    {% with plan=user.variant_quota.plan remaining=user.variant_quota.remaining total=user.variant_quota.effective_allowance %}
     <div id="account-status-banner">
-        <span id="banner-plan">Loading plan…</span>
+        {% if plan %}
+          <span>Plan: <strong>{{ plan }}</strong></span>
+        {% else %}
+          <span>Plan: <strong>—</strong></span>
+        {% endif %}
+
         &nbsp;•&nbsp;
-        <span id="banner-quota">Loading variants…</span>
+
+        {% if remaining is not None and total is not None %}
+          <span><strong>{{ remaining|intcomma }}</strong> / <strong>{{ total|intcomma }}</strong> variants left</span>
+        {% elif total is not None %}
+          <span><strong>{{ total|intcomma }}</strong> variants this month</span>
+        {% else %}
+          <span>Variants: <strong>—</strong></span>
+        {% endif %}
     </div>
+    {% endwith %}
     {% endif %}
+
 
   {% cookielaw_banner %}
 
