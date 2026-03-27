@@ -76,6 +76,7 @@ def gene2transcripts(self, symbol, validator=None, select_transcripts="all",
     )
 
 
+
 @shared_task(bind=True)
 def batch_validate(
     self,
@@ -86,9 +87,9 @@ def batch_validate(
     transcripts,
     options=None,
     transcript_set="refseq",
-    validator=None,
-    user_id=None
-):
+    user_id=None,
+    validator=None):
+
     _store_user_meta(self.request.id, user_id)
 
     logger.error("Running batch_validate task")
