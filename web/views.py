@@ -328,16 +328,16 @@ def batch_validate(request):
             user_id = request.user.id
 
             # Submit async job
+
             job = tasks.batch_validate.delay(
-                form.cleaned_data['input_variants'],
-                form.cleaned_data['genome'],
-                real_email,
-                form.cleaned_data['gene_symbols'],
-                form.cleaned_data['select_transcripts'],
+                variant=form.cleaned_data['input_variants'],
+                genome=form.cleaned_data['genome'],
+                email=real_email,
+                gene_symbols=form.cleaned_data['gene_symbols'],
+                transcripts=form.cleaned_data['select_transcripts'],
                 options=form.cleaned_data['options'],
                 transcript_set=form.cleaned_data['refsource'],
-                user_id=user_id
-            )
+                user_id=user_id)
 
             # Notify user
             services.send_initial_email(real_email, job, 'validation')

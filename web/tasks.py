@@ -39,16 +39,33 @@ def _ensure_user(user_id):
 # Utility: store user_id into TaskResult.meta (for admin)
 # -------------------------------------------------------------------------
 def _store_user_meta(task_id, user_id):
+    """Store user information in TaskResult.meta for easier debugging."""
     if not user_id:
         return
+
     try:
         tr = TaskResult.objects.get(task_id=task_id)
         meta = tr.meta or {}
+
+        # Always store the user_id
         meta["user_id"] = user_id
+
+        # Store the email too, if possible
+        try:
+            user = User.objects.get(id=user_id)
+            meta["email"] = user.email
+        except User.DoesNotExist:
+            meta["email"] = None
+
+        # Save updated metadata
         tr.meta = meta
         tr.save(update_fields=["meta"])
+
     except TaskResult.DoesNotExist:
+        # No TaskResult created yet — Celery may write it later.
         pass
+
+
 
 
 # -------------------------------------------------------------------------
