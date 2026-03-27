@@ -1,8 +1,43 @@
 from django.contrib import admin
 from . import models
+from django_celery_results.models import TaskResult
 
-# Register your models here.
+
+# Register your own models
 admin.site.register(models.Contact)
+
+
+# Custom Celery TaskResult admin to expose user_id in admin panel
+@admin.register(TaskResult)
+class TaskResultAdmin(admin.ModelAdmin):
+    """
+    Overrides the default django-celery-results admin display so we can see
+    which authenticated user triggered each Celery task.
+    """
+
+    list_display = (
+        "task_id",
+        "status",
+        "date_done",
+        "get_user_id",
+    )
+
+    search_fields = ("task_id", "status", "meta")
+    list_filter = ("status", "date_done")
+
+    def get_user_id(self, obj):
+        """
+        Read the `user_id` from the task result's meta data.
+        Meta is stored as JSON by django-celery-results.
+        """
+        try:
+            meta = obj.meta or {}
+            return meta.get("user_id", "-")
+        except Exception:
+            return "-"
+
+    get_user_id.short_description = "User ID"
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

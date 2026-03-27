@@ -15,31 +15,73 @@ import traceback
 logger = logging.getLogger('vv')
 
 
-@shared_task
-def validate(variant, genome, transcripts, validator=None, transcript_set="refseq"):
+# -------------------------------------------------------------------------
+# Utility: safely record user_id inside TaskResult.meta
+# -------------------------------------------------------------------------
+
+def _store_user_meta(task_id, user_id):
+    if not user_id:
+        return
+    try:
+        tr = TaskResult.objects.get(task_id=task_id)
+        meta = tr.meta or {}
+        meta["user_id"] = user_id
+        tr.meta = meta
+        tr.save(update_fields=["meta"])
+    except TaskResult.DoesNotExist:
+        pass
+
+
+# -------------------------------------------------------------------------
+# User-facing tasks
+# -------------------------------------------------------------------------
+
+@shared_task(bind=True)
+def validate(self, variant, genome, transcripts, validator=None, transcript_set="refseq", user_id=None):
+    _store_user_meta(self.request.id, user_id)
+
     logger.info("Running validate task")
     if validator is None:
         validator = vval_object_pool.get_object()
     try:
-        output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set, lovd_syntax_check=True)
+        output = validator.validate(
+            variant,
+            genome,
+            transcripts,
+            transcript_set=transcript_set,
+            lovd_syntax_check=True
+        )
     except Exception as e:
         logger.error(f"{variant} {genome} {transcripts} failed with exception {e}")
+        raise
+
     return output.format_as_dict()
 
 
-@shared_task
-def gene2transcripts(symbol, validator=None, select_transcripts="all", transcript_set="refseq", lovd_syntax_check=True):
+@shared_task(bind=True)
+def gene2transcripts(self, symbol, validator=None, select_transcripts="all",
+                     transcript_set="refseq", lovd_syntax_check=True, user_id=None):
+    _store_user_meta(self.request.id, user_id)
+
     logger.info("Running gene2transcripts task")
     if validator is None:
         validator = g2t_object_pool.get_object()
-    output = validator.gene2transcripts(symbol, select_transcripts=select_transcripts, transcript_set=transcript_set,
-                                        bypass_genomic_spans=True, lovd_syntax_check=lovd_syntax_check)
+
+    output = validator.gene2transcripts(
+        symbol,
+        select_transcripts=select_transcripts,
+        transcript_set=transcript_set,
+        bypass_genomic_spans=True,
+        lovd_syntax_check=lovd_syntax_check
+    )
     return output
 
 
-@shared_task
-def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[], transcript_set="refseq",
-                   validator=None):
+@shared_task(bind=True)
+def batch_validate(self, variant, genome, email, gene_symbols, transcripts, options=[],
+                   transcript_set="refseq", validator=None, user_id=None):
+
+    _store_user_meta(self.request.id, user_id)
     logger.error("Running batch_validate task")
 
     # Wait for the validator object to become free
@@ -47,10 +89,11 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         validator = batch_object_pool.get_object()
         if validator is None:
             logger.info("Validator not available, waiting for 1 minute...")
-            time.sleep(60)  # Wait for 1 minute before trying again
+            time.sleep(60)
 
-    # The rest of your existing code follows...
-    # Convert inputs to JSON arrays
+    # ---------------------------------------------------------------------
+    # Original logic preserved
+    # ---------------------------------------------------------------------
     variant = input_formatting.format_input(variant)
     transcripts = input_formatting.format_input(transcripts)
 
@@ -68,8 +111,13 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
     transcript_list = []
     for sym in gene_symbols.split('|'):
         if sym:
-            returned_trans = gene2transcripts(sym, validator=validator, transcript_set=transcript_set)
+            returned_trans = gene2transcripts(
+                sym,
+                validator=validator,
+                transcript_set=transcript_set
+            )
             logger.info(returned_trans)
+
             try:
                 for trans in returned_trans['transcripts']:
                     transcript_list.append(trans['reference'])
@@ -81,15 +129,23 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
         transcripts = input_formatting.format_input(transcripts)
 
     try:
-        output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set, lovd_syntax_check=True)
+        output = validator.validate(
+            variant, genome, transcripts,
+            transcript_set=transcript_set,
+            lovd_syntax_check=True
+        )
     except Exception as e:
         logger.error(f"{variant} {genome} {transcripts} failed with exception {e}")
         trace = traceback.format_exc()
         batch_object_pool.return_object(validator)
-        services.send_fail_email(email, batch_validate.request.id, variant, genome, transcripts, transcript_set, trace)
+        services.send_fail_email(
+            email,
+            batch_validate.request.id,
+            variant, genome, transcripts, transcript_set, trace
+        )
         raise
 
-    # Return the object to the pool
+    # Return validator to pool
     batch_object_pool.return_object(validator)
 
     # Convert to a table
@@ -102,16 +158,18 @@ def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[]
     return res
 
 
-@shared_task
-def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, validator=None):
+@shared_task(bind=True)
+def vcf2hgvs(self, vcf_file, genome, gene_symbols, email, transcripts, options, validator=None, user_id=None):
+
+    _store_user_meta(self.request.id, user_id)
     logger.info("Running vcf2hgvs task")
 
-    # Wait for the validator object to become free
+    # Wait for validator
     while validator is None:
         validator = batch_object_pool.get_object()
         if validator is None:
             logger.info("Validator not available, waiting for 1 minute...")
-            time.sleep(60)  # Wait for 1 minute before trying again
+            time.sleep(60)
 
     qc = False
     batch_list = []
@@ -120,25 +178,21 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, valida
     total_vcf_calls = 0
     vcf_validated = 0
     batch_submit = True
-    jobid = vcf2hgvs.request.id
+    jobid = self.request.id
 
+    # ---------------------------------------------------------------------
+    # Main VCF processing loop (unchanged)
+    # ---------------------------------------------------------------------
     for var_call in vcf_file.split('\n'):
         try:
-            # REMOVE METADATA
             if var_call.startswith('#'):
                 continue
             else:
-                # Stringify
-                # var_call = var_call.decode()
                 var_call = var_call.strip()
-                # Log var_call
-
-                # Split the VCF components into a list
                 variant_data = var_call.split()
                 logger.info(variant_data)
 
                 try:
-                    # Gather the call data
                     chr = str(variant_data[0])
                     pos = str(variant_data[1])
                     ref = str(variant_data[3])
@@ -146,15 +200,12 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, valida
                 except:
                     continue
 
-            # Create an unambiguous call for VCF 4.0
-            if ref == '.' or ref == '' or ref == '-':
+            if ref in ('.', '', '-'):
                 ref = 'ins'
-            if alt == '.' or ref == '' or ref == '-':
+            if alt in ('.', '', '-'):
                 alt = 'del'
 
-            # Create the pseudo VCF inclusive of reference check
             pvd = services.vcf2psuedo(chr, pos, ref, alt, genome, validator)
-            logger.debug(pvd)
 
             if pvd['valid'] == 'pass':
                 pseudo_vcf = '%s-%s-%s-%s' % (chr, pos, ref, alt)
@@ -165,29 +216,26 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, valida
                 total_vcf_calls += 1
                 pseudo_vcf = pvd['pseudo_vcf']
                 batch_list.append(pseudo_vcf)
-                if pvd['valid'] == 'true' or pvd['valid'] == 'ambiguous':
+                if pvd['valid'] in ('true', 'ambiguous'):
                     vcf_validated += 1
 
-            # Check Genome Build
             if total_vcf_calls == 100:
                 qc = True
                 try:
-                    ratio_valid = (vcf_validated / total_vcf_calls)
+                    ratio_valid = (vcf_validated / total_vcf_calls) * 100
                 except ZeroDivisionError:
                     ratio_valid = 0.0
 
-                ratio_valid = ratio_valid * 100
                 if ratio_valid < 90:
-                    logger.info("Will email as not enough are valid!")
-                    error_log.append("Only %s percent valid after processing 100 VCFs" % ratio_valid)
-                    services.send_vcf_email(email=email, job_id=jobid, genome=genome, per=ratio_valid)
+                    error_log.append(f"Only {ratio_valid} percent valid after 100 VCFs")
+                    services.send_vcf_email(
+                        email=email, job_id=jobid, genome=genome, per=ratio_valid
+                    )
                     batch_submit = False
                     break
 
-            # Limit jobs in batch list
             elif vcf_validated > settings.MAX_VCF:
-                logger.info("Will email as exceeded max")
-                error_log.append("Exceeded max %s validated VCFs" % settings.MAX_VCF)
+                error_log.append(f"Exceeded max {settings.MAX_VCF} validated VCFs")
                 services.send_vcf_email(email, jobid, cause='max_limit')
                 batch_submit = False
                 break
@@ -196,41 +244,46 @@ def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, valida
             warning = ("Processing failure in bug catcher 1 - job suspended: {}".format(error))
             logger.warning(warning)
             logger.error(error)
-
             report_error_log = ['Processsing_error_1'] + [str(warning)]
             error_log = error_log + report_error_log
             continue
 
     if not qc:
         try:
-            ratio_valid = (vcf_validated / total_vcf_calls)
+            ratio_valid = (vcf_validated / total_vcf_calls) * 100
         except ZeroDivisionError:
             ratio_valid = 0.0
 
-        ratio_valid = ratio_valid * 100
         if ratio_valid < 90:
-            error_log.append("Only %s percent valid after processing whole file" % ratio_valid)
-            logger.info("Will email as not enough valid")
+            error_log.append(f"Only {ratio_valid} percent valid after full file")
             services.send_vcf_email(email, jobid, genome=genome, per=ratio_valid)
             batch_submit = False
 
-    # Autosubmit to batch?
     if batch_submit:
         logger.info("All good - going to submit to batch validator")
         variants = '|'.join(batch_list)
         logger.debug(variants)
-        batch_validate.delay(variants, genome, email, gene_symbols, transcripts, options)
-        return 'Success - %s (of %s) variants submitted to BatchValidator' % (len(batch_list), total_vcf_calls)
+
+        # IMPORTANT: propagate user_id to batch_validate
+        batch_validate.delay(
+            variants, genome, email, gene_symbols, transcripts, options,
+            user_id=user_id
+        )
+
+        return f"Success - {len(batch_list)} (of {total_vcf_calls}) variants submitted"
 
     logger.error(error_log)
     return {'errors': error_log}
 
 
+# -------------------------------------------------------------------------
+# System tasks (no user_id)
+# -------------------------------------------------------------------------
+
 @shared_task()
 def delete_old_jobs():
     """
-    Task will check for any batch jobs that were completed over 7 days ago and remove them.
-    :return:
+    Delete task results older than 7 days.
     """
     logger.info("Checking what job results can be deleted")
     timepoint = timezone.now() - timedelta(days=7)
@@ -243,42 +296,39 @@ def delete_old_jobs():
 @shared_task()
 def email_old_users():
     """
-    Task will look for users that haven't logged in for 23 months. They will be emailed to inform them that their
-    account will be deleted unless they log back in within the next month.
-    :return:
+    Email users inactive for 23 months.
     """
-    timepoint = timezone.now() - timedelta(days=(365*2 - 30))
+    timepoint = timezone.now() - timedelta(days=(365 * 2 - 30))
     users = User.objects.filter(last_login__lte=timepoint, profile__contacted_for_deletion=False)
+
     if users:
         logger.info("Sending deletion warning to %s" % users)
+
     for user in users:
         services.send_user_deletion_warning(user)
         profile = user.profile
         profile.contacted_for_deletion = True
         profile.save()
 
-    # Check for users that have logged in since the email
     active_users = User.objects.filter(last_login__gt=timepoint, profile__contacted_for_deletion=True)
     if active_users:
-        logger.info("These users have logged back in since email was sent: %s" % active_users)
+        logger.info("Users logged in after email: %s" % active_users)
+
     for user in active_users:
         profile = user.profile
         profile.contacted_for_deletion = False
         profile.save()
 
-    return "Sent %s emails. %s users are now active" % (len(users), len(active_users))
+    return "Sent %s emails. %s users active" % (len(users), len(active_users))
 
 
 @shared_task()
 def delete_old_users():
     """
-    Task will look for users that haven't logged in for 24 months and have received the warning email, then delete their
-    accounts.
-    :return:
+    Delete users inactive for 24 months and previously warned.
     """
-    timepoint = timezone.now() - timedelta(days=(365*2))
+    timepoint = timezone.now() - timedelta(days=(365 * 2))
     users = User.objects.filter(last_login__lte=timepoint, profile__contacted_for_deletion=True)
-
     num, details = users.delete()
     logger.info("Deleted %s user accounts due to inactivity" % num)
     return {'deleted': num, 'detail': details}
