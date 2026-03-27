@@ -1,3 +1,4 @@
+
 # userprofiles/admin.py
 
 from django.contrib import admin, messages
@@ -6,7 +7,6 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 from allauth.account.models import EmailAddress
-from datetime import timedelta
 
 from .models import UserProfile
 
@@ -26,6 +26,46 @@ def notify_user(profile, subject, message):
         getattr(settings, "DEFAULT_FROM_EMAIL", "dev-noreply@variantvalidator.local"),
         [profile.user.email],
         fail_silently=not settings.DEBUG,
+    )
+
+
+# ======================================================================
+# SHARED VERIFIED EMAIL BUILDER (Single Source of Truth)
+# ======================================================================
+
+def build_verified_welcome_email(user):
+    """Return the full verified-user onboarding email text."""
+    allowance = getattr(settings, 'DEFAULT_MONTHLY_VARIANT_ALLOWANCE', '0')
+
+    return (
+        f"Hello {user.username},\n\n"
+        "Your VariantValidator account is now set up and ready to use — thank you for joining us.\n\n"
+
+        "VariantValidator is a community resource designed to support accurate variant interpretation,\n"
+        "improve clinical reporting, and help researchers work to internationally agreed standards.\n"
+        "Your verified account allows you to access the full set of tools.\n\n"
+
+        f"As a verified non‑commercial user, you now have access to the standard allocation supported by our\n"
+        f"academic and community-driven infrastructure, which is {allowance} validations per month.\n"
+        "If your needs exceed this allowance you will need to purchase a monthly subscription (link to subscription page),\n"
+        "or if you are part of a wider clinical or institutional project, please contact us — we are happy to\n"
+        "discuss institutional subscriptions to support your work.\n\n"
+
+        "VariantValidator is offered as an open community resource, and unlike many scientific platforms,\n"
+        "we do not receive external funding. Our global user community depends on us for accurate,\n"
+        "standards‑compliant representation of variant data, and we strongly believe in providing equitable\n"
+        "access as part of our social responsibility.\n\n"
+
+        "In 2025, more than 200,000 users relied on VariantValidator worldwide. To keep the service running\n"
+        "and available to all — and to maintain or develop the tools you depend on — please consider\n"
+        "supporting us by purchasing a one‑month subscription. This is not about generating profit; it is\n"
+        "about sustaining the infrastructure, ensuring reliability, and enabling continued development of\n"
+        "resources for you and the wider community.\n\n"
+
+        "If you have ideas, feature requests, or if you identify any bugs, please let us know. Your feedback\n"
+        "directly shapes our development priorities and helps us continue improving this community resource.\n\n"
+
+        "— VariantValidator Team"
     )
 
 
@@ -98,21 +138,17 @@ def mark_verified(modeladmin, request, queryset):
         profile.save()
 
         subject = "Your VariantValidator account has been approved"
-        message = (
-            f"Hello {user.username},\n\n"
-            "Your VariantValidator account is now set up and ready to use — thank you for joining us.\n\n"
-            "VariantValidator is a community resource... (message unchanged)\n\n"
-            "— VariantValidator Team"
-        )
+        message = build_verified_welcome_email(user)
 
         notify_user(profile, subject, message)
 
-        # Trigger quota update (signal handles institution logic)
+        # Trigger quota update
         try:
             quota = user.variant_quota
-            quota.save()  # triggers recalculation
+            quota.save()
         except Exception:
             pass
+
 
 
 @admin.action(description="Mark selected users as Commercial")
@@ -127,26 +163,43 @@ def mark_commercial(modeladmin, request, queryset):
                 user.email = lower
                 user.save(update_fields=["email"])
 
-        # Apply commercial status
         profile.verification_status = "commercial"
         profile.save()
 
         subject = "VariantValidator – Commercial Access Required"
         message = (
             f"Hello {user.username},\n\n"
-            "Your VariantValidator account has been classified as *commercial use*.\n\n"
-            "Commercial users require a paid licence... (message unchanged)\n\n"
+            "Your VariantValidator account is set up — thank you for registering.\n\n"
+
+            "VariantValidator has introduced a sustainability‑focused service model to ensure we can continue\n"
+            "maintaining the infrastructure, supporting users, and keeping the platform running reliably for\n"
+            "the global community.\n\n"
+
+            "Based on the information provided during registration, your account has been classified as\n"
+            "commercial use. Commercial users require a valid licence to run variant validations.\n\n"
+
+            "If you have not yet done so, you may activate a one‑time free evaluation month by logging in and clicking the button provided. \n "
+            "This provides the same validation allowance as our free‑tier monthly quota and is intended to help you assess\n"
+            "whether VariantValidator meets your needs.\n\n"
+
+            "After your trial, or if you require additional capacity, please contact us for licensing/subscription options.\n"
+            "These changes help ensure VariantValidator remains available, maintained, and reliable for all users.\n\n"
+
+            "For assistance, subscription information, or trial enquiries, please contact:\n"
+            "admin@variantvalidator.org\n\n"
+
+            "Thank you for supporting the project.\n\n"
             "— VariantValidator Team"
         )
 
         notify_user(profile, subject, message)
 
-        # Trigger quota recalculation
         try:
             quota = user.variant_quota
             quota.save()
         except Exception:
             pass
+
 
 
 @admin.action(description="Ban selected users")
@@ -164,17 +217,30 @@ def ban_users(modeladmin, request, queryset):
         profile.verification_status = "banned"
         profile.save()
 
-        subject = "VariantValidator – Access Suspended"
+        subject = "VariantValidator – Access Deactivated"
         message = (
             f"Hello {user.username},\n\n"
-            "Your VariantValidator account has been suspended or could not be approved.\n"
-            "If you believe this is an error, please contact support.\n\n"
+            "Your VariantValidator account has been deactivated.\n\n"
+
+            "This action was taken because we were unable to verify your identity or eligibility, or because\n"
+            "activity was detected that does not comply with our terms of use. As a result, your access has been\n"
+            "restricted and you will be unable to use VariantValidator until the issue is resolved.\n\n"
+
+            "If you believe this decision was made in error, or you can provide additional information to\n"
+            "support your eligibility, please contact us. When getting in touch, you may include:\n"
+            " • An institutional or organisational email address\n"
+            " • ORCID, LinkedIn, or institutional profile links\n"
+            " • Details regarding your intended use of VariantValidator\n\n"
+
+            "For assistance, please email:\n"
+            "admin@variantvalidator.org\n\n"
+
+            "Thank you for your cooperation.\n\n"
             "— VariantValidator Team"
         )
 
         notify_user(profile, subject, message)
 
-        # Force quota update
         try:
             quota = user.variant_quota
             quota.save()
@@ -182,41 +248,26 @@ def ban_users(modeladmin, request, queryset):
             pass
 
 
+
 # ======================================================================
-# ADMIN ACTION: FORCE RE‑VALIDATION (RESET TO NEW)
+# ADMIN ACTION: FORCE RE‑VALIDATION
 # ======================================================================
 
 @admin.action(description="Force re‑validation (reset to NEW) for selected users")
 def force_revalidation(modeladmin, request, queryset):
-    """
-    Reset selected users to an exact 'new account' state so the middleware
-    treats them as NEW on the next request (not 'expired').
 
-      • terms_accepted_at = None          <-- critical for avoiding loops
-      • email_is_verified = False
-      • verification_status = "not_started"
-      • org_type = None, jobrole = ""
-      • personal_info_is_completed = False
-      • completion_level = 0
-      • verified_at/by = None, rejection_reason = ""
-      • reset_reason = 'admin', reset_at = now   <-- new markers
-      • Allauth EmailAddress: ensure row exists for user.email,
-        set verified=False, and make it the sole primary
-    """
     updated = 0
     now = timezone.now()
 
     for profile in queryset.select_related("user"):
         user = profile.user
 
-        # Normalize Django User email
         if user.email:
             lower = user.email.lower().strip()
             if user.email != lower:
                 user.email = lower
                 user.save(update_fields=["email"])
 
-        # ---- Profile -> NEW account state + markers
         profile.email_is_verified = False
         profile.verification_status = "not_started"
         profile.org_type = None
@@ -227,8 +278,9 @@ def force_revalidation(modeladmin, request, queryset):
         profile.verified_by = None
         profile.rejection_reason = ""
         profile.terms_accepted_at = None
-        profile.reset_reason = "admin"   # <-- mark this was admin-initiated
+        profile.reset_reason = "admin"
         profile.reset_at = now
+
         profile.save(update_fields=[
             "email_is_verified", "verification_status", "org_type", "jobrole",
             "personal_info_is_completed", "completion_level",
@@ -236,14 +288,12 @@ def force_revalidation(modeladmin, request, queryset):
             "terms_accepted_at", "reset_reason", "reset_at",
         ])
 
-        # ---- Allauth email rows
         if user.email:
             email_obj, _ = EmailAddress.objects.get_or_create(
                 user=user,
                 email=user.email,
                 defaults={"primary": True, "verified": False},
             )
-            # Make this the sole primary and unverified
             EmailAddress.objects.filter(user=user).exclude(pk=email_obj.pk).update(primary=False)
             if not email_obj.primary:
                 email_obj.primary = True
@@ -254,9 +304,10 @@ def force_revalidation(modeladmin, request, queryset):
 
     modeladmin.message_user(
         request,
-        f"Forced re‑validation for {updated} profile(s): reset to NEW (terms cleared, email unverified, admin marker set).",
+        f"Forced re‑validation for {updated} profile(s): reset to NEW.",
         level=messages.SUCCESS,
     )
+
 
 
 # ======================================================================
@@ -267,31 +318,18 @@ def force_revalidation(modeladmin, request, queryset):
 class UserProfileAdmin(admin.ModelAdmin):
 
     list_display = (
-        "user",
-        "org_type",
-        "verification_status",
-        "email_is_verified",
-        "primary_email",
-        "primary_domain",
-        "institution_name",
-        "effective_allowance_display",
-        "terms_accepted_at",
-        "reset_reason",      # <-- surface the markers (helps ops)
-        "reset_at",
-        "verified_at",
+        "user", "org_type", "verification_status", "email_is_verified",
+        "primary_email", "primary_domain", "institution_name",
+        "effective_allowance_display", "terms_accepted_at",
+        "reset_reason", "reset_at", "verified_at",
     )
 
     search_fields = ("user__username", "user__email", "country", "org_type")
     list_filter = ("org_type", "verification_status", "country", "reset_reason")
 
-    # TERMS ACCEPTED REMAINS READ-ONLY (your requirement)
     readonly_fields = (
-        "verified_at",
-        "verified_by",
-        "terms_accepted_at",
-        "rejection_reason",
-        "reset_reason",   # keep markers readonly; they’re system-set
-        "reset_at",
+        "verified_at", "verified_by", "terms_accepted_at",
+        "rejection_reason", "reset_reason", "reset_at",
     )
 
     actions = [
@@ -317,9 +355,6 @@ class UserProfileAdmin(admin.ModelAdmin):
         return get_effective_allowance(obj.user)
     effective_allowance_display.short_description = "Eff. Allowance"
 
-    # -------------------------
-    # Auto-normalize email & trigger messages
-    # -------------------------
     def save_model(self, request, obj, form, change):
         user = obj.user
 
@@ -338,11 +373,7 @@ class UserProfileAdmin(admin.ModelAdmin):
                     obj.verified_by = request.user
 
                 subject = "Your VariantValidator account has been approved"
-                message = (
-                    f"Hello {obj.user.username},\n\n"
-                    "Your VariantValidator account is now set up and ready to use...\n\n"
-                    "— VariantValidator Team"
-                )
+                message = build_verified_welcome_email(obj.user)
                 notify_user(obj, subject, message)
 
         super().save_model(request, obj, form, change)
@@ -352,6 +383,7 @@ class UserProfileAdmin(admin.ModelAdmin):
             quota.save()
         except Exception:
             pass
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

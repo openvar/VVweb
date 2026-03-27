@@ -142,7 +142,7 @@ def verify_identity(request):
                     message=(
                         f"Hello {request.user.username},\n\n"
                         "Your VariantValidator account is now set up — thank you for registering.\n\n"
-                        "We’ve recently updated our service model to ensure we can maintain the infrastructure, "
+                        "We’ve recently updated our service model to ensure that we can maintain the infrastructure, "
                         "support continued development, and keep VariantValidator running reliably into the future.\n\n"
                         "Based on the information provided, your account has been classified as *commercial use*. "
                         "Commercial users require a paid licence to perform variant validations.\n\n"
@@ -236,7 +236,7 @@ def verify_identity(request):
                     " • We confirm your organisation and intended use.\n"
                     " • If more information is required, we will contact you.\n"
                     " • Once approved, you will be able to use VariantValidator immediately.\n\n"
-                    "You can add more evidence anytime at:\n"
+                    "You can add more information to support your application anytime at:\n"
                     f"{request.build_absolute_uri('/verify/')}\n\n"
                     "Terms and Conditions of Use:\n"
                     "https://github.com/openvar/variantValidator/blob/master/README.md#terms-and-conditions-of-use\n"
