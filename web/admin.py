@@ -86,6 +86,7 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
     # -------------------------------------------------------------------
     # Safe accessors for admin list view
     # -------------------------------------------------------------------
+
     def safe_user_id(self, obj):
         try:
             data = parse_result(obj)
