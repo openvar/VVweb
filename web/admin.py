@@ -5,12 +5,10 @@ from django_celery_results.models import TaskResult
 from django_celery_results.admin import TaskResultAdmin as DefaultTaskResultAdmin
 import json
 
-
 # -------------------------------------------------------------------
 # Register your own models
 # -------------------------------------------------------------------
 admin.site.register(models.Contact)
-
 
 # -------------------------------------------------------------------
 # Unregister the default TaskResult admin
@@ -20,55 +18,97 @@ try:
 except admin.sites.NotRegistered:
     pass
 
-
 # -------------------------------------------------------------------
-# Helper to parse Celery result JSON safely
+# Safe JSON parser for TaskResult.result
+# This function MUST NEVER crash — admin list view depends on it
 # -------------------------------------------------------------------
 def parse_result(obj):
-    """Return result as a dict, even if stored as a JSON string."""
-    res = obj.result
-    if isinstance(res, dict):
-        return res
-    if isinstance(res, str):
-        try:
-            return json.loads(res)
-        except Exception:
-            return {}
-    return {}
+    """
+    Returns a dict safely parsed from TaskResult.result.
+    Handles:
+    - None
+    - empty strings
+    - invalid JSON
+    - lists
+    - bytes
+    - old Celery result formats
+    - truncated data
+    """
+    try:
+        res = obj.result
 
+        # Handle None, "", 0, False
+        if not res:
+            return {}
+
+        # Already a dict
+        if isinstance(res, dict):
+            return res
+
+        # Bytes → decode silently
+        if isinstance(res, bytes):
+            try:
+                res = res.decode("utf-8", errors="ignore")
+            except Exception:
+                return {}
+
+        # Strings → try JSON
+        if isinstance(res, str):
+            try:
+                return json.loads(res)
+            except Exception:
+                return {}
+
+        # Anything unrecognized → fail silently
+        return {}
+
+    except Exception:
+        return {}
 
 # -------------------------------------------------------------------
-# Custom TaskResult admin
+# Custom admin for TaskResult
 # -------------------------------------------------------------------
 @admin.register(TaskResult)
 class TaskResultAdmin(DefaultTaskResultAdmin):
 
     list_display = (
         "task_id",
-        "get_task_name",
+        "safe_task_name",
         "status",
         "date_done",
-        "get_user_id",
-        "get_email",
+        "safe_user_id",
+        "safe_email",
     )
 
     search_fields = ("task_id", "status", "result")
     list_filter = ("status", "date_done")
 
-    def get_user_id(self, obj):
-        data = parse_result(obj)
-        return data.get("user_id", "-")
-    get_user_id.short_description = "User ID"
+    # -------------------------------------------------------------------
+    # Safe accessors for admin list view
+    # -------------------------------------------------------------------
+    def safe_user_id(self, obj):
+        try:
+            data = parse_result(obj)
+            return data.get("user_id", "-")
+        except Exception:
+            return "-"
+    safe_user_id.short_description = "User ID"
 
-    def get_email(self, obj):
-        data = parse_result(obj)
-        return data.get("email", "-")
-    get_email.short_description = "Email"
+    def safe_email(self, obj):
+        try:
+            data = parse_result(obj)
+            return data.get("email", "-")
+        except Exception:
+            return "-"
+    safe_email.short_description = "Email"
 
-    def get_task_name(self, obj):
-        data = parse_result(obj)
-        return data.get("task_name", "-")
-    get_task_name.short_description = "Task Name"
+    def safe_task_name(self, obj):
+        try:
+            data = parse_result(obj)
+            return data.get("task_name", "-")
+        except Exception:
+            return "-"
+    safe_task_name.short_description = "Task Name"
 
 
 # <LICENSE>
