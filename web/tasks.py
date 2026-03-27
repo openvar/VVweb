@@ -90,6 +90,9 @@ def batch_validate(
     user_id=None,
     validator=None):
 
+    import json
+    from django_celery_results.models import TaskResult
+
     _store_user_meta(self.request.id, user_id)
 
     logger.error("Running batch_validate task")
@@ -132,7 +135,6 @@ def batch_validate(
         if not sym:
             continue
 
-        # PASS user_id DOWNSTREAM
         returned_trans = gene2transcripts(
             sym,
             validator=validator,
@@ -153,7 +155,7 @@ def batch_validate(
         transcripts = input_formatting.format_input(transcripts)
 
     # ---------------------------------------------------------------------
-    # Now validate
+    # Perform validation
     # ---------------------------------------------------------------------
     try:
         output = validator.validate(
@@ -172,16 +174,51 @@ def batch_validate(
         )
         raise
 
-    # return validator to pool
+    # Return validator to pool
     batch_object_pool.return_object(validator)
 
-    # Create output table
+    # Convert result to table
     res = output.format_as_table()
     res[0] = res[0] + ", options: " + str(options)
 
     logger.info("Sending result email for job %s" % self.request.id)
     services.send_result_email(email, self.request.id)
 
+    # ---------------------------------------------------------------------
+    # Populate TaskResult admin-detail fields
+    # ---------------------------------------------------------------------
+    try:
+        tr = TaskResult.objects.get(task_id=self.request.id)
+
+        # Official Celery task name
+        tr.task_name = self.name
+
+        # Positional arguments (you use none)
+        tr.task_args = "[]"
+
+        # Named arguments (store everything meaningful)
+        tr.task_kwargs = json.dumps({
+            "variant": variant,
+            "genome": genome,
+            "email": email,
+            "gene_symbols": gene_symbols,
+            "transcripts": transcripts,
+            "options": options,
+            "transcript_set": transcript_set,
+            "user_id": user_id
+        })
+
+        # Worker hostname
+        tr.worker = self.request.hostname
+
+        tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
+
+    except Exception as e:
+        logger.error(f"Failed to populate TaskResult fields: {e}")
+
+    # ---------------------------------------------------------------------
+    # Return enriched result (admin list view reads this)
+    # ---------------------------------------------------------------------
     return {
         "result": res,
         "user_id": user_id,
@@ -197,21 +234,128 @@ def batch_validate(
     }
 
 
-@shared_task(bind=True)
-def vcf2hgvs(self, vcf_file, genome, gene_symbols, email, transcripts, options, validator=None, user_id=None):
-
-    _store_user_meta(self.request.id, user_id)
+@shared_task
+def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, validator=None):
     logger.info("Running vcf2hgvs task")
 
-    # (unchanged logic)
+    # Wait for the validator object to become free
+    while validator is None:
+        validator = batch_object_pool.get_object()
+        if validator is None:
+            logger.info("Validator not available, waiting for 1 minute...")
+            time.sleep(60)  # Wait for 1 minute before trying again
 
-    # IMPORTANT: propagate user_id to batch_validate
-    batch_validate.delay(
-        variants, genome, email, gene_symbols, transcripts, options,
-        user_id=user_id
-    )
+    qc = False
+    batch_list = []
+    unprocessed = []
+    error_log = []
+    total_vcf_calls = 0
+    vcf_validated = 0
+    batch_submit = True
+    jobid = vcf2hgvs.request.id
 
-    return f"Success - {len(batch_list)} (of {total_vcf_calls}) variants submitted"
+    for var_call in vcf_file.split('\n'):
+        try:
+            # REMOVE METADATA
+            if var_call.startswith('#'):
+                continue
+            else:
+                # Stringify
+                # var_call = var_call.decode()
+                var_call = var_call.strip()
+                # Log var_call
+
+                # Split the VCF components into a list
+                variant_data = var_call.split()
+                logger.info(variant_data)
+
+                try:
+                    # Gather the call data
+                    chr = str(variant_data[0])
+                    pos = str(variant_data[1])
+                    ref = str(variant_data[3])
+                    alt = str(variant_data[4])
+                except:
+                    continue
+
+            # Create an unambiguous call for VCF 4.0
+            if ref == '.' or ref == '' or ref == '-':
+                ref = 'ins'
+            if alt == '.' or ref == '' or ref == '-':
+                alt = 'del'
+
+            # Create the pseudo VCF inclusive of reference check
+            pvd = services.vcf2psuedo(chr, pos, ref, alt, genome, validator)
+            logger.debug(pvd)
+
+            if pvd['valid'] == 'pass':
+                pseudo_vcf = '%s-%s-%s-%s' % (chr, pos, ref, alt)
+                unprocessed.append(pseudo_vcf)
+                error_log.append('Unsupported Variant ' + pseudo_vcf + ' ' + genome)
+                continue
+            else:
+                total_vcf_calls += 1
+                pseudo_vcf = pvd['pseudo_vcf']
+                batch_list.append(pseudo_vcf)
+                if pvd['valid'] == 'true' or pvd['valid'] == 'ambiguous':
+                    vcf_validated += 1
+
+            # Check Genome Build
+            if total_vcf_calls == 100:
+                qc = True
+                try:
+                    ratio_valid = (vcf_validated / total_vcf_calls)
+                except ZeroDivisionError:
+                    ratio_valid = 0.0
+
+                ratio_valid = ratio_valid * 100
+                if ratio_valid < 90:
+                    logger.info("Will email as not enough are valid!")
+                    error_log.append("Only %s percent valid after processing 100 VCFs" % ratio_valid)
+                    services.send_vcf_email(email=email, job_id=jobid, genome=genome, per=ratio_valid)
+                    batch_submit = False
+                    break
+
+            # Limit jobs in batch list
+            elif vcf_validated > settings.MAX_VCF:
+                logger.info("Will email as exceeded max")
+                error_log.append("Exceeded max %s validated VCFs" % settings.MAX_VCF)
+                services.send_vcf_email(email, jobid, cause='max_limit')
+                batch_submit = False
+                break
+
+        except BaseException as error:
+            warning = ("Processing failure in bug catcher 1 - job suspended: {}".format(error))
+            logger.warning(warning)
+            logger.error(error)
+
+            report_error_log = ['Processsing_error_1'] + [str(warning)]
+            error_log = error_log + report_error_log
+            continue
+
+    if not qc:
+        try:
+            ratio_valid = (vcf_validated / total_vcf_calls)
+        except ZeroDivisionError:
+            ratio_valid = 0.0
+
+        ratio_valid = ratio_valid * 100
+        if ratio_valid < 90:
+            error_log.append("Only %s percent valid after processing whole file" % ratio_valid)
+            logger.info("Will email as not enough valid")
+            services.send_vcf_email(email, jobid, genome=genome, per=ratio_valid)
+            batch_submit = False
+
+    # Autosubmit to batch?
+    if batch_submit:
+        logger.info("All good - going to submit to batch validator")
+        variants = '|'.join(batch_list)
+        logger.debug(variants)
+        batch_validate.delay(variants, genome, email, gene_symbols, transcripts, options)
+        return 'Success - %s (of %s) variants submitted to BatchValidator' % (len(batch_list), total_vcf_calls)
+
+    logger.error(error_log)
+    return {'errors': error_log}
 
 
 # -------------------------------------------------------------------------
