@@ -4,12 +4,10 @@ from . import models
 from django_celery_results.models import TaskResult
 from django_celery_results.admin import TaskResultAdmin as DefaultTaskResultAdmin
 
-
 # -------------------------------------------------------------------
 # Register your own models
 # -------------------------------------------------------------------
 admin.site.register(models.Contact)
-
 
 # -------------------------------------------------------------------
 # Unregister the default TaskResult admin to avoid AlreadyRegistered
@@ -19,14 +17,14 @@ try:
 except admin.sites.NotRegistered:
     pass
 
-
 # -------------------------------------------------------------------
-# Custom TaskResult admin with user_id column
+# Custom TaskResult admin with user_id and richer result display
 # -------------------------------------------------------------------
 @admin.register(TaskResult)
 class TaskResultAdmin(DefaultTaskResultAdmin):
     """
-    Overrides the default django-celery-results admin to add user_id display.
+    Overrides the default django-celery-results admin to add user_id display
+    from the return payload (preferred) or legacy meta (fallback).
     """
 
     list_display = (
@@ -34,22 +32,48 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
         "status",
         "date_done",
         "get_user_id",
+        "get_email",
+        "get_variant",
     )
 
-    search_fields = ("task_id", "status", "meta")
+    search_fields = ("task_id", "status", "result", "meta")
     list_filter = ("status", "date_done")
 
+    # ----------------------------
+    # Extract user_id
+    # ----------------------------
     def get_user_id(self, obj):
-        """
-        Extract user_id from the meta JSON field.
-        """
-        try:
-            meta = obj.meta or {}
-            return meta.get("user_id", "-")
-        except Exception:
-            return "-"
+        # Prefer new-style user_id in result JSON
+        if isinstance(obj.result, dict) and "user_id" in obj.result:
+            return obj.result["user_id"]
+
+        # Fallback for historical tasks
+        if isinstance(obj.meta, dict) and "user_id" in obj.meta:
+            return obj.meta["user_id"]
+
+        return "-"
 
     get_user_id.short_description = "User ID"
+
+    # ----------------------------
+    # Extract email
+    # ----------------------------
+    def get_email(self, obj):
+        if isinstance(obj.result, dict):
+            return obj.result.get("email", "-")
+        return "-"
+
+    get_email.short_description = "Email"
+
+    # ----------------------------
+    # Extract variant
+    # ----------------------------
+    def get_variant(self, obj):
+        if isinstance(obj.result, dict):
+            return obj.result.get("variant", "-")
+        return "-"
+
+    get_variant.short_description = "Variant"
 
 
 # <LICENSE>

@@ -181,7 +181,20 @@ def batch_validate(
 
     logger.info("Sending result email for job %s" % self.request.id)
     services.send_result_email(email, self.request.id)
-    return res
+
+    return {
+        "result": res,
+        "user_id": user_id,
+        "variant": variant,
+        "genome": genome,
+        "email": email,
+        "gene_symbols": gene_symbols,
+        "transcripts": transcripts,
+        "options": options,
+        "transcript_set": transcript_set,
+        "task_id": self.request.id,
+        "task_name": self.name,
+    }
 
 
 @shared_task(bind=True)
