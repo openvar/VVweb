@@ -214,7 +214,7 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
             return f"(missing: {uid})"
 
         url = reverse("admin:auth_user_change", args=[uid])
-        return format_html("{}", url)
+        return format_html("<a href='{}'>View User</a>", url)
 
     user_link.short_description = "User Profile"
 
