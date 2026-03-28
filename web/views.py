@@ -1,11 +1,9 @@
 # web/views.py
+from allauth.account.views import SignupView, LoginView
+from allauth.account.utils import send_email_confirmation
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404
-from django.shortcuts import render, redirect, reverse
-from django.conf import settings
-from django.http import HttpResponse, Http404
-from . import forms
-from . import tasks
-from . import services
 from .object_pool import vval_object_pool, g2t_object_pool
 from .utils import render_to_pdf
 import VariantValidator
@@ -13,28 +11,23 @@ from VariantValidator import settings as vvsettings
 import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
-import codecs
 import sys
 import traceback
-from web.models import VariantQuota
-import logging
-from allauth.account.views import SignupView, LoginView
-from allauth.account.utils import send_email_confirmation
-from allauth.account.models import EmailAddress
+from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.contrib import messages
-from datetime import timedelta
-from django.utils import timezone
-from django.views.generic import TemplateView
-from django.contrib.auth.mixins import LoginRequiredMixin
-
-
+from allauth.account.models import EmailAddress
+from django.conf import settings
+import logging
+from . import forms
+from . import tasks
+from . import services
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 logger = logging.getLogger("vv")
-
-
-print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 
 # ======================================================================
 # BASIC PAGES
