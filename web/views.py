@@ -394,128 +394,145 @@ def batch_validate(request):
 
 def download_batch_res(request, job_id):
     """
-    Request will download job results
-    :param request:
-    :param job_id:
-    :return:
+    Download batch validator results as a text file.
+    Fully updated to handle new Celery result format:
+    {
+        "result": [...table rows...],
+        "user_id": ...,
+        "email": ...,
+        ...
+    }
     """
+
     job = AsyncResult(job_id)
 
-    buffer = str()
+    buffer = ""
     buffer += '# Job ID:%s\n' % job_id
-    try:
-        # Modify the output based on the options selected by the user.
 
-        # First pass, collect the metadata line which has had the options embedded
-        metaline = ''
-        for row in job.result:
+    try:
+        # ------------------------------------------------------------------
+        # NEW: Extract actual table rows from Celery result
+        # ------------------------------------------------------------------
+        raw = job.result
+
+        # If Celery returns raw JSON string, decode it
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except Exception:
+                raw = {}
+
+        # The real table is stored at raw["result"]
+        table = raw.get("result", [])
+
+        # ------------------------------------------------------------------
+        # Handle empty or malformed results
+        # ------------------------------------------------------------------
+        if not isinstance(table, list) or not table:
+            buffer += "# ERROR: Batch results missing or malformed.\n"
+            response = HttpResponse(buffer, content_type='text/plain')
+            response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
+            return response
+
+        # ------------------------------------------------------------------
+        # Find metadata line (first row containing "Metadata:")
+        # ------------------------------------------------------------------
+        metaline = ""
+        for row in table:
             if "Metadata:" in str(row):
                 metaline = str(row)
+                break
 
-        # Next parse the metaline to set the options
-        # 'options': 'transcript|genomic|protein|refseqgene|lrg|vcf|gene_info|tx_name|alt_loci'
-        if 'transcript' in metaline:
-            transcript_d = True
-        else:
-            transcript_d = False
-        if 'genomic' in metaline:
-            genomic_d = True
-        else:
-            genomic_d = False
-        if 'protein' in metaline:
-            protein_d = True
-        else:
-            protein_d = False
-        if 'refseqgene' in metaline:
-            refseqgene_d = True
-        else:
-            refseqgene_d = False
-        if 'lrg' in metaline:
-            lrg_d = True
-        else:
-            lrg_d = False
-        if 'vcf' in metaline:
-            vcf_d = True
-        else:
-            vcf_d = False
-        if 'gene_info' in metaline:
-            gene_info_d = True
-        else:
-            gene_info_d = False
-        if 'tx_name' in metaline:
-            tx_name_d = True
-        else:
-            tx_name_d = False
-        if 'alt_loci' in metaline:
-            alt_loci_d = True
-        else:
-            alt_loci_d = False
+        # ------------------------------------------------------------------
+        # Parse metadata for option flags
+        # ------------------------------------------------------------------
+        transcript_d  = "transcript"  in metaline
+        genomic_d     = "genomic"     in metaline
+        protein_d     = "protein"     in metaline
+        refseqgene_d  = "refseqgene"  in metaline
+        lrg_d         = "lrg"         in metaline
+        vcf_d         = "vcf"         in metaline
+        gene_info_d   = "gene_info"   in metaline
+        tx_name_d     = "tx_name"     in metaline
+        alt_loci_d    = "alt_loci"    in metaline
 
-        # Based on the option controls, add the correct list elements from job.result into the list my_results
+        # ------------------------------------------------------------------
+        # Build output rows based on selected options
+        # ------------------------------------------------------------------
         my_results = []
-        for row in job.result:
-            if "# Metadata" not in row:
-                output_these_elements = []
-                # Add selected variant and warnings
-                row[2] = str(row[2])
-                l = row[0:2]
-                output_these_elements = output_these_elements + l
-                if transcript_d is True:
-                    l = row[2:5]
-                    output_these_elements = output_these_elements + l
-                if refseqgene_d is True:
-                    l = row[5:7]
-                    output_these_elements = output_these_elements + l
-                if lrg_d is True:
-                    l = row[7:9]
-                    output_these_elements = output_these_elements + l
-                if protein_d is True:
-                    l = [row[9]]
-                    output_these_elements = output_these_elements + l
-                if genomic_d is True:
-                    l = [row[10]]
-                    output_these_elements = output_these_elements + l
-                    l = [row[16]]
-                    output_these_elements = output_these_elements + l
-                if vcf_d is True:
-                    l = row[11:16]
-                    output_these_elements = output_these_elements + l
-                    l = row[17:22]
-                    output_these_elements = output_these_elements + l
-                if gene_info_d is True:
-                    l = row[22:24]
-                    output_these_elements = output_these_elements + l
-                if tx_name_d is True:
-                    l = [row[24]]
-                    output_these_elements = output_these_elements + l
-                if alt_loci_d is True:
-                    l = [row[25]]
-                    output_these_elements = output_these_elements + l
-            else:
-                output_these_elements = row
-            my_results.append(output_these_elements)
 
-        # String together the list into an output string for transfer into a text file (tab delimited "\n" newlines)
+        for row in table:
+
+            # Metadata row?
+            if isinstance(row, str) or "# Metadata" in str(row):
+                my_results.append(row)
+                continue
+
+            # Convert non-list rows safely
+            if not isinstance(row, list):
+                row = [str(row)]
+
+            # Defensive: ensure row has enough elements for slicing
+            row = [str(x) if x is not None else "" for x in row]
+            while len(row) < 26:
+                row.append("")
+
+            output = []
+
+            # Always include: variant + warnings
+            output += row[0:2]
+
+            if transcript_d:
+                output += row[2:5]
+
+            if refseqgene_d:
+                output += row[5:7]
+
+            if lrg_d:
+                output += row[7:9]
+
+            if protein_d:
+                output.append(row[9])
+
+            if genomic_d:
+                output.append(row[10])
+                output.append(row[16])
+
+            if vcf_d:
+                output += row[11:16]
+                output += row[17:22]
+
+            if gene_info_d:
+                output += row[22:24]
+
+            if tx_name_d:
+                output.append(row[24])
+
+            if alt_loci_d:
+                output.append(row[25])
+
+            my_results.append(output)
+
+        # ------------------------------------------------------------------
+        # Write output rows to response buffer
+        # ------------------------------------------------------------------
         for row in my_results:
             if isinstance(row, list):
-                # The sql query returns null for some columns which is converted
-                # to a Python NoneType. In this case the join() was failing.
-                # Added a list comprehension to convert the NoneType to a string
-                # containing the word 'None'.
-                buffer += '\t'.join(['None' if v is None else v for v in row])
-            elif isinstance(row, str):
-                # Converted the else statement to an elif, to test whether we got a string.
-                # If yes we append it here (Usually the Metadata row).
-                # Add an else statement if needed.
-                buffer += row
-            buffer += '\n'
-    except Exception as ex:
-        # This will print errors to the Apache log
-        exc_type, exc_value, last_traceback = sys.exc_info()
-        logger.error(str(exc_type) + " " + str(exc_value))
-        traceback.print_tb(last_traceback, file=sys.stdout)
+                buffer += "\t".join(["None" if v in (None, "") else v for v in row])
+            else:
+                buffer += str(row)
+            buffer += "\n"
 
-    response = HttpResponse(buffer, content_type='text/plain')
+    except Exception:
+        exc_type, exc_value, tb = sys.exc_info()
+        logger.error("%s %s" % (exc_type, exc_value))
+        traceback.print_tb(tb)
+        buffer += "\n# ERROR: Failed to process results.\n"
+
+    # ----------------------------------------------------------------------
+    # Return final response
+    # ----------------------------------------------------------------------
+    response = HttpResponse(buffer, content_type="text/plain")
     response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
     logger.debug("Job %s results downloaded by user %s" % (job_id, request.user))
     return response
