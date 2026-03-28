@@ -146,7 +146,6 @@ class InstitutionMembership(models.Model):
 # =====================================================================================
 #   VARIANT QUOTA (CORRECTED FOR COMMERCIAL USERS) & (UPDATED WITH ONE-TIME TRIAL FLAG)
 # =====================================================================================
-
 class VariantQuota(models.Model):
     """
     Personal subscription + institutional inheritance + monthly usage.
@@ -223,6 +222,7 @@ class VariantQuota(models.Model):
         if self.plan == "enterprise":
             return getattr(settings, "ENTERPRISE_LIMIT", 1000000)
 
+        # fallback for legacy bad values like "free"
         return getattr(settings, "DEFAULT_MONTHLY_VARIANT_ALLOWANCE", 20)
 
     # -------------------------------------------------------
@@ -232,18 +232,18 @@ class VariantQuota(models.Model):
     def effective_allowance(self):
         base = self.personal_allowance
         profile = getattr(self.user, "profile", None)
+
         if not profile:
             return base
 
         status = profile.verification_status
 
+        # No institution = no uplift
         if not self.institution or not self.institution.is_active:
             return base
 
-        if status in ("verified", "auto_verified"):
-            return max(base, self.institution.variant_limit)
-
-        if status == "commercial":
+        # Only uplift if verified or commercial
+        if status in ("verified", "auto_verified", "commercial"):
             return max(base, self.institution.variant_limit)
 
         return base
@@ -252,17 +252,20 @@ class VariantQuota(models.Model):
     # SUBSCRIPTION EXPIRY CHECK
     # -------------------------------------------------------
     def check_subscription_status(self):
+        # Plans with expiry: pro, enterprise
         if (
             self.plan not in ("standard", "commercial") and
             self.subscription_expires and
             timezone.now() >= self.subscription_expires
         ):
+            # Expired → downgrade
             profile = getattr(self.user, "profile", None)
             if profile and profile.verification_status == "commercial":
                 self.plan = "commercial"
             else:
                 self.plan = "standard"
 
+            # Reset everything
             self.subscription_expires = None
             self.custom_limit = None
             self.count = 0
@@ -274,23 +277,38 @@ class VariantQuota(models.Model):
     # -------------------------------------------------------
     def reset_if_needed(self):
         now = timezone.now()
+
+        # SAFETY: if last_reset somehow ended up in the future, fix it
+        if self.last_reset > now:
+            self.last_reset = now
+            self.save()
+            return
+
         next_reset = self.last_reset + relativedelta(months=1)
 
         if now >= next_reset:
             self.count = 0
-            self.custom_limit = None  # removes trial automatically
+            self.custom_limit = None  # reset trial
             self.last_reset = now
             self.save()
 
     # -------------------------------------------------------
     # PUBLIC API
     # -------------------------------------------------------
+    @property
     def remaining(self):
+        """
+        Remaining quota = effective_allowance - count
+        ALWAYS calls reset + subscription checks.
+        """
         self.check_subscription_status()
         self.reset_if_needed()
         return max(self.effective_allowance - self.count, 0)
 
     def add_variants(self, n):
+        """
+        Deduct n variants from monthly quota.
+        """
         self.check_subscription_status()
         self.reset_if_needed()
 
@@ -299,6 +317,28 @@ class VariantQuota(models.Model):
 
         self.count += n
         self.save()
+
+    # -------------------------------------------------------
+    # GLOBAL SAFETY OVERRIDE
+    # -------------------------------------------------------
+    def save(self, *args, **kwargs):
+        """
+        Ensures invalid plan values (e.g., legacy 'free') never persist.
+        Also fixes future last_reset timestamps.
+        """
+        valid_plans = {choice[0] for choice in self.PLAN_CHOICES}
+
+        # Auto-correct legacy/bad plan values (e.g., 'free')
+        if self.plan not in valid_plans:
+            self.plan = "standard"
+
+        # Prevent time corruption
+        now = timezone.now()
+        if self.last_reset > now:
+            self.last_reset = now
+
+        super().save(*args, **kwargs)
+
 
 
 # <LICENSE>

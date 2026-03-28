@@ -178,25 +178,9 @@
 
     <!-- ACCOUNT STATUS BANNER -->
     {% if user.is_authenticated %}
-    {% with plan=user.variant_quota.plan remaining=user.variant_quota.remaining total=user.variant_quota.effective_allowance %}
     <div id="account-status-banner">
-        {% if plan %}
-          <span>Plan: <strong>{{ plan }}</strong></span>
-        {% else %}
-          <span>Plan: <strong>—</strong></span>
-        {% endif %}
-
-        &nbsp;•&nbsp;
-
-        {% if remaining is not None and total is not None %}
-          <span><strong>{{ remaining|intcomma }}</strong> / <strong>{{ total|intcomma }}</strong> variants remaining</span>
-        {% elif total is not None %}
-          <span><strong>{{ total|intcomma }}</strong> variants this month</span>
-        {% else %}
-          <span>Variants: <strong>—</strong></span>
-        {% endif %}
+        <span>Loading quota…</span>
     </div>
-    {% endwith %}
     {% endif %}
 
 
@@ -361,27 +345,41 @@
 {% if user.is_authenticated %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  fetch("{% url 'quota_status' %}", { credentials: "same-origin" })
-    .then(res => res.json())
-    .then(data => {
-        const badge = document.getElementById("quota-display");
-        if (!badge) return;
+    const banner = document.getElementById("account-status-banner");
+    if (!banner) return;
 
-        const remaining = data.remaining;
-        const total = data.effective_allowance;
+    fetch("{% url 'quota_status' %}")
+        .then(response => response.json())
+        .then(data => {
+            const plan = data.plan || "—";  // Already human-readable from get_plan_display()
+            const remaining = data.remaining ?? "—";
+            const total = data.effective_allowance ?? "—";
 
-        badge.textContent = `Validations remaining: ${remaining.toLocaleString()} / ${total.toLocaleString()}`;
-        badge.style.display = "inline-block";
+            // Format next reset date
+            const resetDate = data.resets_at
+                ? new Date(data.resets_at).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric"
+                })
+                : "—";
 
-        // Optional: turn red if <10% remaining
-        if (remaining < total * 0.1) {
-            badge.classList.remove("badge-info");
-            badge.classList.add("badge-danger");
-        }
-    })
-    .catch(err => console.error("Quota fetch failed:", err));
+            banner.innerHTML = `
+                <span>Plan: <strong>${plan}</strong></span>
+                &nbsp;•&nbsp;
+                <span><strong>${remaining.toLocaleString()}</strong> /
+                <strong>${total.toLocaleString()}</strong> variants remaining</span>
+                &nbsp;•&nbsp;
+                <span>Resets: <strong>${resetDate}</strong></span>
+            `;
+        })
+        .catch(err => {
+            console.error("Quota fetch error:", err);
+            banner.innerHTML = "<span>Unable to load quota status</span>";
+        });
 });
 </script>
+
 {% endif %}
 
 </body>

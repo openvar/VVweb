@@ -24,6 +24,7 @@ from . import tasks
 from . import services
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
+from web.models import VariantQuota
 
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")

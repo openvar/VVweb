@@ -3,6 +3,9 @@
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from dateutil.relativedelta import relativedelta
+from web.models import VariantQuota
+
+
 
 
 @login_required
@@ -10,11 +13,12 @@ def quota_status(request):
     """
     Return remaining and total quota for the logged-in user.
     """
-    quota = request.user.variant_quota
+    # IMPORTANT: Reload from DB, do NOT use request.user.variant_quota
+    quota = VariantQuota.objects.get(user=request.user)
 
     return JsonResponse({
         "user": request.user.username,
-        "plan": quota.plan,
+        "plan": quota.get_plan_display(),  # <-- FIXED
         "institution": quota.institution.name if quota.institution else None,
         "personal_allowance": quota.personal_allowance,
         "institution_allowance": (
@@ -22,11 +26,12 @@ def quota_status(request):
         ),
         "effective_allowance": quota.effective_allowance,
         "used": quota.count,
-        "remaining": quota.remaining(),
+        "remaining": quota.remaining,
         "resets_at": (
                 quota.last_reset + relativedelta(months=1)
         ).isoformat(),
     })
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
