@@ -1,14 +1,17 @@
 from django.contrib import admin
 from . import models
-
 from django_celery_results.models import TaskResult
 from django_celery_results.admin import TaskResultAdmin as DefaultTaskResultAdmin
 import json
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 # -------------------------------------------------------------------
 # Register your own models
 # -------------------------------------------------------------------
 admin.site.register(models.Contact)
+
 
 # -------------------------------------------------------------------
 # Unregister the default TaskResult admin
@@ -18,59 +21,105 @@ try:
 except admin.sites.NotRegistered:
     pass
 
+
 # -------------------------------------------------------------------
 # Safe JSON parser for TaskResult.result
-# This function MUST NEVER crash — admin list view depends on it
 # -------------------------------------------------------------------
 def parse_result(obj):
     """
-    Returns a dict safely parsed from TaskResult.result.
+    Returns a dict parsed safely from TaskResult.result.
+    Never crashes.
+
     Handles:
-    - None
-    - empty strings
+    - None, empty strings
     - invalid JSON
-    - lists
     - bytes
-    - old Celery result formats
-    - truncated data
+    - dicts
+    - legacy string formats
     """
     try:
-        res = obj.result
+        data = obj.result
 
-        # Handle None, "", 0, False
-        if not res:
+        if not data:
             return {}
 
         # Already a dict
-        if isinstance(res, dict):
-            return res
+        if isinstance(data, dict):
+            return data
 
-        # Bytes → decode silently
-        if isinstance(res, bytes):
+        # Decode bytes
+        if isinstance(data, bytes):
+            data = data.decode("utf-8", errors="ignore")
+
+        # Parse JSON encoded as string
+        if isinstance(data, str):
             try:
-                res = res.decode("utf-8", errors="ignore")
+                return json.loads(data)
             except Exception:
                 return {}
 
-        # Strings → try JSON
-        if isinstance(res, str):
-            try:
-                return json.loads(res)
-            except Exception:
-                return {}
-
-        # Anything unrecognized → fail silently
         return {}
 
     except Exception:
         return {}
 
+
 # -------------------------------------------------------------------
-# Custom admin for TaskResult
+# ADMIN ACTION: Show username(s) for selected tasks
+# -------------------------------------------------------------------
+@admin.action(description="Show username(s) for selected tasks")
+def show_usernames(modeladmin, request, queryset):
+    """
+    Look up usernames from user_id inside result JSON.
+    Report usernames in the Django admin message system.
+    """
+    for tr in queryset:
+        data = parse_result(tr)
+        uid = data.get("user_id")
+
+        # System task
+        if not uid:
+            modeladmin.message_user(
+                request,
+                f"Task {tr.task_id}: SYSTEM TASK (no user_id)"
+            )
+            continue
+
+        # Real user
+        try:
+            user = User.objects.get(id=uid)
+            modeladmin.message_user(
+                request,
+                f"Task {tr.task_id}: username = {user.username}, email = {user.email}"
+            )
+        except User.DoesNotExist:
+            modeladmin.message_user(
+                request,
+                f"Task {tr.task_id}: user_id {uid} does NOT exist"
+            )
+
+
+# -------------------------------------------------------------------
+# Custom TaskResult admin
 # -------------------------------------------------------------------
 @admin.register(TaskResult)
 class TaskResultAdmin(DefaultTaskResultAdmin):
 
+    # -------------------------------------------------------------------
+    # Performance + Usability improvements
+    # -------------------------------------------------------------------
+
+    # NEW: Default ordering → newest tasks first
+    ordering = ("-date_done",)
+
+    # NEW: Do not load giant "result" JSON blobs unnecessarily
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.defer("result")
+
+    # -------------------------------------------------------------------
+    # Display columns
+    # -------------------------------------------------------------------
     list_display = (
         "task_id",
         "safe_task_name",
@@ -78,39 +127,49 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
         "date_done",
         "safe_user_id",
         "safe_email",
+        "safe_username",   # NEW username column
     )
 
     search_fields = ("task_id", "status", "result")
     list_filter = ("status", "date_done")
 
+    actions = [show_usernames]
+
     # -------------------------------------------------------------------
-    # Safe accessors for admin list view
+    # Accessor methods
     # -------------------------------------------------------------------
 
     def safe_user_id(self, obj):
-        try:
-            data = parse_result(obj)
-            return data.get("user_id", "-")
-        except Exception:
-            return "-"
+        data = parse_result(obj)
+        return data.get("user_id", "-")
     safe_user_id.short_description = "User ID"
 
     def safe_email(self, obj):
-        try:
-            data = parse_result(obj)
-            return data.get("email", "-")
-        except Exception:
-            return "-"
+        data = parse_result(obj)
+        return data.get("email", "-")
     safe_email.short_description = "Email"
 
     def safe_task_name(self, obj):
-        try:
-            data = parse_result(obj)
-            return data.get("task_name", "-")
-        except Exception:
-            return "-"
+        data = parse_result(obj)
+        return data.get("task_name", "-")
     safe_task_name.short_description = "Task Name"
 
+    def safe_username(self, obj):
+        """
+        New column: show the username associated with user_id.
+        """
+        data = parse_result(obj)
+        uid = data.get("user_id")
+
+        if not uid:
+            return "SYSTEM"
+
+        try:
+            return User.objects.get(id=uid).username
+        except User.DoesNotExist:
+            return f"(missing: {uid})"
+
+    safe_username.short_description = "Username"
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

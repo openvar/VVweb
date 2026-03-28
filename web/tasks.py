@@ -7,7 +7,6 @@ import traceback
 from datetime import timedelta
 
 from celery import shared_task
-from django.conf import settings
 from django.utils import timezone
 from django_celery_results.models import TaskResult
 from django.contrib.auth import get_user_model
@@ -337,7 +336,7 @@ def batch_validate(
 # MAINTENANCE TASKS
 # -------------------------------------------------------------------------
 
-@shared_task()
+@shared_task(name="system.delete_old_jobs")
 def delete_old_jobs():
     """Delete Celery task results older than 7 days."""
     logger.info("delete_old_jobs(): checking for expired task results")
@@ -351,7 +350,7 @@ def delete_old_jobs():
     return {"deleted": num, "detail": details}
 
 
-@shared_task()
+@shared_task(name="system.email_old_users")
 def email_old_users():
     """
     Email users inactive for ~2 years minus 30 days, warning them their accounts
@@ -390,7 +389,7 @@ def email_old_users():
     }
 
 
-@shared_task()
+@shared_task(name="system.delete_old_users")
 def delete_old_users():
     """Delete users inactive for more than 2 years AND previously warned."""
     logger.info("delete_old_users(): checking for inactive user accounts")
