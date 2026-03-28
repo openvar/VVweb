@@ -1,41 +1,41 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
+from django.utils.html import format_html
+from django.urls import reverse
+import json
+
 from . import models
+
 from django_celery_results.models import TaskResult
 from django_celery_results.admin import TaskResultAdmin as DefaultTaskResultAdmin
-import json
-from django.contrib.auth import get_user_model
+
 
 User = get_user_model()
 
 # -------------------------------------------------------------------
-# Register your own models
+# Register app-specific models
 # -------------------------------------------------------------------
 admin.site.register(models.Contact)
 
-
 # -------------------------------------------------------------------
-# Unregister the default TaskResult admin
+# Unregister default TaskResult admin so we can override it
 # -------------------------------------------------------------------
 try:
     admin.site.unregister(TaskResult)
 except admin.sites.NotRegistered:
     pass
 
-
 # -------------------------------------------------------------------
-# Safe JSON parser for TaskResult.result
+# SAFE JSON PARSER — ALWAYS RETURNS A DICT
 # -------------------------------------------------------------------
 def parse_result(obj):
     """
-    Returns a dict parsed safely from TaskResult.result.
-    Never crashes.
-
+    Safely parse TaskResult.result. NEVER returns None.
     Handles:
-    - None, empty strings
-    - invalid JSON
-    - bytes
-    - dicts
-    - legacy string formats
+      - None / empty values
+      - invalid JSON
+      - bytes
+      - old Celery pickled formats
     """
     try:
         data = obj.result
@@ -43,15 +43,12 @@ def parse_result(obj):
         if not data:
             return {}
 
-        # Already a dict
         if isinstance(data, dict):
             return data
 
-        # Decode bytes
         if isinstance(data, bytes):
             data = data.decode("utf-8", errors="ignore")
 
-        # Parse JSON encoded as string
         if isinstance(data, str):
             try:
                 return json.loads(data)
@@ -63,63 +60,80 @@ def parse_result(obj):
     except Exception:
         return {}
 
-
 # -------------------------------------------------------------------
-# ADMIN ACTION: Show username(s) for selected tasks
+# ADMIN ACTION — SHOW USERNAME(S)
 # -------------------------------------------------------------------
 @admin.action(description="Show username(s) for selected tasks")
 def show_usernames(modeladmin, request, queryset):
-    """
-    Look up usernames from user_id inside result JSON.
-    Report usernames in the Django admin message system.
-    """
     for tr in queryset:
         data = parse_result(tr)
         uid = data.get("user_id")
 
-        # System task
         if not uid:
             modeladmin.message_user(
-                request,
-                f"Task {tr.task_id}: SYSTEM TASK (no user_id)"
+                request, f"Task {tr.task_id}: SYSTEM TASK (no user_id)"
             )
             continue
 
-        # Real user
         try:
             user = User.objects.get(id=uid)
             modeladmin.message_user(
                 request,
-                f"Task {tr.task_id}: username = {user.username}, email = {user.email}"
+                f"Task {tr.task_id}: username={user.username}, email={user.email}"
             )
         except User.DoesNotExist:
             modeladmin.message_user(
-                request,
-                f"Task {tr.task_id}: user_id {uid} does NOT exist"
+                request, f"Task {tr.task_id}: user_id {uid} does NOT exist"
             )
 
+# -------------------------------------------------------------------
+# ADMIN ACTION — DISABLE USER ACCOUNTS
+# -------------------------------------------------------------------
+@admin.action(description="Disable associated user accounts")
+def disable_users(modeladmin, request, queryset):
+    disabled = 0
+    for tr in queryset:
+        uid = parse_result(tr).get("user_id")
+        if not uid:
+            continue
+        try:
+            user = User.objects.get(id=uid)
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+            disabled += 1
+        except User.DoesNotExist:
+            pass
+    modeladmin.message_user(request, f"Disabled {disabled} user(s).")
 
 # -------------------------------------------------------------------
-# Custom TaskResult admin
+# ADMIN ACTION — DELETE USER ACCOUNTS
+# -------------------------------------------------------------------
+@admin.action(description="DELETE associated user accounts (dangerous!)")
+def delete_users(modeladmin, request, queryset):
+    deleted = 0
+    for tr in queryset:
+        uid = parse_result(tr).get("user_id")
+        if not uid:
+            continue
+        try:
+            User.objects.get(id=uid).delete()
+            deleted += 1
+        except User.DoesNotExist:
+            pass
+    modeladmin.message_user(request, f"Deleted {deleted} user account(s).")
+
+# -------------------------------------------------------------------
+# CUSTOM TASKRESULT ADMIN
 # -------------------------------------------------------------------
 @admin.register(TaskResult)
 class TaskResultAdmin(DefaultTaskResultAdmin):
 
-    # -------------------------------------------------------------------
-    # Performance + Usability improvements
-    # -------------------------------------------------------------------
-
-    # NEW: Default ordering → newest tasks first
     ordering = ("-date_done",)
 
-    # NEW: Do not load giant "result" JSON blobs unnecessarily
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.defer("result")
+        return qs.defer("result")  # speeds up admin massively
 
-    # -------------------------------------------------------------------
-    # Display columns
-    # -------------------------------------------------------------------
     list_display = (
         "task_id",
         "safe_task_name",
@@ -127,49 +141,82 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
         "date_done",
         "safe_user_id",
         "safe_email",
-        "safe_username",   # NEW username column
+        "safe_username",
+        "user_link",
     )
 
-    search_fields = ("task_id", "status", "result")
     list_filter = ("status", "date_done")
+    search_fields = ("task_id", "status", "result")
+    actions = [show_usernames, disable_users, delete_users]
 
-    actions = [show_usernames]
-
-    # -------------------------------------------------------------------
-    # Accessor methods
-    # -------------------------------------------------------------------
+    # ---- SAFE ACCESSORS ----
 
     def safe_user_id(self, obj):
-        data = parse_result(obj)
-        return data.get("user_id", "-")
+        try:
+            if obj is None:
+                return "-"
+            data = parse_result(obj) or {}
+            return data.get("user_id", "-")
+        except Exception:
+            return "-"
+
     safe_user_id.short_description = "User ID"
 
     def safe_email(self, obj):
-        data = parse_result(obj)
-        return data.get("email", "-")
+        try:
+            if obj is None:
+                return "-"
+            data = parse_result(obj) or {}
+            return data.get("email", "-")
+        except Exception:
+            return "-"
+
     safe_email.short_description = "Email"
 
     def safe_task_name(self, obj):
-        data = parse_result(obj)
-        return data.get("task_name", "-")
+        try:
+            if obj is None:
+                return "-"
+            data = parse_result(obj) or {}
+            if not isinstance(data, dict):
+                data = {}
+            return data.get("task_name") or obj.task_name or "-"
+        except Exception:
+            return "-"
+
     safe_task_name.short_description = "Task Name"
 
     def safe_username(self, obj):
-        """
-        New column: show the username associated with user_id.
-        """
-        data = parse_result(obj)
-        uid = data.get("user_id")
-
-        if not uid:
+        try:
+            if obj is None:
+                return "SYSTEM"
+            data = parse_result(obj) or {}
+            uid = data.get("user_id")
+            if not uid:
+                return "SYSTEM"
+            try:
+                return User.objects.get(id=uid).username
+            except User.DoesNotExist:
+                return f"(missing {uid})"
+        except Exception:
             return "SYSTEM"
 
+    # ---- CLICKABLE LINK TO USER ADMIN PAGE ----
+
+    def user_link(self, obj):
         try:
-            return User.objects.get(id=uid).username
+            uid = parse_result(obj).get("user_id")
+        except AttributeError:
+            return "SYSTEM"
+        try:
+            User.objects.get(id=uid)
         except User.DoesNotExist:
             return f"(missing: {uid})"
 
-    safe_username.short_description = "Username"
+        url = reverse("admin:auth_user_change", args=[uid])
+        return format_html("{}", url)
+
+    user_link.short_description = "User Profile"
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
