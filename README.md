@@ -76,6 +76,9 @@ To then create the database tables, make a migration (checks what models need cr
 ```bash
 python manage.py makemigrations
 python manage.py migrate
+python manage.py loaddata trusted_domains.json
+python manage.py lowercase_emails
+python manage.py rebuild_institutional_memberships
 ```
 
 Once this is done, you need to create an admin user account to access the web admin site. Make sure you don't lose track
@@ -118,6 +121,20 @@ Then load
 psql -U <USER> -d vvweb < temp_data_conflict.sql
 ```
  
+# Then run the following in `python manage.py shell`
+```python
+from django.contrib.auth.models import User
+from web.models import VariantQuota
+from django.conf import settings
+
+for user in User.objects.all():
+    VariantQuota.objects.get_or_create(
+        user=user,
+        defaults={'max_allowance': settings.DEFAULT_MONTHLY_VARIANT_ALLOWANCE, 'count': 0}
+    )
+```
+
+
 Next collect the static folders for Admin accounts
 ```bash
 python manage.py collectstatic

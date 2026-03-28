@@ -1,17 +1,18 @@
-# userprofiles/apps.py
-from django.apps import AppConfig
-import logging
 
-logger = logging.getLogger('vv')
+# verification/urls.py
 
+from django.urls import path
+from .views_verify import verify_identity, verify_pending
+from .views_commercial import commercial_landing, redeem_trial
+from .views_banned import banned_landing
 
-class UserprofilesConfig(AppConfig):
-    name = 'userprofiles'
-
-    def ready(self):
-        """Connect UserProfiles signals"""
-        from . import signals
-        logger.info("Userprofiles signals loaded")
+urlpatterns = [
+    path("verify/", verify_identity, name="verify_identity"),
+    path("verify/pending/", verify_pending, name="verify_pending"),
+    path("commercial/", commercial_landing, name="commercial_landing"),
+    path("commercial/redeem-trial/", redeem_trial, name="redeem_trial"),
+    path("banned/", banned_landing, name="banned_landing"),
+]
 
 
 # <LICENSE>

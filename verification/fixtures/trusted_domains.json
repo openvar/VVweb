@@ -1,0 +1,29 @@
+[
+  { "model": "verification.trusteddomain", "pk": 1,
+    "fields": { "domain": "ac.uk", "category": "university", "auto_approve": true }
+  },
+  { "model": "verification.trusteddomain", "pk": 2,
+    "fields": { "domain": "edu", "category": "university", "auto_approve": true }
+  },
+  { "model": "verification.trusteddomain", "pk": 3,
+    "fields": { "domain": "edu.au", "category": "university", "auto_approve": true }
+  },
+  { "model": "verification.trusteddomain", "pk": 4,
+    "fields": { "domain": "ac.nz", "category": "university", "auto_approve": true }
+  },
+  { "model": "verification.trusteddomain", "pk": 5,
+    "fields": { "domain": "ac.jp", "category": "university", "auto_approve": true }
+  },
+  { "model": "verification.trusteddomain", "pk": 6,
+    "fields": { "domain": "nih.gov", "category": "research", "auto_approve": true }
+  },
+  { "model": "verification.trusteddomain", "pk": 7,
+    "fields": { "domain": "ebi.ac.uk", "category": "research", "auto_approve": true }
+  },
+  { "model": "verification.trusteddomain", "pk": 8,
+    "fields": { "domain": "nhs.uk", "category": "public_health", "auto_approve": true }
+  },
+  { "model": "verification.trusteddomain", "pk": 9,
+    "fields": { "domain": "gov.uk", "category": "government", "auto_approve": true }
+  }
+]

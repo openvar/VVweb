@@ -61,26 +61,39 @@ INSTALLED_APPS = [
     'cookielaw',
     'allauth',
     'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.github',
-    'allauth.socialaccount.providers.google',
-    'allauth.socialaccount.providers.orcid',
-    'userprofiles',
+    'userprofiles.apps.UserprofilesConfig',
+    'verification',
     'django_recaptcha',
     'django_countries',
     'django_celery_beat',
 ]
 
+
 MIDDLEWARE = [
+    # 1) Security + required Django stack
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+
+    # 2) Authentication
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+
+    # 3) Your enforcement middleware (runs while authenticated)
+    'verification.middleware.TierEnforcementMiddleware',
+
+    # 4) Django messages + clickjacking
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # 5) Allauth middleware
     'allauth.account.middleware.AccountMiddleware',
+
+    # 6) Your post‑Allauth login bounce interceptor
+    'verification.middleware_postallauth.PostAllauthLoginRedirectFix',
 ]
+
+
 
 ROOT_URLCONF = 'VVweb.urls'
 
@@ -96,6 +109,7 @@ TEMPLATES = [
                 'django.template.context_processors.media',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'web.context_processors.account_status',
             ],
         },
     },
@@ -132,19 +146,67 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTHENTICATION_BACKENDS = (
+
+    "userprofiles.auth_backends.ProfileAwareModelBackend",
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
 )
 
 LOGIN_REDIRECT_URL = 'profile-home'
 
-# Updated allauth settings (replace deprecated ones)
-ACCOUNT_LOGIN_METHODS = {'username', 'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
-ACCOUNT_UNIQUE_EMAIL = True
+# ==============================
+# Django Allauth Configuration
+# ==============================
 
+# Allow login using either email or username
+ACCOUNT_LOGIN_METHODS = {'email', 'username'}
+
+# Signup fields: all required
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+
+# IMPORTANT:
+# Let users LOG IN even if their email is not verified yet.
+# Your own middleware + StrictLoginView handle verification flow.
+ACCOUNT_EMAIL_VERIFICATION = "optional"        # was "mandatory"
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_PRESERVE_EMAIL_CASE = False
+
+# Do NOT auto-send email confirmation on login or signup.
+# Your system sends email only when the user clicks "Send".
+ACCOUNT_EMAIL_CONFIRMATION_AUTO_SEND = False
+ACCOUNT_EMAIL_CONFIRMATION_AUTO_SEND_ON_LOGIN = False
+
+# Do NOT auto-log-in users after confirming email (you prefer login first).
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
+
+# Custom signup form
+ACCOUNT_FORMS = {
+    'signup': 'web.forms.UpdatedSignUpForm',
+}
+
+# Custom display name function
 ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
-ACCOUNT_FORMS = {'signup': 'web.forms.UpdatedSignUpForm'}
+
+
+# -------------------------------------------------------------------
+# SESSION MANAGEMENT (prevents stale-session redirect loops)
+# -------------------------------------------------------------------
+
+# Two weeks — standard for authenticated sessions
+SESSION_COOKIE_AGE = 1209600
+
+# Refresh session expiry on every request (keeps sessions fresh)
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Do NOT expire session on browser close
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# IMPORTANT:
+# When you change authentication flow, middleware order,
+# login logic, or Allauth behavior, bump this cookie name.
+# It forces all users to receive a *fresh* session and
+# prevents ERR_TOO_MANY_REDIRECTS after deployments.
+SESSION_COOKIE_NAME = "vvsession_v2"
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
@@ -183,12 +245,16 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = '[VVWeb] '
 
 # Local email debugging configuration
 if DEBUG:
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = 'localhost'
+    # Use MailHog/MailCatcher or similar at localhost:1025
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = "localhost"
     EMAIL_PORT = 1025
     EMAIL_USE_TLS = False
-    EMAIL_HOST_USER = ''
-    EMAIL_HOST_PASSWORD = ''
+    EMAIL_HOST_USER = ""
+    EMAIL_HOST_PASSWORD = ""
+
+    # IMPORTANT: set a valid default sender for dev
+    DEFAULT_FROM_EMAIL = "dev-noreply@variantvalidator.local"
 
 # For VCF to HGVS conversion
 MAX_VCF = 20000
@@ -251,6 +317,14 @@ LOGGING = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Fair usage
+# Free-tier default
+DEFAULT_MONTHLY_VARIANT_ALLOWANCE = 20000
+PRO_LIMIT = 100000
+ENTERPRISE_LIMIT = 1000000
+INSTITUTION_LIMIT = 1000000
+COMMERCIAL_TRIAL_LIMIT = 0
 
 try:
     from .local_settings import *

@@ -1,18 +1,22 @@
-# userprofiles/apps.py
-from django.apps import AppConfig
-import logging
+from django.contrib.auth.backends import ModelBackend
 
-logger = logging.getLogger('vv')
+class ProfileAwareModelBackend(ModelBackend):
+    """
+    Deny login when a user's profile is marked banned.
+    Works for username/password (allauth still calls through Django auth).
+    """
 
+    def user_can_authenticate(self, user):
+        can = super().user_can_authenticate(user)
+        if not can:
+            return False
 
-class UserprofilesConfig(AppConfig):
-    name = 'userprofiles'
+        # If there's no profile yet, don't block (defensive)
+        profile = getattr(user, "profile", None)
+        if profile is None:
+            return True
 
-    def ready(self):
-        """Connect UserProfiles signals"""
-        from . import signals
-        logger.info("Userprofiles signals loaded")
-
+        return profile.verification_status != "banned"
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

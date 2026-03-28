@@ -1,4 +1,11 @@
+# web/views.py
 from django.http import Http404
+from django.shortcuts import render, redirect, reverse
+from django.conf import settings
+from django.http import HttpResponse, Http404
+from . import forms
+from . import tasks
+from . import services
 from .object_pool import vval_object_pool, g2t_object_pool
 from .utils import render_to_pdf
 import VariantValidator
@@ -9,77 +16,81 @@ from celery.result import AsyncResult
 import codecs
 import sys
 import traceback
-from django.shortcuts import render, redirect
-from django.urls import reverse
-from django.contrib import messages
-from allauth.account.models import EmailAddress
-from django.conf import settings
+from web.models import VariantQuota
 import logging
-from . import forms
-from . import tasks
-from . import services
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from allauth.account.views import SignupView, LoginView
+from allauth.account.utils import send_email_confirmation
+from allauth.account.models import EmailAddress
+from django.contrib import messages
+from datetime import timedelta
+from django.utils import timezone
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
 
-logger = logging.getLogger('vv')
+
+
+
+print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
+logger = logging.getLogger("vv")
+
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 
+# ======================================================================
+# BASIC PAGES
+# ======================================================================
 
 def home(request):
     config = ConfigParser()
     config.read(vvsettings.CONFIG_DIR)
 
     versions = {
-        'VariantValidator': VariantValidator.__version__,
-        'hgvs': vvhgvs.__version__,
-        'uta': config['postgres']['version'],
-        'seqrepo': config['seqrepo']['version'],
-        'vvdb': config['mysql']['version']
+        "VariantValidator": VariantValidator.__version__,
+        "hgvs": vvhgvs.__version__,
+        "uta": config["postgres"]["version"],
+        "seqrepo": config["seqrepo"]["version"],
+        "vvdb": config["mysql"]["version"],
     }
 
-    return render(request, 'home.html', {
-        'versions': versions,
-    })
+    return render(request, "home.html", {"versions": versions})
 
 
 def about(request):
-    return redirect('https://github.com/openvar/variantValidator/blob/master/README.md')
+    return redirect("https://github.com/openvar/variantValidator/blob/master/README.md")
 
 
 def contact(request):
-    logger.debug("Loading Contact page")
     form = forms.ContactForm()
 
-    if request.method == 'POST':
-        logger.debug("POST to contact page")
+    if request.method == "POST":
         form = forms.ContactForm(request.POST)
         if form.is_valid():
             my_contact = form.save()
             services.send_contact_email(my_contact)
             messages.success(request, "Message sent")
             logger.info("Contact from %s made" % my_contact.emailval)
-            return redirect('contact')
+            return redirect("contact")
 
-    return render(request, 'contact.html', {
-        'form': form,
-    })
+    return render(request, "contact.html", {"form": form})
 
 
 def nomenclature(request):
-    return render(request, 'nomenclature.html')
+    return render(request, "nomenclature.html")
 
 
 def instructions(request):
-    return redirect('https://github.com/openvar/VV_databases/blob/master/markdown/instructions.md')
-    # return render(request, 'batch_instructions.html')
+    return redirect("https://github.com/openvar/VV_databases/blob/master/markdown/instructions.md")
 
 
 def faqs(request):
-    return render(request, 'faqs.html')
+    return render(request, "faqs.html")
 
 
 @login_required
+# ======================================================================
+# GENE TO TRANSCRIPTS
+# ======================================================================
+
 def genes_to_transcripts(request):
     """
     Synchronous gene → transcripts lookup.
@@ -125,9 +136,7 @@ def genes_to_transcripts(request):
                 else:
                     trans['url'] = f"https://www.ncbi.nlm.nih.gov/nuccore/{ref}"
 
-    return render(request, 'genes_to_transcripts.html', {
-        'output': output
-    })
+    return render(request, "genes_to_transcripts.html", {"output": output})
 
 
 def validate(request):
@@ -136,7 +145,6 @@ def validate(request):
     Allows 5 free anonymous validations, then requires login.
     Runs synchronously using validator pool (NOT Celery).
     """
-
     output = False
     locked = False
 
@@ -283,6 +291,9 @@ def validate(request):
         'source': last_source,
     })
 
+# ======================================================================
+# BATCH VALIDATION
+# ======================================================================
 
 def batch_validate(request):
     """
@@ -538,24 +549,163 @@ def download_batch_res(request, job_id):
     return response
 
 
-def bed_file(request):
-    # Capture the incoming request
-    info = request.GET.get('variant')
-    if info is None:
-        raise Http404("BED file does not exist without providing input variants")
+# ======================================================================
+# BED FILE OUTPUT
+# ======================================================================
 
-    # Split up the input
-    input_elements = info.split('|')
-    # Sort out URI encoding
-    if '+' in str(input_elements[0]):
-        input_elements = str(input_elements[0].replace(' ', '+'))
+def bed_file(request):
+    info = request.GET.get("variant")
+    if info is None:
+        raise Http404("BED file requires input variants")
+
+    input_elements = info.split("|")
+    if "+" in input_elements[0]:
+        input_elements[0] = input_elements[0].replace(" ", "+")
 
     validator = vval_object_pool.get_object()
     bed_call = services.create_bed_file(validator, *input_elements)
     vval_object_pool.return_object(validator)
 
-    response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
-    return response
+    return HttpResponse(bed_call, content_type="text/plain; charset=utf-8")
+
+
+# ======================================================================
+# CUSTOM EMAIL VIEWS
+# ======================================================================
+
+class StyledEmailSentView(LoginRequiredMixin, TemplateView):
+    template_name = "account/email_confirmation_sent.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # address for the template
+        ctx["email_to_show"] = self.request.session.get(
+            "account_email",
+            self.request.user.email if self.request.user.is_authenticated else None,
+        )
+        # for copy switching and banners
+        ctx["annual"] = (self.request.GET.get("annual") == "1")
+        ctx["resent"] = (self.request.GET.get("resent") == "1")
+
+
+class StyledSignupView(SignupView):
+    """
+    Custom signup:
+    • Lowercase email BEFORE user is created.
+    • Ensure EmailAddress exists (Allauth requirement).
+    • Always send confirmation email.
+    """
+
+    def form_valid(self, form):
+        # Normalize email
+        email = form.cleaned_data.get("email", "").lower().strip()
+        form.cleaned_data["email"] = email
+
+        # Let Allauth create the user
+        response = super().form_valid(form)
+
+        user = self.user  # Allauth sets self.user after super()
+
+        # ============================================================
+        # ENSURE EmailAddress EXISTS — THIS FIXES YOUR WHOLE SYSTEM
+        # ============================================================
+        email_obj, created = EmailAddress.objects.get_or_create(
+            user=user,
+            email=email,
+            defaults={"primary": True, "verified": False},
+        )
+
+        # Guarantee correct state
+        email_obj.primary = True
+        email_obj.verified = False
+        email_obj.save()
+
+        # ============================================================
+        # SEND CONFIRMATION EMAIL (Allauth’s proper function)
+        # ============================================================
+        send_email_confirmation(self.request, user)
+
+        # Store email in session (your original behaviour)
+        self.request.session["account_email"] = email
+
+        return response
+
+
+class StrictLoginView(LoginView):
+    """
+    Routing on login:
+      • Reset account (admin/auto): terms=None & reset_reason in {'admin','auto'}
+          - unverified -> /accounts/confirm-email/
+          - verified   -> /verify/
+      • True new user: terms=None & reset_reason is None
+          - unverified -> /accounts/confirm-email/
+          - verified   -> normal success
+      • Otherwise (terms set): keep normal success path (or your existing logic)
+    """
+
+    def post(self, request, *args, **kwargs):
+        # Normalize the username/email the user types into the login form
+        if request.method == "POST":
+            data = request.POST.copy()
+            if "login" in data and data["login"]:
+                data["login"] = data["login"].lower().strip()
+            request.POST = data
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        user = form.user
+
+        # Normalize stored email on login
+        lowered = (user.email or "").lower().strip()
+        if user.email != lowered:
+            user.email = lowered
+            user.save(update_fields=["email"])
+
+        # Ensure an EmailAddress row exists and is primary
+        # (no auto-send here; we’re only routing)
+        ea = EmailAddress.objects.filter(user=user, email__iexact=lowered).order_by("-primary").first()
+        if not ea:
+            ea = EmailAddress.objects.create(user=user, email=lowered, primary=True, verified=False)
+        elif not ea.primary:
+            ea.primary = True
+            ea.save(update_fields=["primary"])
+
+        # Make the email available to the confirm page
+        self.request.session["account_email"] = lowered
+
+        # *** Log the user in FIRST so subsequent redirects are authenticated
+        response = super().form_valid(form)
+
+        # Snapshot Allauth/ Profile state
+        is_verified_now = EmailAddress.objects.filter(user=user, verified=True).exists()
+        profile = getattr(user, "profile", None)
+        terms = getattr(profile, "terms_accepted_at", None)
+        reset_reason = getattr(profile, "reset_reason", None)
+
+        # ---------------------------
+        # TERMS == None  (new OR reset)
+        # ---------------------------
+        if terms is None:
+            # (A) Reset account (admin/auto)
+            if reset_reason in {"admin", "auto"}:
+                if not is_verified_now:
+                    return redirect(reverse("account_email_verification_sent"))
+                return redirect("/verify/")
+
+            # (B) True new account (no reset marker)
+            if reset_reason is None:
+                if not is_verified_now:
+                    return redirect(reverse("account_email_verification_sent"))
+                # verified true new → normal success
+                return response
+
+        # ---------------------------
+        # TERMS present (not new/reset)
+        # ---------------------------
+        # Keep your normal post-login path; if you want to require verify,
+        # you could bounce unverified users to the confirm page here.
+        return response
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

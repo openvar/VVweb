@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Verify Identity{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+
+  <h2 class="mb-3">Verify Your Identity</h2>
+
+  <p class="text-muted">
+    To continue using VariantValidator, please confirm your organisation and provide evidence if needed.
+    Identification of users is now required to ensure we can prevent misuse and provide the correct level of
+    access for academic, healthcare, public health, charity, research and commercial users.
+  </p>
+
+  <hr>
+
+  <form method="post" class="mt-3">
+    {% csrf_token %}
+
+    <!-- Organisation type -->
+    <div class="form-group mb-4">
+      {{ form.org_type.label_tag }}
+      {{ form.org_type }}
+      {% if form.org_type.errors %}
+        <div class="text-danger">{{ form.org_type.errors }}</div>
+      {% endif %}
+    </div>
+
+    <!-- COUNTRY (added) -->
+    <div class="form-group mb-4">
+      {{ form.country.label_tag }}
+      {{ form.country }}
+      {% if form.country.errors %}
+        <div class="text-danger">{{ form.country.errors }}</div>
+      {% endif %}
+    </div>
+
+    <!-- ORCID -->
+    <div class="form-group mb-4">
+      {{ form.orcid_id.label_tag }}
+      {{ form.orcid_id }}
+      <small class="form-text text-muted">
+        Recommended evidence for researchers (e.g. 0000-0002-1825-0097).
+      </small>
+      {% if form.orcid_id.errors %}
+        <div class="text-danger">{{ form.orcid_id.errors }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Evidence URL 1 -->
+    <div class="form-group mb-4">
+      {{ form.evidence_url_1.label_tag }}
+      {{ form.evidence_url_1 }}
+      <small class="form-text text-muted">
+        Examples of alternate evidence formats: institutional page, NHS profile, Google Scholar profile,
+        LinkedIn, charity page, company “About Us”.
+      </small>
+      {% if form.evidence_url_1.errors %}
+        <div class="text-danger">{{ form.evidence_url_1.errors }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Evidence URL 2 -->
+    <div class="form-group mb-4">
+      {{ form.evidence_url_2.label_tag }}
+      {{ form.evidence_url_2 }}
+      {% if form.evidence_url_2.errors %}
+        <div class="text-danger">{{ form.evidence_url_2.errors }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Notes -->
+    <div class="form-group mb-4">
+      {{ form.notes.label_tag }}<br>
+      {{ form.notes }}
+      <small class="form-text text-muted">
+        Optional explanation (e.g. student using personal email, honorary NHS contract, unusual situation).
+      </small>
+      {% if form.notes.errors %}
+        <div class="text-danger">{{ form.notes.errors }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Terms & Conditions -->
+    <div class="form-group form-check mt-4">
+      {{ form.accept_terms }}
+      <label for="{{ form.accept_terms.id_for_label }}">
+        I agree to the
+        <a href="https://github.com/openvar/variantValidator/blob/master/README.md#terms-and-conditions-of-use"
+           target="_blank" rel="noopener noreferrer">
+          Terms and Conditions of Use
+        </a>.
+      </label>
+      {% if form.accept_terms.errors %}
+        <div class="text-danger">{{ form.accept_terms.errors }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Submit -->
+    <button type="submit" class="btn btn-primary mt-3">
+      Submit Verification
+    </button>
+
+  </form>
+</div>
+{% endblock %}

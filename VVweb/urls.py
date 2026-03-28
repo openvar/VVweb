@@ -1,23 +1,12 @@
-"""VVweb URL Configuration
+# VVweb/urls.py
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/2.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from web import views
+from web import views, views_quota, views_resend
+from web.views import StyledEmailSentView, StyledSignupView, StrictLoginView
+# from verification.views_banned import banned_landing  # <-- remove this
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -32,10 +21,20 @@ urlpatterns = [
     path('service/gene2trans/', views.genes_to_transcripts, name='genes2trans'),
     path('download/<str:job_id>/', views.download_batch_res, name='batch_download'),
     path('bed/', views.bed_file, name='bed'),
+    path("accounts/resend-confirmation/", views_resend.resend_confirmation, name="resend_confirmation"),
+    path("accounts/login/", StrictLoginView.as_view(), name="account_login"),
+    path('accounts/signup/', StyledSignupView.as_view(), name='account_signup'),
+    path("accounts/confirm-email/", StyledEmailSentView.as_view(), name="account_email_verification_sent"),
+
+    # Verification routes (verify/, verify/pending/, commercial/, banned/)
+    path("", include("verification.urls")),
+
+    # Allauth account routes (no social if social apps are removed)
     path('accounts/', include('allauth.urls')),
+
+    path("quota/", views_quota.quota_status, name="quota_status"),
     path('profile/', include('userprofiles.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
