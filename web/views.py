@@ -25,6 +25,7 @@ from . import services
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from web.models import VariantQuota
+import json
 
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
@@ -591,31 +592,16 @@ def batch_validate(request):
                 user_id=user_id,
             )
 
-            # Extract real task ID
-            job_id = job.id
+            # Notify user
+            services.send_initial_email(verified_email, job, 'validation')
+            messages.success(request, f"Success! Job ID: {job}")
 
-            # User feedback
-            messages.success(
-                request,
-                f"Success! Validated variants will be emailed to you (Job ID: {job_id})"
-            )
+            logger.info(f"Batch job submitted: user_id={user_id}, job={job}")
 
-            # Send confirmation email using the correct task ID
-            services.send_initial_email(verified_email, job_id, "validation")
+            request.session['genome'] = form.cleaned_data['genome']
+            return redirect('batch_validate')
 
-            logger.info(
-                f"Batch validation submitted: user={request.user.id}, job_id={job}"
-            )
-
-            request.session["genome"] = form.cleaned_data["genome"]
-
-            return redirect("batch_validate")
-
-        # Form invalid
-        messages.warning(
-            request,
-            "Form contains errors. Please fix them below."
-        )
+        messages.warning(request, "Form contains errors. Please fix them below.")
 
     # ------------------------------------------------------------------
     # GET — Render form
