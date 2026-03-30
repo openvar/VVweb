@@ -112,10 +112,10 @@ class BatchValidateForm(forms.Form):
     # -------------------------
 
     def clean_input_variants(self):
-        raw_lines = self.cleaned_data['input_variants'].splitlines()
+        raw_text = self.cleaned_data['input_variants']
 
-        # Strip leading/trailing whitespace from each variant,
-        vars = [line.strip() for line in raw_lines if line.strip()]
+        # Split on any newline style, strip whitespace, remove blank entries
+        vars = [v for v in (line.strip() for line in raw_text.splitlines()) if v]
 
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
