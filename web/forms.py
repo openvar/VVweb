@@ -1,4 +1,3 @@
-from django import forms
 from . import models
 from allauth.account.forms import SignupForm, PasswordField
 from django.utils.translation import gettext_lazy as _
@@ -148,7 +147,7 @@ class BatchValidateForm(forms.Form):
     # -------------------------
 
     def clean_input_variants(self):
-        vars = self.cleaned_data['input_variants'].splitlines()
+        vars = self.cleaned_data['input_variants'].strip().splitlines()
 
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
@@ -174,7 +173,6 @@ class BatchValidateForm(forms.Form):
         user_quota.add_variants(len(vars))
 
         return '|'.join(vars)
-
 
     def clean_gene_symbols(self):
         symbols = self.cleaned_data['gene_symbols'].strip().split()
