@@ -177,16 +177,14 @@ class BatchValidateForm(forms.Form):
 
 
     def clean_gene_symbols(self):
-        symbols = self.cleaned_data['gene_symbols'].strip()
-        if symbols:
-            return '|'.join(symbols.split())
-        return ''
+        symbols = self.cleaned_data['gene_symbols'].strip().split()
+        return '|'.join(symbols)
 
     def clean_select_transcripts(self):
-        transcripts = self.cleaned_data['select_transcripts'].strip()
-        if not transcripts:
-            return 'mane_select'
-        return '|'.join(transcripts.split())
+        transcripts = self.cleaned_data['select_transcripts'].strip().split()
+        if len(transcripts) == 0:
+            transcripts = ['mane_select']
+        return '|'.join(transcripts)
 
     def clean_options(self):
         ops = self.cleaned_data['options']
