@@ -100,8 +100,8 @@ class BatchValidateForm(forms.Form):
     # email_address = forms.EmailField(...)
 
     # NEW: list of verified emails only
-    verified_emails = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple,
+    verified_email = forms.ChoiceField(
+        widget=forms.RadioSelect,
         required=True,
         label='Send results to:'
     )
@@ -145,11 +145,13 @@ class BatchValidateForm(forms.Form):
     # -------------------------
 
     def clean_input_variants(self):
-        vars = self.cleaned_data['input_variants'].split("\n")
-        # vars = [v.strip() for v in vars if v.strip()]
+        vars = self.cleaned_data['input_variants'].splitlines()
 
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
+        elif len(vars) > settings.MAX_VCF:
+            raise forms.ValidationError(f"Invalid input, submitted variants exceeds cutoff of {settings.MAX_VCF}",
+                                        code='invalid')
 
         if self.request is None:
             raise forms.ValidationError("Form must be instantiated with `request` to check quotas.")
@@ -169,6 +171,7 @@ class BatchValidateForm(forms.Form):
         user_quota.add_variants(len(vars))
 
         return '|'.join(vars)
+
 
     def clean_gene_symbols(self):
         symbols = self.cleaned_data['gene_symbols'].strip()

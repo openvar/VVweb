@@ -547,30 +547,33 @@ def batch_validate(request):
         try:
             email_obj = EmailAddress.objects.get(user=request.user, email=email_address)
             if not email_obj.verified:
-                messages.error(request, "You must verify your email before submitting batch jobs.")
+                messages.error(
+                    request,
+                    "You must verify your email before submitting batch jobs."
+                )
                 return redirect("account_email")
         except EmailAddress.DoesNotExist:
-            messages.error(request, "Your email address is not registered or verified.")
+            messages.error(
+                request,
+                "Your email address is not registered or verified."
+            )
             return redirect("account_email")
 
-        # ------------------------------------------------------------------
-        # Restore: passing request to the form
-        # ------------------------------------------------------------------
+        # Instantiate form
         form = forms.BatchValidateForm(request.POST, request=request)
 
         if form.is_valid():
 
-            # NEW: user selection of verified emails
-            verified_emails_selected = form.cleaned_data["verified_emails"]
+            # User selects ONE verified email (radio field)
+            verified_email = form.cleaned_data["verified_email"]
             user_id = request.user.id
 
-            # ------------------------------------------------------------------
-            # NEW: QUOTA CALCULATION & DEDUCTION
-            # ------------------------------------------------------------------
+            # Count submitted variants (preserve tabs, ignore blank lines)
             variant_text = form.cleaned_data["input_variants"]
-            variant_list = [v.strip() for v in variant_text.splitlines() if v.strip()]
+            variant_list = [v for v in variant_text.splitlines() if v.strip(" \r\n")]
             variant_count = len(variant_list)
 
+            # Deduct quota BEFORE queuing job
             try:
                 quota, _ = VariantQuota.objects.get_or_create(user=request.user)
                 quota.add_variants(variant_count)
@@ -580,23 +583,24 @@ def batch_validate(request):
                     request,
                     (
                         f"You do not have enough remaining validation credits "
-                        f"({quota.effective_allowance}) to submit a batch of {variant_count} variants."
+                        f"({quota.effective_allowance}) to submit a batch of "
+                        f"{variant_count} variants."
                     )
                 )
                 return redirect("batch_validate")
 
             except Exception as e:
-                logger.error(f"Batch quota error for user {request.user.id}: {e}")
+                logger.error(
+                    f"Batch quota error for user {request.user.id}: {e}"
+                )
                 messages.error(request, "Unable to track your validation quota.")
                 return redirect("batch_validate")
 
-            # ------------------------------------------------------------------
             # Celery async job
-            # ------------------------------------------------------------------
             job = tasks.batch_validate.delay(
                 variant=form.cleaned_data["input_variants"],
                 genome=form.cleaned_data["genome"],
-                email=verified_emails_selected,        # UPDATED
+                email=verified_email,   # <-- SINGLE EMAIL STRING
                 gene_symbols=form.cleaned_data["gene_symbols"],
                 transcripts=form.cleaned_data["select_transcripts"],
                 options=form.cleaned_data["options"],
@@ -604,24 +608,28 @@ def batch_validate(request):
                 user_id=user_id,
             )
 
-            # Notify user
+            # User feedback
             messages.success(
                 request,
                 f"Success! Validated variants will be emailed to you (Job ID: {job})"
             )
 
-            # Send email to ALL selected verified email addresses
-            for email in verified_emails_selected:
-                services.send_initial_email(email, job, "validation")
+            # Send confirmation email
+            services.send_initial_email(verified_email, job, "validation")
 
-            logger.info(f"Batch validation submitted: user={request.user.id}, job_id={job}")
+            logger.info(
+                f"Batch validation submitted: user={request.user.id}, job_id={job}"
+            )
 
             request.session["genome"] = form.cleaned_data["genome"]
 
             return redirect("batch_validate")
 
         # Form invalid
-        messages.warning(request, "Form contains errors. Please fix them below.")
+        messages.warning(
+            request,
+            "Form contains errors. Please fix them below."
+        )
 
     # ------------------------------------------------------------------
     # GET — Render form
@@ -636,10 +644,8 @@ def batch_validate(request):
 
             messages.error(
                 request,
-                (
-                    f"You must be <a href='{login_page}?next={here}' "
-                    f"class='alert-link'>logged in</a> to submit batch jobs."
-                )
+                f"You must be <a href='{login_page}?next={here}' class='alert-link'>logged in</a> "
+                f"to submit batch jobs."
             )
 
             for field in form.fields.values():
@@ -652,13 +658,13 @@ def batch_validate(request):
 
             email_address = getattr(request.user, "email", None)
             email_obj = EmailAddress.objects.filter(
-                user=request.user, email__iexact=email_address
+                user=request.user,
+                email__iexact=email_address
             ).first()
 
             if email_obj and email_obj.verified:
-                # NEW: preselect the primary verified email
-                form.fields["verified_emails"].initial = [email_obj.email]
-
+                # Preselect the user's verified primary email
+                form.fields["verified_email"].initial = email_obj.email
             else:
                 for field in form.fields.values():
                     field.disabled = True
@@ -667,18 +673,12 @@ def batch_validate(request):
 
                 messages.error(
                     request,
-                    (
-                        "Primary email must be "
-                        f"<a href='{verify_url}' class='alert-link'>verified</a> "
-                        "before batch submission."
-                    )
+                    f"Primary email must be <a href='{verify_url}' class='alert-link'>verified</a> "
+                    "before batch submission."
                 )
 
                 locked = True
 
-    # ------------------------------------------------------------------
-    # Render
-    # ------------------------------------------------------------------
     return render(
         request,
         "batch_validate.html",
@@ -688,7 +688,6 @@ def batch_validate(request):
             "settings": settings,
         }
     )
-
 
 def download_batch_res(request, job_id):
     """
