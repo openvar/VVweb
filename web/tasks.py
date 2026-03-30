@@ -162,7 +162,6 @@ def gene2transcripts(
 
 @shared_task(bind=True)
 def batch_validate(
-    self,
     variant,
     genome,
     email,
