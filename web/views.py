@@ -6,7 +6,7 @@ from VariantValidator import settings as vvsettings
 import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
-import codecs
+import json
 import sys
 import traceback
 from django.shortcuts import render, redirect
@@ -286,111 +286,162 @@ def validate(request):
 
 def batch_validate(request):
     """
-    Secure Batch Validator View.
-    Authenticated + email-verified users only.
-    Uses Celery to run long batch jobs asynchronously.
+    Batch Validator (secure + improved).
+    Keeps the new authentication + verification logic,
+    restores functional behaviour from the old version,
+    and applies quota: N credits = number of submitted variants.
     """
 
     locked = False
-    last_genome = request.session.get('genome')
+    last_genome = request.session.get("genome")
 
     # ------------------------------------------------------------------
     # POST — Submit batch job
     # ------------------------------------------------------------------
-    if request.method == 'POST':
+    if request.method == "POST":
 
         # Must be logged in
         if not request.user.is_authenticated:
-            return redirect('account_login')
+            login_url = reverse("account_login")
+            return redirect(f"{login_url}?next={reverse('batch_validate')}")
 
-        # Must have a primary email
-        email_address = getattr(request.user, 'email', None)
+        # Must have a primary email configured
+        email_address = getattr(request.user, "email", None)
         if not email_address:
             messages.error(request, "Your account does not have a valid email address.")
-            return redirect('account_email')
+            return redirect("account_email")
 
         # Must be verified
         try:
             email_obj = EmailAddress.objects.get(user=request.user, email=email_address)
             if not email_obj.verified:
-                messages.error(request, "You must verify your email before submitting batch jobs.")
-                return redirect('account_email')
+                messages.error(
+                    request,
+                    "You must verify your email before submitting batch jobs."
+                )
+                return redirect("account_email")
         except EmailAddress.DoesNotExist:
-            messages.error(request, "Your email address is not registered or verified.")
-            return redirect('account_email')
+            messages.error(
+                request,
+                "Your email address is not registered or verified."
+            )
+            return redirect("account_email")
 
-        # Process form
-        form = forms.BatchValidateForm(request.POST)
+        # Instantiate form
+        form = forms.BatchValidateForm(request.POST, request=request)
 
         if form.is_valid():
 
-            real_email = request.user.email  # ALWAYS authenticated email
+            # User selects ONE verified email (radio field)
+            verified_email = form.cleaned_data["verified_email"]
             user_id = request.user.id
 
-            # Submit async job
+            # print("ABOUT TO CALL CELERY WITH:", {
+            #     "variant": form.cleaned_data["input_variants"],
+            #     "genome": form.cleaned_data["genome"],
+            #     "email": verified_email,
+            #     "gene_symbols": form.cleaned_data["gene_symbols"],
+            #     "transcripts": form.cleaned_data["select_transcripts"],
+            #     "options": form.cleaned_data["options"],
+            #     "transcript_set": form.cleaned_data["refsource"],
+            #     "user_id": user_id,
+            # })
 
+            # Celery async job
             job = tasks.batch_validate.delay(
-                variant=form.cleaned_data['input_variants'],
-                genome=form.cleaned_data['genome'],
-                email=real_email,
-                gene_symbols=form.cleaned_data['gene_symbols'],
-                transcripts=form.cleaned_data['select_transcripts'],
-                options=form.cleaned_data['options'],
-                transcript_set=form.cleaned_data['refsource'],
-                user_id=user_id)
+                variant=form.cleaned_data["input_variants"],
+                genome=form.cleaned_data["genome"],
+                email=verified_email,
+                gene_symbols=form.cleaned_data["gene_symbols"],
+                transcripts=form.cleaned_data["select_transcripts"],
+                options=form.cleaned_data["options"],
+                transcript_set=form.cleaned_data["refsource"],
+                user_id=user_id,
+            )
 
-            # Notify user
-            services.send_initial_email(real_email, job, 'validation')
-            messages.success(request, f"Success! Job ID: {job}")
+            # Extract real task ID
+            job_id = job.id
 
-            logger.info(f"Batch job submitted: user_id={user_id}, job={job}")
+            # User feedback
+            messages.success(
+                request,
+                f"Success! Validated variants will be emailed to you (Job ID: {job_id})"
+            )
 
-            request.session['genome'] = form.cleaned_data['genome']
-            return redirect('batch_validate')
+            # Send confirmation email using the correct task ID
+            services.send_initial_email(verified_email, job_id, "validation")
 
-        messages.warning(request, "Form contains errors. Please fix them below.")
+            logger.info(
+                f"Batch validation submitted: user={request.user.id}, job_id={job}"
+            )
+
+            request.session["genome"] = form.cleaned_data["genome"]
+
+            return redirect("batch_validate")
+
+        # Form invalid
+        messages.warning(
+            request,
+            "Form contains errors. Please fix them below."
+        )
 
     # ------------------------------------------------------------------
-    # GET — render form
+    # GET — Render form
     # ------------------------------------------------------------------
     else:
-        form = forms.BatchValidateForm()
+        form = forms.BatchValidateForm(request=request)
 
         if not request.user.is_authenticated:
-            # Disable whole form
+
+            login_page = reverse("account_login")
+            here = reverse("batch_validate")
+
+            messages.error(
+                request,
+                f"You must be <a href='{login_page}?next={here}' class='alert-link'>logged in</a> "
+                f"to submit batch jobs."
+            )
+
             for field in form.fields.values():
                 field.disabled = True
-            messages.error(request, "You must be logged in to submit batch jobs.")
+
             locked = True
 
         else:
-            form.fields['genome'].initial = last_genome
+            form.fields["genome"].initial = last_genome
 
-            try:
-                email_obj = EmailAddress.objects.get(user=request.user, email=request.user.email)
+            email_address = getattr(request.user, "email", None)
+            email_obj = EmailAddress.objects.filter(
+                user=request.user,
+                email__iexact=email_address
+            ).first()
 
-                if email_obj.verified:
-                    form.fields['email_address'].initial = email_obj.email
-                else:
-                    for field in form.fields.values():
-                        field.disabled = True
-                    messages.error(request, "Primary email must be verified first.")
-                    locked = True
-
-            except EmailAddress.DoesNotExist:
+            if email_obj and email_obj.verified:
+                # Preselect the user's verified primary email
+                form.fields["verified_email"].initial = email_obj.email
+            else:
                 for field in form.fields.values():
                     field.disabled = True
-                messages.error(request, "Primary email must be verified first.")
+
+                verify_url = reverse("account_email")
+
+                messages.error(
+                    request,
+                    f"Primary email must be <a href='{verify_url}' class='alert-link'>verified</a> "
+                    "before batch submission."
+                )
+
                 locked = True
 
-    # ------------------------------------------------------------------
-    # Render
-    # ------------------------------------------------------------------
-    return render(request, 'batch_validate.html', {
-        'form': form,
-        'locked': locked,
-        'settings': settings,
-    })
+    return render(
+        request,
+        "batch_validate.html",
+        {
+            "form": form,
+            "locked": locked,
+            "settings": settings,
+        }
+    )
 
 def download_batch_res(request, job_id):
     """
