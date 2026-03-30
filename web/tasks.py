@@ -285,15 +285,6 @@ def batch_validate(
     # ------------------------------------------------------------------
     res = output.format_as_table()
     res[0] += ", options: " + str(options)
-    # --- RESTORE OLD BEHAVIOUR: REMOVE HEADER ROW ---
-    # OLD versions of VVTA did NOT return a header row
-    # NEW versions do, so we strip it to preserve legacy output format
-    if len(res) > 1 and isinstance(res[1], list):
-        header = res[1]
-
-        # Heuristic: header row always contains "Input" and "Warnings"
-        if "Input" in header and "Warnings" in header:
-            res.pop(1)
 
     services.send_result_email(email, self.request.id)
 
