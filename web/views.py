@@ -596,12 +596,7 @@ def batch_validate(request):
             services.send_initial_email(verified_email, job, 'validation')
             messages.success(request, f"Success! Job ID: {job}")
 
-            # Send confirmation email using the correct task ID
-            services.send_initial_email(verified_email, job, "validation")
-
-            logger.info(
-                f"Batch validation submitted: user={request.user.id}, job_id={job}"
-            )
+            logger.info(f"Batch job submitted: user_id={user_id}, job={job}")
 
             request.session["genome"] = form.cleaned_data["genome"]
 
