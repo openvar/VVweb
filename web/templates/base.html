@@ -1,7 +1,6 @@
 {% load static %}
 {% load cookielaw_tags %}
 {% load account %}
-{% load humanize %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -13,15 +12,18 @@
   <meta name="description" content="">
   <meta name="author" content="">
 
-  <title>VariantValidator{% block title %}{% endblock %}</title>
+  <title>VariantValidator{% block title %} {% endblock %}</title>
 
   <!-- Bootstrap core CSS -->
   <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
 
-  <!-- Custom styles -->
+  <!-- Custom styles for this template -->
   <link href="{% static 'css/business-frontpage.css' %}" rel="stylesheet">
+
   <link href="{% static 'css/vvweb.css' %}" rel="stylesheet">
   <link href="{% static 'cookielaw/css/cookielaw.css' %}" rel="stylesheet">
+
+  <!-- <script src="https://kit.fontawesome.com/81e2c5cfce.js" crossorigin="anonymous"></script> -->
 
   <!-- Favicon -->
   <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon/apple-touch-icon.png' %}">
@@ -32,186 +34,127 @@
   {% block extraheader %}
   {% endblock %}
 
-  <style>
-      /* Persistent status banner directly under navbar */
-      #account-status-banner {
-          position: fixed;
-          left: 0;
-          right: 0;
-          background-color: #007bff; /* Bootstrap primary */
-          color: #fff;
-          font-size: 0.85rem;
-          padding: 4px 0;
-          text-align: center;
-          z-index: 1000;
-      }
-  </style>
-
 </head>
 
 <body>
 
-    <div class="overlay"></div>
-
-<!-- NAVBAR -->
-<nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+  <div class="overlay"></div>
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top" style="z-index:1">
     <div class="container">
-        <a class="navbar-brand" href="{% url 'home' %}">VariantValidator.org</a>
+      <a class="navbar-brand" href="{% url 'home' %}">VariantValidator.org</a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="fas fa-bars" style="font-size: larger"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarResponsive">
+        <ul class="navbar-nav ml-auto">
+            {% if request.resolver_match.url_name == 'validate' %}
+            <li>
+                <form class="form-inline" method="post" id="validate-form" name="validate-form">
+                    {% csrf_token %}
+                    <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text" placeholder="Variant Description" required {% if variant %} value="{{ variant }}" {% endif %} style="width: 100%; margin: 5px;">
 
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive"
-                aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="fas fa-bars" style="font-size: larger"></span>
-        </button>
+                    <select class="custom-select my-1 mr-sm-2" id="transcripts-select" name="dropdown-transcripts" style="width: 40%; margin: 5px;">
+                        <option value="" disabled selected>Select transcript options</option>
+                        <option value="mane_select" title="MANE Select transcript">mane_select</option>
+                        <option value="mane" title="MANE and MANE Plus Clinical transcripts">mane</option>
+                        <option value="select" title="All select transcripts (including MANE Select)">select</option>
+                        <option value="all" title="All transcripts at their latest version">all</option>
+                        <option value="raw" title="All transcripts at all versions which we have in our dataset">raw</option>
+                        <option value="">Deselect</option>
+                    </select>
 
-        <div class="collapse navbar-collapse" id="navbarResponsive">
-            <ul class="navbar-nav ml-auto">
+                    <input id="transcripts" name="select_transcripts" type="text" placeholder="Or type transcript IDs separated by '|' e.g.NM_1234.5|NM_65432.1" class="form-control" {% if transcripts %} value="{{ transcripts }}" {% endif %} style="width: 55%; margin: 5px;">
 
-                {# ================= VALIDATOR FORM ================= #}
-                {% if request.resolver_match.url_name == 'validate' %}
-                <li class="nav-item w-100">
-                    <form class="form-inline w-100" method="post" id="validate-form" name="validate-form">
-                        {% csrf_token %}
-
-                        <input class="form-control mr-sm-2" id="variant_id" name="variant" type="text"
-                               placeholder="Variant Description" required
-                               {% if variant %} value="{{ variant }}" {% endif %}
-                               style="width: 100%; margin: 5px;">
-
-                        <select class="custom-select my-1 mr-sm-2" id="transcripts-select" name="dropdown-transcripts"
-                                style="width: 40%; margin: 5px;">
-                            <option value="" disabled selected>Select transcript options</option>
-                            <option value="mane_select">mane_select</option>
-                            <option value="mane">mane</option>
-                            <option value="select">select</option>
-                            <option value="all">all</option>
-                            <option value="raw">raw</option>
-                            <option value="">Deselect</option>
-                        </select>
-
-                        <input id="transcripts" name="select_transcripts" type="text"
-                               placeholder="Or type transcript IDs separated by '|'"
-                               class="form-control"
-                               {% if transcripts %} value="{{ transcripts }}" {% endif %}
-                               style="width: 55%; margin: 5px;">
-
-                        <div class="form-group" id="genomeselect">
-                            <div class="custom-control custom-radio custom-control-inline">
-                                <input class="custom-control-input" type="radio" name="genomebuild" id="grch38"
-                                       value="GRCh38" {% if genome == 'GRCh38' %}checked{% endif %}>
-                                <label class="custom-control-label" for="grch38">GRCh38 (hg38)</label>
-                            </div>
-
-                            <div class="custom-control custom-radio custom-control-inline">
-                                <input class="custom-control-input" type="radio" name="genomebuild" id="grch37"
-                                       value="GRCh37" {% if genome == 'GRCh37' %}checked{% endif %}>
-                                <label class="custom-control-label" for="grch37">GRCh37 (hg19)</label>
-                            </div>
+                    <div class="form-group" id="genomeselect" name="validate-form">
+                        <div class="custom-radio custom-control custom-control-inline">
+                            <input class="custom-control-input" type="radio" name="genomebuild" id="grch38" value="GRCh38" {% if genome == 'GRCh38' %}checked {% endif %}style="margin: 5px;">
+                            <label class="custom-control-label" for="grch38">GRCh38 (hg38)</label>
                         </div>
-
-                        <div class="form-group" id="refsource">
-                            <div class="custom-control custom-radio custom-control-inline">
-                                <input class="custom-control-input" type="radio" name="refsource" id="refseq"
-                                       value="refseq" {% if source == 'refseq' %}checked{% endif %}>
-                                <label class="custom-control-label" for="refseq">RefSeq</label>
-                            </div>
-
-                            <div class="custom-control custom-radio custom-control-inline">
-                                <input class="custom-control-input" type="radio" name="refsource" id="ensembl"
-                                       value="ensembl" {% if source == 'ensembl' %}checked{% endif %}>
-                                <label class="custom-control-label" for="ensembl">Ensembl</label>
-                            </div>
+                        <div class="custom-radio custom-control custom-control-inline">
+                            <input class="custom-control-input" type="radio" name="genomebuild" id="grch37" value="GRCh37" {% if genome == 'GRCh37' %}checked {% endif %}style="margin: 5px;">
+                            <label class="custom-control-label" for="grch37">GRCh37 (hg19)</label>
                         </div>
-
-                        <input type="hidden" name="pdf_request" value="False">
-
-                        <button class="btn btn-outline-success my-2 my-sm-0" type="submit" id="validate-btn"
-                                {% if locked %} disabled {% endif %}
-                                style="width: 20%; margin: 5px; float: right;">
-                            Submit
-                        </button>
-                    </form>
-                </li>
-                {% endif %}
-
-                {# ================= MAIN NAV ITEMS ================= #}
-                <li class="nav-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
-                    <a class="nav-link" href="{% url 'home' %}">Home</a>
-                </li>
-
-                {# ================= TOOLS ================= #}
-                <li class="nav-item dropdown {% if 'service' in request.resolver_match.route %}active{% endif %}">
-                    <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" data-toggle="dropdown">
-                        Tools
-                    </a>
-                    <div class="dropdown-menu">
-                        <a class="dropdown-item" href="{% url 'validate' %}">Validator</a>
-                        <a class="dropdown-item" href="{% url 'batch_validate' %}">Batch Validator</a>
-                        <a class="dropdown-item" href="{% url 'genes2trans' %}">Genes to Transcripts</a>
-                        <a class="dropdown-item" href="https://rest.variantvalidator.org/" target="_blank">REST API</a>
                     </div>
-                </li>
-
-                {# ================= INFORMATION ================= #}
-                <li class="nav-item dropdown {% if 'help' in request.resolver_match.route %}active{% endif %}">
-                    <a class="nav-link dropdown-toggle" href="#" id="infoDropdown" data-toggle="dropdown">
-                        Information
-                    </a>
-                    <div class="dropdown-menu">
-                        <a class="dropdown-item"
-                           href="https://github.com/openvar/variantValidator/blob/master/README.md"
-                           target="_blank">
-                            About
-                        </a>
-
-                        <a class="dropdown-item" href="{% url 'contact' %}">Contact</a>
-
-                        <div class="dropdown-divider"></div>
-
-                        <a class="dropdown-item" href="{% url 'batch_instructions' %}">
-                            Batch Tool
-                        </a>
+                    <div class="form-group" id="refsource" name="validate-form">
+                        <div class="custom-radio custom-control custom-control-inline">
+                            <input class="custom-control-input" type="radio" name="refsource" id="refseq" value="refseq" {% if source == 'refseq' %}checked {% endif %}style="margin: 5px;">
+                            <label class="custom-control-label" for="refseq">RefSeq</label>
+                        </div>
+                        <div class="custom-radio custom-control custom-control-inline">
+                            <input class="custom-control-input" type="radio" name="refsource" id="ensembl" value="ensembl" {% if source == 'ensembl' %}checked {% endif %}style="margin: 5px;">
+                            <label class="custom-control-label" for="ensembl">Ensembl</label>
+                            <span style="color: red;"> (Experimental feature)</span>
+                        </div>
                     </div>
-                </li>
-
-                {# ================= USER ================= #}
-                {% if user.is_authenticated %}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle"
-                       href="#"
-                       id="userDropdown"
-                       role="button"
-                       data-toggle="dropdown"
-                       aria-haspopup="true"
-                       aria-expanded="false">
-                        {{ user.username }}
-                    </a>
-
-                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="userDropdown">
-                        <a class="dropdown-item" href="{% url 'profile-home' %}">Profile</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
-                            Sign Out
-                        </a>
-                    </div>
-                </li>
-                {% else %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'account_login' %}">Login</a>
-                </li>
-                {% endif %}
-
-            </ul>
-        </div>
+                    <input type="hidden" name="pdf_request" value="False">
+                    <button class="btn btn-outline-success my-2 my-sm-0" type="submit" id="validate-btn" {% if locked %} disabled {% endif %} style="width: 20%; margin: 5px; float: right;">Submit </button>
+                </form>
+            </li>
+            {% endif %}
+            <li class="nav-item {% if request.resolver_match.url_name == 'home' %}active {% endif %}">
+                <a class="nav-link" href="{% url 'home' %}">Home</a>
+            </li>
+            <li class="nav-item dropdown {% if 'service' in request.resolver_match.route %}active {% endif %}">
+            <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">Tools</a>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="{% url 'validate' %}">Validator</a>
+                <a class="dropdown-item" href="{% url 'batch_validate' %}">Batch Validator</a>
+                <a class="dropdown-item" href="{% url 'genes2trans' %}">Genes to Transcripts</a>
+                <a class="dropdown-item" href="https://rest.variantvalidator.org/">REST API</a>
+              </div>
+            </li>
+            <li class="nav-item dropdown {% if 'help' in request.resolver_match.route %}active {% endif %}">
+            <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">Information</a>
+              <div class="dropdown-menu dropleft" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="https://github.com/openvar/variantValidator/blob/master/README.md">About</a>
+                <a class="dropdown-item" href="{% url 'contact' %}">Contact</a>
+                <div class="dropdown-divider"></div>
+                <!-- <a class="dropdown-item" href="{% url 'nomenclature' %}">Nomenclature</a> -->
+                <a class="dropdown-item" href="{% url 'batch_instructions' %}">Batch Tool</a>
+                <a class="dropdown-item" href="{% url 'faqs' %}" style="display: none">FAQs</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item dropdown-toggle" id="helpSubDropdown" data-toggle="dropdown" href="#" aria-haspopup="true" aria-expanded="false">External Links</a>
+                  <div class="dropdown-menu" aria-labelledby="helpSubDropdown">
+                      <h6 class="dropdown-header">HGVS Nomenclature</h6>
+                      <a class="dropdown-item" href="http://varnomen.hgvs.org/" role="button" target="_blank">HGVS/varnomen</a>
+                      <div class="dropdown-divider divider-header"></div>
+                      <h6 class="dropdown-header">Variant Databases</h6>
+                      <a class="dropdown-item" href="http://grenada.lumc.nl/LSDB_list/lsdbs" target="_blank">Locus Specific Database list</a>
+                      <a class="dropdown-item" href="https://www.ncbi.nlm.nih.gov/clinvar/" target="_blank">ClinVar</a>
+            		  <a class="dropdown-item" href="https://cancer.sanger.ac.uk/cosmic" target="_blank">COSMIC</a>
+                      <div class="dropdown-divider divider-header"></div>
+                      <h6 class="dropdown-header">Reference Sequence Portals</h6>
+                      <a class="dropdown-item" href="https://www.ncbi.nlm.nih.gov/refseq/" target="_blank">NCBI RefSeq</a>
+                      <a class="dropdown-item" href="http://www.lrg-sequence.org/" target="_blank">Locus Reference Genomic</a>
+                      <a class="dropdown-item" href="http://www.ensembl.org/index.html" target="_blank">ENSEMBL</a>
+                      <a class="dropdown-item" href="https://genome.ucsc.edu/cgi-bin/hgGateway" target="_blank">UCSC Genome Browser</a>
+                      <div class="dropdown-divider divider-header"></div>
+                      <h6 class="dropdown-header">Similar Sites</h6>
+                      <a class="dropdown-item" href="https://mutalyzer.nl/" target="_blank">Mutalyzer</a>
+                  </div>
+              </div>
+            </li>
+          {% if user.is_authenticated %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" data-toggle="dropdown" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false" href="#">
+              {% user_display user %}
+            </a>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="{% url 'profile-home' %}">Profile</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">Sign Out</a>
+              </div>
+          </li>
+          {% else %}
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'account_login' %}">Login</a>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
     </div>
-</nav>
-
-    <!-- ACCOUNT STATUS BANNER -->
-    {% if user.is_authenticated %}
-    <div id="account-status-banner">
-        <span>Loading quota…</span>
-    </div>
-    {% endif %}
-
+  </nav>
 
   {% cookielaw_banner %}
 
@@ -311,105 +254,39 @@
   <script src="{% static 'js/cookielaw.js' %}"></script>
   <script src="{% static 'js/vvweb.js' %}"></script>
 
+  <script>
+  $(document).ready(function() {
+      $('body').css('padding-top', $('.navbar').outerHeight() + 'px');
+  });
 
-    <script>
-    /**
-     * Layout: keep content pushed below the fixed navbar + account-status banner.
-     * Works on load, window resize, and navbar collapse/expand.
-     */
-    (function() {
-      function updateOffsets() {
-        var navH    = $('.navbar').outerHeight() || 0;
-        var bannerH = $('#account-status-banner').outerHeight() || 0;
+  $(window).resize(function() {
+      $('body').css('padding-top', $('.navbar').outerHeight() + 'px');
+  });
+  </script>
 
-        // Push the page content below both fixed elements
-        $('body').css('padding-top', (navH + bannerH + 10) + 'px');
+  <script>
+  $(function () {
+      $('[data-toggle="tooltip"]').tooltip()
+  });
+  </script>
 
-        // Keep the banner immediately under the current navbar height
-        if (bannerH > 0) {
-          $('#account-status-banner').css('top', navH + 'px');
-        }
-      }
-
-      $(document).ready(function() {
-        // Initial position
-        updateOffsets();
-
-        // Recalculate on window resize
-        $(window).on('resize', updateOffsets);
-
-        // Recalculate when the navbar collapses/expands (mobile)
-        $('#navbarResponsive')
-          .on('shown.bs.collapse', updateOffsets)
-          .on('hidden.bs.collapse', updateOffsets);
-
-        // Enable Bootstrap tooltips
-        $('[data-toggle="tooltip"]').tooltip();
-
-        // Clear transcripts <select> when the empty option is chosen
-        $('#transcripts-select').on('change', function() {
-          if ($(this).val() === '') {
+  <script>
+      $('#transcripts-select').on('change', function() {
+        if ($(this).val() === '') {
             $(this).val(null);
-          }
-        });
+        }
+    });
+  </script>
 
-        // If you still render the plan/quota values server-side in the banner,
-        // call updateOffsets once more in case the banner height differs with real content.
-        updateOffsets();
-      });
-    })();
-    </script>
-
-    {% block extrafooter %}
-      {% if autosubmit == "true" %}
+{% block extrafooter %}
+    {% if autosubmit == "true" %}
         <script>
-          $(document).ready(function() {
-            $('#validate-form').submit();
-          });
+            $(document).ready(function() {
+                $('#validate-form').submit();
+            });
         </script>
-      {% endif %}
-    {% endblock %}
-
-
-{% if user.is_authenticated %}
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const banner = document.getElementById("account-status-banner");
-    if (!banner) return;
-
-    fetch("{% url 'quota_status' %}")
-        .then(response => response.json())
-        .then(data => {
-            const plan = data.plan || "—";  // Already human-readable from get_plan_display()
-            const remaining = data.remaining ?? "—";
-            const total = data.effective_allowance ?? "—";
-
-            // Format next reset date
-            const resetDate = data.resets_at
-                ? new Date(data.resets_at).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric"
-                })
-                : "—";
-
-            banner.innerHTML = `
-                <span>Plan: <strong>${plan}</strong></span>
-                &nbsp;•&nbsp;
-                <span><strong>${remaining.toLocaleString()}</strong> /
-                <strong>${total.toLocaleString()}</strong> variants remaining</span>
-                &nbsp;•&nbsp;
-                <span>Resets: <strong>${resetDate}</strong></span>
-            `;
-        })
-        .catch(err => {
-            console.error("Quota fetch error:", err);
-            banner.innerHTML = "<span>Unable to load quota status</span>";
-        });
-});
-</script>
-
-{% endif %}
+    {% endif %}
+{% endblock %}
 
 </body>
 
