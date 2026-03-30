@@ -99,7 +99,7 @@ class BatchValidateForm(forms.Form):
     # REMOVED: insecure free‑text email input
     # email_address = forms.EmailField(...)
 
-    # NEW: list of verified emails only
+    # NEW — single radio field
     verified_email = forms.ChoiceField(
         widget=forms.RadioSelect,
         required=True,
@@ -125,20 +125,23 @@ class BatchValidateForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         # Populate verified email list if user is logged in
+
         if self.request and self.request.user.is_authenticated:
             verified = EmailAddress.objects.filter(
                 user=self.request.user,
                 verified=True
             ).values_list("email", "email")
 
-            self.fields['verified_emails'].choices = list(verified)
+            self.fields["verified_email"].choices = list(verified)
 
-            # If the user has only one verified email, pre‑select it
+            # If user has only one verified email → select it automatically
             if len(verified) == 1:
-                self.fields['verified_emails'].initial = [verified[0][0]]
+                self.fields["verified_email"].initial = verified[0][0]
+
         else:
-            self.fields['verified_emails'].choices = []
-            self.fields['verified_emails'].disabled = True
+            # Anonymous users cannot submit
+            self.fields["verified_email"].choices = []
+            self.fields["verified_email"].disabled = True
 
     # -------------------------
     # Cleaning + Quota Logic
