@@ -4,7 +4,10 @@ from allauth.account.forms import SignupForm, PasswordField
 from django.utils.translation import gettext_lazy as _
 from django_recaptcha.fields import ReCaptchaField
 from django.contrib.auth.models import User
+from django import forms
+from allauth.account.models import EmailAddress
 from django.conf import settings
+
 
 
 BATCH_FORM_OPTIONS = [
@@ -40,78 +43,144 @@ class ContactForm(forms.ModelForm):
 
 
 class BatchValidateForm(forms.Form):
-    input_variants = forms.CharField(widget=forms.Textarea(
-        attrs={'placeholder': 'Variant descriptions must be separated by new lines, spaces or tabs. '
-                              f"Maximum submission {settings.MAX_VCF} variants"}),
-                                     label='Input Variant Descriptions'
-    )
-    gene_symbols = forms.CharField(widget=forms.Textarea(
-        attrs={'rows': '3', 'placeholder': 'One gene symbol per line'}),
-                                   required=False,
-                                   label='Limit search, optionally, to specific genes (use HGNC gene symbols)'
-    )
-    select_transcripts = forms.CharField(widget=forms.Textarea(
-        attrs={'rows': '5', 'placeholder': 'One transcript id per line \n Or use one of: \n\tall (all transcripts at '
-                                           'latest version) \n\traw (all transcripts at all versions)'
-                                           '\n\tselect \n\t'
-                                           'mane \n\tmane_select'}),
-                                         required=False,
-                                         label='Optional - limit to specific transcripts (see our Genes to '
-                                         'Transcripts tool). or return select transcripts only'
-    )
-    options = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple(
-        attrs={'checked': 'check_label'}),
-                                        choices=BATCH_FORM_OPTIONS,
-                                        required=False,
-                                        label='Customise the information returned in the output file'
-                                        )
-    email_address = forms.EmailField(widget=forms.EmailInput(
-        attrs={'placeholder': 'A validation report will be sent via email.'}))
-    genome = forms.ChoiceField(choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
-                               widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
-                               label='Select genome build')
-    refsource = forms.ChoiceField(choices=(('refseq', 'refseq'), ('ensembl', 'ensembl')),
-                                  widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
-                                  label='Select reference sequence source',
-                                  initial='refseq')
 
+    input_variants = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                'placeholder': (
+                    'Variant descriptions must be separated by new lines, spaces or tabs. '
+                    f"Maximum submission {settings.MAX_VCF} variants"
+                )
+            }
+        ),
+        label='Input Variant Descriptions'
+    )
+
+    gene_symbols = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                'rows': '3',
+                'placeholder': 'One gene symbol per line'
+            }
+        ),
+        required=False,
+        label='Limit search, optionally, to specific genes (use HGNC gene symbols)'
+    )
+
+    select_transcripts = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                'rows': '5',
+                'placeholder': (
+                    "One transcript id per line \n"
+                    "Or use one of: \n"
+                    "\tall (all transcripts at latest version)\n"
+                    "\traw (all transcripts at all versions)\n"
+                    "\tselect\n"
+                    "\tmane\n"
+                    "\tmane_select"
+                )
+            }
+        ),
+        required=False,
+        label=(
+            'Optional - limit to specific transcripts (see our Genes to '
+            'Transcripts tool), or return select transcripts only'
+        )
+    )
+
+    options = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple(attrs={'checked': 'check_label'}),
+        choices=BATCH_FORM_OPTIONS,
+        required=False,
+        label='Customise the information returned in the output file'
+    )
+
+    # REMOVED: insecure free‑text email input
+    # email_address = forms.EmailField(...)
+
+    # NEW: list of verified emails only
+    verified_emails = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+        label='Send results to:'
+    )
+
+    genome = forms.ChoiceField(
+        choices=(('GRCh38', 'GRCh38'), ('GRCh37', 'GRCh37')),
+        widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
+        label='Select genome build'
+    )
+
+    refsource = forms.ChoiceField(
+        choices=(('refseq', 'refseq'), ('ensembl', 'ensembl')),
+        widget=forms.RadioSelect(attrs={'class': 'custom-control-input'}),
+        label='Select reference sequence source',
+        initial='refseq'
+    )
+
+    # Store request so quota logic continues to work correctly
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
 
+        # Populate verified email list if user is logged in
+        if self.request and self.request.user.is_authenticated:
+            verified = EmailAddress.objects.filter(
+                user=self.request.user,
+                verified=True
+            ).values_list("email", "email")
+
+            self.fields['verified_emails'].choices = list(verified)
+
+            # If the user has only one verified email, pre‑select it
+            if len(verified) == 1:
+                self.fields['verified_emails'].initial = [verified[0][0]]
+        else:
+            self.fields['verified_emails'].choices = []
+            self.fields['verified_emails'].disabled = True
+
+    # -------------------------
+    # Cleaning + Quota Logic
+    # -------------------------
+
     def clean_input_variants(self):
         vars = self.cleaned_data['input_variants'].split("\n")
+        vars = [v.strip() for v in vars if v.strip()]
+
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
 
         if self.request is None:
             raise forms.ValidationError("Form must be instantiated with `request` to check quotas.")
 
-        # Get the user's quota object
+        # Quota check
         user_quota = self.request.user.variant_quota
         user_quota.reset_if_needed()
+        remaining = user_quota.remaining
 
-        remaining = user_quota.remaining()
         if len(vars) > remaining:
             raise forms.ValidationError(
                 f"Submission exceeds your monthly limit. You have {remaining} variants remaining this month.",
                 code='quota_exceeded'
             )
 
-        # Add the submitted variants to the quota
+        # Deduct from quota
         user_quota.add_variants(len(vars))
 
         return '|'.join(vars)
 
     def clean_gene_symbols(self):
-        symbols = self.cleaned_data['gene_symbols'].strip().split()
-        return '|'.join(symbols)
+        symbols = self.cleaned_data['gene_symbols'].strip()
+        if symbols:
+            return '|'.join(symbols.split())
+        return ''
 
     def clean_select_transcripts(self):
-        transcripts = self.cleaned_data['select_transcripts'].strip().split()
-        if len(transcripts) == 0:
-            transcripts = ['mane_select']
-        return '|'.join(transcripts)
+        transcripts = self.cleaned_data['select_transcripts'].strip()
+        if not transcripts:
+            return 'mane_select'
+        return '|'.join(transcripts.split())
 
     def clean_options(self):
         ops = self.cleaned_data['options']

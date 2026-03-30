@@ -537,7 +537,7 @@ def batch_validate(request):
             login_url = reverse("account_login")
             return redirect(f"{login_url}?next={reverse('batch_validate')}")
 
-        # Must have an email configured
+        # Must have a primary email configured
         email_address = getattr(request.user, "email", None)
         if not email_address:
             messages.error(request, "Your account does not have a valid email address.")
@@ -560,18 +560,17 @@ def batch_validate(request):
 
         if form.is_valid():
 
-            real_email = request.user.email
+            # NEW: user selection of verified emails
+            verified_emails_selected = form.cleaned_data["verified_emails"]
             user_id = request.user.id
 
             # ------------------------------------------------------------------
             # NEW: QUOTA CALCULATION & DEDUCTION
             # ------------------------------------------------------------------
-            # Count submitted variants (non-empty lines)
             variant_text = form.cleaned_data["input_variants"]
             variant_list = [v.strip() for v in variant_text.splitlines() if v.strip()]
             variant_count = len(variant_list)
 
-            # Charge quota BEFORE queuing job
             try:
                 quota, _ = VariantQuota.objects.get_or_create(user=request.user)
                 quota.add_variants(variant_count)
@@ -579,8 +578,10 @@ def batch_validate(request):
             except ValueError:
                 messages.error(
                     request,
-                    f"You do not have enough remaining validation credits "
-                    f"({quota.effective_allowance}) to submit a batch of {variant_count} variants."
+                    (
+                        f"You do not have enough remaining validation credits "
+                        f"({quota.effective_allowance}) to submit a batch of {variant_count} variants."
+                    )
                 )
                 return redirect("batch_validate")
 
@@ -590,12 +591,12 @@ def batch_validate(request):
                 return redirect("batch_validate")
 
             # ------------------------------------------------------------------
-            # Celery async job (unchanged)
+            # Celery async job
             # ------------------------------------------------------------------
             job = tasks.batch_validate.delay(
                 variant=form.cleaned_data["input_variants"],
                 genome=form.cleaned_data["genome"],
-                email=real_email,
+                email=verified_emails_selected,        # UPDATED
                 gene_symbols=form.cleaned_data["gene_symbols"],
                 transcripts=form.cleaned_data["select_transcripts"],
                 options=form.cleaned_data["options"],
@@ -603,13 +604,15 @@ def batch_validate(request):
                 user_id=user_id,
             )
 
-            # User-friendly success message
+            # Notify user
             messages.success(
                 request,
                 f"Success! Validated variants will be emailed to you (Job ID: {job})"
             )
 
-            services.send_initial_email(real_email, job, "validation")
+            # Send email to ALL selected verified email addresses
+            for email in verified_emails_selected:
+                services.send_initial_email(email, job, "validation")
 
             logger.info(f"Batch validation submitted: user={request.user.id}, job_id={job}")
 
@@ -627,13 +630,16 @@ def batch_validate(request):
         form = forms.BatchValidateForm(request=request)
 
         if not request.user.is_authenticated:
+
             login_page = reverse("account_login")
             here = reverse("batch_validate")
 
             messages.error(
                 request,
-                f"You must be <a href='{login_page}?next={here}' class='alert-link'>logged in</a> "
-                "to submit batch jobs."
+                (
+                    f"You must be <a href='{login_page}?next={here}' "
+                    f"class='alert-link'>logged in</a> to submit batch jobs."
+                )
             )
 
             for field in form.fields.values():
@@ -645,10 +651,13 @@ def batch_validate(request):
             form.fields["genome"].initial = last_genome
 
             email_address = getattr(request.user, "email", None)
-            email_obj = EmailAddress.objects.filter(email__iexact=email_address).first()
+            email_obj = EmailAddress.objects.filter(
+                user=request.user, email__iexact=email_address
+            ).first()
 
             if email_obj and email_obj.verified:
-                form.fields["email_address"].initial = email_obj.email
+                # NEW: preselect the primary verified email
+                form.fields["verified_emails"].initial = [email_obj.email]
 
             else:
                 for field in form.fields.values():
@@ -658,9 +667,11 @@ def batch_validate(request):
 
                 messages.error(
                     request,
-                    f"Primary email must be "
-                    f"<a href='{verify_url}' class='alert-link'>verified</a> "
-                    "before batch submission."
+                    (
+                        "Primary email must be "
+                        f"<a href='{verify_url}' class='alert-link'>verified</a> "
+                        "before batch submission."
+                    )
                 )
 
                 locked = True
@@ -677,6 +688,7 @@ def batch_validate(request):
             "settings": settings,
         }
     )
+
 
 def download_batch_res(request, job_id):
     """
