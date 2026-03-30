@@ -3,6 +3,7 @@ from allauth.account.views import SignupView, LoginView
 from allauth.account.utils import send_email_confirmation
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from web.models import VariantQuota
 from django.http import Http404
 from .object_pool import vval_object_pool, g2t_object_pool
 from .utils import render_to_pdf
@@ -11,6 +12,7 @@ from VariantValidator import settings as vvsettings
 import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
+import json
 import sys
 import traceback
 from django.shortcuts import render, redirect
@@ -24,8 +26,6 @@ from . import tasks
 from . import services
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
-from web.models import VariantQuota
-import json
 
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
@@ -592,17 +592,12 @@ def batch_validate(request):
                 user_id=user_id,
             )
 
-            # Extract real task ID
-            job_id = job.id
-
-            # User feedback
-            messages.success(
-                request,
-                f"Success! Validated variants will be emailed to you (Job ID: {job_id})"
-            )
+            # Notify user
+            services.send_initial_email(verified_email, job, 'validation')
+            messages.success(request, f"Success! Job ID: {job}")
 
             # Send confirmation email using the correct task ID
-            services.send_initial_email(verified_email, job_id, "validation")
+            services.send_initial_email(verified_email, job, "validation")
 
             logger.info(
                 f"Batch validation submitted: user={request.user.id}, job_id={job}"
@@ -978,6 +973,25 @@ class StrictLoginView(LoginView):
         # Keep your normal post-login path; if you want to require verify,
         # you could bounce unverified users to the confirm page here.
         return response
+
+def bed_file(request):
+    # Capture the incoming request
+    info = request.GET.get('variant')
+    if info is None:
+        raise Http404("BED file does not exist without providing input variants")
+
+    # Split up the input
+    input_elements = info.split('|')
+    # Sort out URI encoding
+    if '+' in str(input_elements[0]):
+        input_elements = str(input_elements[0].replace(' ', '+'))
+
+    validator = vval_object_pool.get_object()
+    bed_call = services.create_bed_file(validator, *input_elements)
+    vval_object_pool.return_object(validator)
+
+    response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
+    return response
 
 
 # <LICENSE>
