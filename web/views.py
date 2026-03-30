@@ -568,34 +568,6 @@ def batch_validate(request):
             verified_email = form.cleaned_data["verified_email"]
             user_id = request.user.id
 
-            # Count submitted variants (preserve tabs, ignore blank lines)
-            variant_text = form.cleaned_data["input_variants"]
-            variant_list = [v for v in variant_text.splitlines() if v.strip(" \r\n")]
-            variant_count = len(variant_list)
-
-            # Deduct quota BEFORE queuing job
-            try:
-                quota, _ = VariantQuota.objects.get_or_create(user=request.user)
-                quota.add_variants(variant_count)
-
-            except ValueError:
-                messages.error(
-                    request,
-                    (
-                        f"You do not have enough remaining validation credits "
-                        f"({quota.effective_allowance}) to submit a batch of "
-                        f"{variant_count} variants."
-                    )
-                )
-                return redirect("batch_validate")
-
-            except Exception as e:
-                logger.error(
-                    f"Batch quota error for user {request.user.id}: {e}"
-                )
-                messages.error(request, "Unable to track your validation quota.")
-                return redirect("batch_validate")
-
             # Celery async job
             job = tasks.batch_validate.delay(
                 variant=form.cleaned_data["input_variants"],
