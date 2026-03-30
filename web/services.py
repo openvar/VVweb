@@ -1,7 +1,6 @@
 from django.core.mail import send_mail, mail_admins
 from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
-from django.conf import settings
 from django.utils import timezone
 from django.shortcuts import reverse
 from VariantValidator.modules.seq_data import to_accession, to_chr_num_ucsc

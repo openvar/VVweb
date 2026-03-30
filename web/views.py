@@ -591,14 +591,17 @@ def batch_validate(request):
                 user_id=user_id,
             )
 
+            # Extract real task ID
+            job_id = job.id
+
             # User feedback
             messages.success(
                 request,
-                f"Success! Validated variants will be emailed to you (Job ID: {job})"
+                f"Success! Validated variants will be emailed to you (Job ID: {job_id})"
             )
 
-            # Send confirmation email
-            services.send_initial_email(verified_email, job, "validation")
+            # Send confirmation email using the correct task ID
+            services.send_initial_email(verified_email, job_id, "validation")
 
             logger.info(
                 f"Batch validation submitted: user={request.user.id}, job_id={job}"
