@@ -12,7 +12,6 @@ from VariantValidator import settings as vvsettings
 import vvhgvs
 from configparser import ConfigParser
 from celery.result import AsyncResult
-import json
 import sys
 import traceback
 from django.shortcuts import render, redirect
