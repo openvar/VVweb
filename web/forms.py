@@ -1,10 +1,10 @@
+from allauth.account.models import EmailAddress
+from django import forms
 from . import models
 from allauth.account.forms import SignupForm, PasswordField
 from django.utils.translation import gettext_lazy as _
 from django_recaptcha.fields import ReCaptchaField
 from django.contrib.auth.models import User
-from django import forms
-from allauth.account.models import EmailAddress
 from django.conf import settings
 
 
@@ -112,7 +112,10 @@ class BatchValidateForm(forms.Form):
     # -------------------------
 
     def clean_input_variants(self):
-        vars = self.cleaned_data['input_variants'].strip().splitlines()
+        raw_lines = self.cleaned_data['input_variants'].splitlines()
+
+        # Strip leading/trailing whitespace from each variant,
+        vars = [line.strip() for line in raw_lines if line.strip()]
 
         if len(vars) == 0:
             raise forms.ValidationError('Invalid input, no variants detected', code='invalid')
@@ -152,6 +155,34 @@ class BatchValidateForm(forms.Form):
     def clean_options(self):
         ops = self.cleaned_data['options']
         return '|'.join(ops)
+
+
+class UpdatedSignUpForm(SignupForm):
+    password1 = PasswordField(label=_("Password"))
+    password2 = PasswordField(label=_("Password (again)"))
+    captcha = ReCaptchaField()
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(_("This email address is already in use. Please supply a different email."))
+        return email
+
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError(_("This username is already taken. Please choose another."))
+        return username
+
+    def save(self, request):
+        # Ensure you call the parent class's save.
+        # .save() returns a User object.
+        user = super(UpdatedSignUpForm, self).save(request)
+
+        # Add your own processing here if needed.
+
+        # You must return the original result.
+        return user
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
