@@ -592,16 +592,31 @@ def batch_validate(request):
                 user_id=user_id,
             )
 
-            # Notify user
-            services.send_initial_email(verified_email, job, 'validation')
-            messages.success(request, f"Success! Job ID: {job}")
+            # Extract real task ID
+            job_id = job.id
 
-            logger.info(f"Batch job submitted: user_id={user_id}, job={job}")
+            # User feedback
+            messages.success(
+                request,
+                f"Success! Validated variants will be emailed to you (Job ID: {job_id})"
+            )
 
-            request.session['genome'] = form.cleaned_data['genome']
-            return redirect('batch_validate')
+            # Send confirmation email using the correct task ID
+            services.send_initial_email(verified_email, job_id, "validation")
 
-        messages.warning(request, "Form contains errors. Please fix them below.")
+            logger.info(
+                f"Batch validation submitted: user={request.user.id}, job_id={job}"
+            )
+
+            request.session["genome"] = form.cleaned_data["genome"]
+
+            return redirect("batch_validate")
+
+        # Form invalid
+        messages.warning(
+            request,
+            "Form contains errors. Please fix them below."
+        )
 
     # ------------------------------------------------------------------
     # GET — Render form
