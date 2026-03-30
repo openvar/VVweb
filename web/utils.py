@@ -29,10 +29,12 @@ logger = logging.getLogger("vv")
 def render_to_pdf(request, template_src, context_dict):
     """
     Generate a PDF using WeasyPrint from an HTML template.
+    Restores old behaviour and corrects the base_url so CSS and static files load.
     """
     html_string = render_to_string(template_src, context_dict)
 
-    base_url = request.build_absolute_uri()  # ensures correct paths for CSS/images
+    # WeasyPrint must have a DIRECTORY as base_url — not request.build_absolute_uri()
+    base_url = settings.BASE_DIR
 
     pdf = HTML(
         string=html_string,
@@ -46,7 +48,7 @@ def render_to_pdf(request, template_src, context_dict):
             CSS(settings.BASE_DIR + "/web/static/vendor/bootstrap/css/bootstrap-reboot.css"),
             CSS(settings.BASE_DIR + "/web/static/css/business-frontpage.css"),
         ],
-        presentational_hints=True,
+        presentational_hints=True
     )
 
     return pdf

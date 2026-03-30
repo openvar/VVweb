@@ -291,7 +291,8 @@ def validate(request):
     """
     Interactive single-variant validator.
     Keeps new security + synchronous validation improvements,
-    restores old quota, anonymous warnings, and lockout behaviour.
+    restores old quota, anonymous warnings, lockout behaviour,
+    and fully restores working PDF generation.
     """
     output = False
     locked = False
@@ -303,18 +304,16 @@ def validate(request):
     last_source = request.session.get("refsource", None)
 
     # ------------------------------------------------------------------
-    # GET — render input form + restore anonymous warnings
+    # GET — render input form + anonymous warnings
     # ------------------------------------------------------------------
     if request.method == 'GET':
 
-        # ---------------- Anonymous warning system (restored) ----------------
         if not request.user.is_authenticated:
             login_page = reverse("account_login")
             here = reverse("validate")
 
             if num < 5:
                 remaining = 5 - num
-
                 if remaining == 1:
                     msg = (
                         f"<span id='msg-body'>Warning: Only "
@@ -329,14 +328,16 @@ def validate(request):
                         f"For full access please "
                         f"<a href='{login_page}?next={here}' class='alert-link'>login</a>.</span>"
                     )
-
                 messages.warning(request, msg)
 
             else:
                 messages.error(
                     request,
-                    f"<span id='msg-body'>Please <a href='{login_page}?next={here}' "
-                    f"class='alert-link'>login</a> to continue using this service.</span>"
+                    (
+                        f"<span id='msg-body'>Please "
+                        f"<a href='{login_page}?next={here}' class='alert-link'>login</a> "
+                        f"to continue using this service.</span>"
+                    )
                 )
                 locked = True
 
@@ -356,19 +357,15 @@ def validate(request):
     # ------------------------------------------------------------------
     if request.method == 'POST':
 
-        # ---------------- Anonymous hard lockout (new version preserved) ----------------
+        # Anonymous hard lockout
         if not request.user.is_authenticated and num >= 5:
             login_page = reverse('account_login')
             here = reverse('validate')
-
-            messages.error(request,
+            messages.error(
+                request,
                 f"Please <a href='{login_page}?next={here}' class='alert-link'>login</a> to continue."
             )
-
-            return render(request, 'validate.html', {
-                'output': None,
-                'locked': True
-            })
+            return render(request, 'validate.html', {'output': None, 'locked': True})
 
         # Extract input
         variant = request.POST.get('variant')
@@ -381,12 +378,11 @@ def validate(request):
 
         pdf_request = request.POST.get('pdf_request')
 
-        # ---------------- Authenticated user monthly quota (restored) ----------------
+        # ---------------- Authenticated user monthly quota ----------------
         if request.user.is_authenticated:
             try:
                 quota, _ = VariantQuota.objects.get_or_create(user=request.user)
                 quota.add_variants(1)
-
             except ValueError:
                 messages.error(
                     request,
@@ -399,7 +395,6 @@ def validate(request):
                     'source': last_source,
                     'initial': variant,
                 })
-
             except Exception as e:
                 logger.error(f"Quota failure for user {request.user.id}: {e}")
                 messages.error(request, "Unable to track your submission quota.")
@@ -411,7 +406,9 @@ def validate(request):
                     'initial': variant,
                 })
 
-        # ---------------- Acquire validator + run synchronous validation ----------------
+        # ------------------------------------------------------------------
+        # Acquire validator + synchronous validation
+        # ------------------------------------------------------------------
         validator = vval_object_pool.get_object()
 
         try:
@@ -425,7 +422,6 @@ def validate(request):
 
             raw_dict = raw.format_as_dict()
             output = services.process_result(raw_dict, validator)
-
             output['genome'] = genome
             output['source'] = source
 
@@ -449,39 +445,56 @@ def validate(request):
         finally:
             vval_object_pool.return_object(validator)
 
-        # ---------------- Count anonymous submissions (new version preserved) ----------------
+        # ---------------- Count anonymous submissions ----------------
         if not request.user.is_authenticated:
             num += 1
             request.session['validations'] = num
 
-        # ---------------- PDF generation ----------------
-        if pdf_request and pdf_request != "False":
+        # ------------------------------------------------------------------
+        # PDF GENERATION — RESTORED + FIXED
+        # ------------------------------------------------------------------
+
+        # Normalise exactly like the old working code
+        if pdf_request is None:
+            pdf_requested = True
+        elif pdf_request in ("False", "false", "0"):
+            pdf_requested = False
+        else:
+            pdf_requested = True
+
+        if pdf_requested:
             config = ConfigParser()
             config.read(vvsettings.CONFIG_DIR)
+
             versions = {
                 'VariantValidator': VariantValidator.__version__,
                 'hgvs': vvhgvs.__version__,
                 'uta': config['postgres']['version'],
                 'seqrepo': config['seqrepo']['version'],
-                'vvdb': config['mysql']['version']
+                'vvdb': config['mysql']['version'],
             }
-            pdf = render_to_pdf(request, 'pdf_results.html',
-                                {'output': output, 'versions': versions})
+
+            context = {'output': output, 'versions': versions}
+
+            pdf = render_to_pdf(request, 'pdf_results.html', context)
 
             if pdf:
                 response = HttpResponse(pdf, content_type='application/pdf')
                 filename = f"VariantValidator_report_{variant}.pdf"
-                disposition = (
-                    f"attachment; filename={filename}"
-                    if request.GET.get("download")
-                    else f"inline; filename={filename}"
-                )
+
+                if request.GET.get("download"):
+                    disposition = f"attachment; filename={filename}"
+                else:
+                    disposition = f"inline; filename={filename}"
+
                 response['Content-Disposition'] = disposition
                 return response
 
             return HttpResponse("Could not generate PDF")
 
-        # ---------------- Render results ----------------
+        # ------------------------------------------------------------------
+        # Render results
+        # ------------------------------------------------------------------
         return render(request, 'validate_results.html', {
             'output': output,
             'ucsc': ucsc_link,
