@@ -272,7 +272,7 @@ def validate(request):
         # Normalise exactly like the old working code
         if pdf_request is None:
             pdf_requested = True
-        elif pdf_request in ("False", "false", "0"):
+        elif pdf_request in ("False", "false", ""):
             pdf_requested = False
         else:
             pdf_requested = True
