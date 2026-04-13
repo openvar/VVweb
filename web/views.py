@@ -104,7 +104,8 @@ def genes_to_transcripts(request):
                 symbol,
                 validator=validator,
                 select_transcripts=select_transcripts,
-                transcript_set=reference_source
+                transcript_set=reference_source,
+                user_id=request.user.id,  # ✅ THIS LINE
             )
 
         except Exception as e:
