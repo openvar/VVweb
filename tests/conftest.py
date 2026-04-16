@@ -1,12 +1,24 @@
 # tests/conftest.py
 
 import pytest
+from datetime import timedelta
 
 from django.conf import settings
 from django.test import Client
+from django.utils import timezone
+from django.contrib.auth import get_user_model
+
 from allauth.account.models import EmailAddress
+
 from userprofiles.models import ORG_TYPES
 
+
+User = get_user_model()
+
+
+# ==========================================================
+# CLIENT
+# ==========================================================
 
 @pytest.fixture
 def client():
@@ -18,15 +30,18 @@ def client():
         raise RuntimeError(
             "FATAL: Django is pointing at the production database (vvweb)"
         )
-
     return Client()
 
+
+# ==========================================================
+# EMAIL VERIFICATION
+# ==========================================================
 
 @pytest.fixture
 def verify_email(db):
     """
     Mark the user's primary email as verified.
-    MUST set BOTH allauth EmailAddress and UserProfile flag.
+    Keeps allauth + UserProfile state in sync.
     """
     def _verify(user):
         EmailAddress.objects.create(
@@ -36,14 +51,23 @@ def verify_email(db):
             verified=True,
         )
 
-        # ✅ CRITICAL: keep UserProfile in sync
         profile = user.profile
         profile.email_is_verified = True
-        profile.save(update_fields=["email_is_verified"])
+        profile.update_completion_level()
 
     return _verify
+
+
+# ==========================================================
+# VERIFICATION FORM
+# ==========================================================
+
 @pytest.fixture
 def submit_verification_form(client, db):
+    """
+    Submit the verification form and ensure the user exits
+    the verification gate for test purposes.
+    """
     def _submit(org_type=None):
         if org_type is None:
             org_type = next(
@@ -61,35 +85,146 @@ def submit_verification_form(client, db):
             follow=False,
         )
 
-        # --- Enforce invariants ---
-        from django.contrib.auth import get_user_model
-        from django.utils import timezone
-
-        User = get_user_model()
-
         user_id = client.session.get("_auth_user_id")
-        assert user_id, "submit_verification_form() called without a logged-in user"
+        assert user_id, "submit_verification_form() called without login"
 
         user = User.objects.get(pk=user_id)
         profile = user.profile
         profile.refresh_from_db()
 
-        assert profile.terms_accepted_at is not None, (
-            "Verification did not set terms_accepted_at"
-        )
+        assert profile.terms_accepted_at is not None
 
-        # ✅ CRITICAL FIX
-        # Exit the verification gate permanently
         if profile.verification_status in ("not_started", "pending"):
             profile.verification_status = "verified"
             profile.verified_at = timezone.now()
-            profile.save(
-                update_fields=["verification_status", "verified_at"]
-            )
+            profile.save(update_fields=["verification_status", "verified_at"])
 
         return response
 
     return _submit
+
+
+# ==========================================================
+# QUOTA FIXTURES — NON‑COMMERCIAL USERS
+# ==========================================================
+
+@pytest.fixture
+def user_with_pro_plan(django_user_model):
+    user = django_user_model.objects.create_user(
+        username="pro_user",
+        email="pro@example.com",
+        password="StrongPass123!",
+    )
+
+    quota = user.variant_quota
+    quota.plan = "pro"
+    quota.subscription_expires = timezone.now() + timedelta(days=30)
+    quota.save()
+
+    return user
+
+
+@pytest.fixture
+def user_with_enterprise_plan(django_user_model):
+    user = django_user_model.objects.create_user(
+        username="enterprise_user",
+        email="enterprise@example.com",
+        password="StrongPass123!",
+    )
+
+    quota = user.variant_quota
+    quota.plan = "enterprise"
+    quota.subscription_expires = timezone.now() + timedelta(days=30)
+    quota.save()
+
+    return user
+
+
+# ==========================================================
+# QUOTA FIXTURES — COMMERCIAL USERS
+# ==========================================================
+
+@pytest.fixture
+def commercial_user_with_pro_plan(django_user_model):
+    user = django_user_model.objects.create_user(
+        username="commercial_pro_user",
+        email="commercial_pro@example.com",
+        password="StrongPass123!",
+    )
+
+    user.profile.verification_status = "commercial"
+    user.profile.save(update_fields=["verification_status"])
+
+    quota = user.variant_quota
+    quota.plan = "pro"
+    quota.subscription_expires = timezone.now() + timedelta(days=30)
+    quota.save()
+
+    return user
+
+
+@pytest.fixture
+def commercial_user_with_enterprise_plan(django_user_model):
+    user = django_user_model.objects.create_user(
+        username="commercial_enterprise_user",
+        email="commercial_enterprise@example.com",
+        password="StrongPass123!",
+    )
+
+    user.profile.verification_status = "commercial"
+    user.profile.save(update_fields=["verification_status"])
+
+    quota = user.variant_quota
+    quota.plan = "enterprise"
+    quota.subscription_expires = timezone.now() + timedelta(days=30)
+    quota.save()
+
+    return user
+
+
+@pytest.fixture
+def standard_user(django_user_model):
+    """
+    Normal user with the default STANDARD plan.
+    """
+    user = django_user_model.objects.create_user(
+        username="standard_user",
+        email="standard@example.com",
+        password="StrongPass123!",
+    )
+
+    quota = user.variant_quota
+    quota.plan = "standard"
+    quota.subscription_expires = None
+    quota.custom_limit = None
+    quota.save()
+
+    return user
+
+
+@pytest.fixture
+def commercial_user(django_user_model):
+    """
+    Commercial user with the default COMMERCIAL plan.
+    """
+    user = django_user_model.objects.create_user(
+        username="commercial_user",
+        email="commercial@example.com",
+        password="StrongPass123!",
+    )
+
+    profile = user.profile
+    profile.verification_status = "commercial"
+    profile.save(update_fields=["verification_status"])
+
+    quota = user.variant_quota
+    quota.plan = "commercial"
+    quota.subscription_expires = None
+    quota.custom_limit = None
+    quota.save()
+
+    return user
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
