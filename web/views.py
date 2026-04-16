@@ -150,7 +150,7 @@ def genes_to_transcripts(request):
                     symbol,
                     validator=validator,
                     select_transcripts=select_transcripts,
-                    transcript_set=reference_source,
+                    transcript_set=source,
                     user_id=request.user.id,  # ✅ THIS LINE
                 )
             except Exception as e:
@@ -283,25 +283,6 @@ def genes_to_transcripts(request):
             {"output": output, "locked": locked}
         )
 
-            return HttpResponse("Could not generate PDF")
-
-        # Render results
-        return render(request, 'validate_results.html', {
-            'output': output,
-            'ucsc': ucsc_link,
-            'varsome': varsome_link,
-            'gnomad': gnomad_link,
-        })
-
-    # ------------------------------------------------------------------
-    # Fallback for non-GET/POST (rare)
-    # ------------------------------------------------------------------
-    return render(request, 'validate.html', {
-        'output': output,
-        'locked': locked,
-        'last': last_genome,
-        'source': last_source,
-    })
 
 # ======================================================================
 # VALIDATE VIEW
@@ -328,7 +309,6 @@ def validate(request):
     # ------------------------------------------------------------------
     if request.method == 'GET':
 
-        # Must be logged in
         if not request.user.is_authenticated:
             login_page = reverse("account_login")
             here = reverse("validate")
@@ -478,7 +458,7 @@ def validate(request):
         # Normalise exactly like the old working code
         if pdf_request is None:
             pdf_requested = True
-        elif pdf_request in ("False", "false", "0"):
+        elif pdf_request in ("False", "false", ""):
             pdf_requested = False
         else:
             pdf_requested = True
@@ -1024,4 +1004,4 @@ def bed_file(request):
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-# </LICENSE>
+# </LICENSE>(base) [pjf9@login182 VVweb]$
