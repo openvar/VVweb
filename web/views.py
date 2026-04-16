@@ -108,7 +108,8 @@ def genes_to_transcripts(request):
                 symbol,
                 validator=validator,
                 select_transcripts=select_transcripts,
-                transcript_set=reference_source
+                transcript_set=reference_source,
+                user_id=request.user.id,  # ✅ THIS LINE
             )
 
         except Exception as e:
@@ -242,6 +243,13 @@ def validate(request):
             request.session['validations'] = num
 
         # ----- PDF generation -----
+        if pdf_request is None:
+            pdf_request = True
+        elif pdf_request in ("False", "false", ""):
+            pdf_request = False
+        else:
+            pdf_request = True
+
         if pdf_request and pdf_request != "False":
             config = ConfigParser()
             config.read(vvsettings.CONFIG_DIR)
