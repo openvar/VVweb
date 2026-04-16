@@ -47,6 +47,24 @@ GRANT ALL PRIVILEGES ON DATABASE myproject TO myprojectuser;
 GRANT USAGE, CREATE ON SCHEMA public TO myprojectuser;
 ```
 
+### Pytest Database
+
+```postgresql
+CREATE DATABASE myproject_test
+    WITH ENCODING 'UTF8';
+
+CREATE USER myproject_test_user
+    WITH PASSWORD 'strong-password-here';
+
+ALTER ROLE myproject_test_user SET client_encoding TO 'utf8';
+ALTER ROLE myproject_test_user SET default_transaction_isolation TO 'read committed';
+ALTER ROLE myproject_test_user SET timezone TO 'UTC';
+
+GRANT ALL PRIVILEGES ON DATABASE myproject_test TO myproject_test_user;
+GRANT USAGE, CREATE ON SCHEMA public TO myproject_test_user;
+```
+
+
 ### Settings
 
 Create a `local_settings.py` file within `VVweb/`. Inside should be all private settings, including a hash secret key. It should look something like:

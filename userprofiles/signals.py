@@ -50,8 +50,8 @@ def store_original_profile_state(sender, instance, **kwargs):
 # ======================================================================
 def enforce_commercial_quota(user, profile):
     is_commercial = (
-        profile.org_type == "commercial"
-        or profile.verification_status == "commercial"
+        profile.org_type in ["commercial", "commercial_healthcare"]
+        or profile.verification_status in ["commercial", "commercial_healthcare"]
     )
 
     quota, _ = VariantQuota.objects.get_or_create(user=user)

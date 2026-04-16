@@ -132,7 +132,7 @@ def verify_identity(request):
             # -----------------------------------------------------------------
             # COMMERCIAL FLOW (FULL EMAIL + ADMIN ALERT)
             # -----------------------------------------------------------------
-            if org_type == "commercial":
+            if org_type in ["commercial", "commercial_healthcare"]:
                 profile.verification_status = "commercial"
                 profile.save()  # includes cleared reset markers
 

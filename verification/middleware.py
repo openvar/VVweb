@@ -1,3 +1,5 @@
+# verification/middleware.py
+
 from datetime import timedelta
 
 from django.contrib.auth import logout

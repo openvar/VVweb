@@ -13,3 +13,4 @@ django_countries
 jwt
 weasyprint
 mod_wsgi
+pytest-django
