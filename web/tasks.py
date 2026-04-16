@@ -1,287 +1,406 @@
 from __future__ import absolute_import, unicode_literals
-from django.conf import settings
+
+import json
+import logging
+import time
+import traceback
+from datetime import timedelta
+
 from celery import shared_task
+from django.utils import timezone
+from django_celery_results.models import TaskResult
+from django.contrib.auth import get_user_model
+
 from . import input_formatting
 from . import services
 from .object_pool import vval_object_pool, g2t_object_pool, batch_object_pool
-import logging
-from django_celery_results.models import TaskResult
-from django.utils import timezone
-from datetime import timedelta
-from django.contrib.auth.models import User
-import time
-import traceback
 
 logger = logging.getLogger('vv')
 
+# Load Django user model once (correct way)
+User = get_user_model()
 
-@shared_task
-def validate(variant, genome, transcripts, validator=None, transcript_set="refseq"):
-    logger.info("Running validate task")
+
+# -------------------------------------------------------------------------
+# Utility: ensure a real authenticated user exists
+# -------------------------------------------------------------------------
+def _ensure_user(user_id):
+    """Ensure tasks are only run by authenticated users."""
+    if user_id is None:
+        raise ValueError("Authenticated user_id required for this task.")
+    try:
+        return User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        raise ValueError("User with id=%s does not exist." % user_id)
+
+
+# -------------------------------------------------------------------------
+# Utility: store user_id into TaskResult.meta (for admin)
+# -------------------------------------------------------------------------
+def _store_user_meta(task_id, user_id):
+    """Store user information in TaskResult.meta for easier debugging."""
+    if not user_id:
+        return
+
+    try:
+        tr = TaskResult.objects.get(task_id=task_id)
+        meta = tr.meta or {}
+
+        # Always store the user_id
+        meta["user_id"] = user_id
+
+        # Store the email too, if possible
+        try:
+            user = User.objects.get(id=user_id)
+            meta["email"] = user.email
+        except User.DoesNotExist:
+            meta["email"] = None
+
+        # Save updated metadata
+        tr.meta = meta
+        tr.save(update_fields=["meta"])
+
+    except TaskResult.DoesNotExist:
+        # No TaskResult created yet — Celery may write it later.
+        pass
+
+
+
+
+# -------------------------------------------------------------------------
+# USER-FACING TASKS
+# -------------------------------------------------------------------------
+
+@shared_task(bind=True)
+def validate(
+    self,
+    variant,
+    genome,
+    transcripts,
+    validator=None,
+    transcript_set="refseq",
+    user_id=None,
+):
+    """Single-variant validation (sync inside Celery worker)."""
+
+    _ensure_user(user_id)
+    _store_user_meta(self.request.id, user_id)
+
+    logger.info("validate(): user_id=%s variant=%s genome=%s" %
+                (user_id, variant, genome))
+
+    # Acquire validator if not provided
+    created_validator = False
     if validator is None:
         validator = vval_object_pool.get_object()
+        created_validator = True
+
     try:
-        output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set, lovd_syntax_check=True)
+        output = validator.validate(
+            variant,
+            genome,
+            transcripts,
+            transcript_set=transcript_set,
+            lovd_syntax_check=True,
+        )
+        return output.format_as_dict()
+
     except Exception as e:
-        logger.error(f"{variant} {genome} {transcripts} failed with exception {e}")
-    return output.format_as_dict()
+        logger.error("validate(): error for variant=%s user_id=%s : %s" %
+                     (variant, user_id, e))
+        raise
+
+    finally:
+        # Always return validator if acquired here
+        if created_validator:
+            vval_object_pool.return_object(validator)
 
 
-@shared_task
-def gene2transcripts(symbol, validator=None, select_transcripts="all", transcript_set="refseq", lovd_syntax_check=True):
-    logger.info("Running gene2transcripts task")
+@shared_task(bind=True)
+def gene2transcripts(
+    self,
+    symbol,
+    validator=None,
+    select_transcripts="all",
+    transcript_set="refseq",
+    lovd_syntax_check=True,
+    user_id=None,
+):
+    """Gene → transcripts lookup (sync inside Celery worker)."""
+
+    _ensure_user(user_id)
+    _store_user_meta(self.request.id, user_id)
+
+    logger.info("gene2transcripts(): user_id=%s symbol=%s" %
+                (user_id, symbol))
+
+    # Acquire validator only if not supplied
+    created_validator = False
     if validator is None:
         validator = g2t_object_pool.get_object()
-    output = validator.gene2transcripts(symbol, select_transcripts=select_transcripts, transcript_set=transcript_set,
-                                        bypass_genomic_spans=True, lovd_syntax_check=lovd_syntax_check)
-    return output
+        created_validator = True
+
+    try:
+        return validator.gene2transcripts(
+            symbol,
+            select_transcripts=select_transcripts,
+            transcript_set=transcript_set,
+            bypass_genomic_spans=True,
+            lovd_syntax_check=lovd_syntax_check,
+        )
+
+    except Exception as e:
+        logger.error("gene2transcripts(): error for symbol=%s user_id=%s : %s" %
+                     (symbol, user_id, e))
+        raise
+
+    finally:
+        # Only return validator if we acquired it
+        if created_validator:
+            g2t_object_pool.return_object(validator)
 
 
-@shared_task
-def batch_validate(variant, genome, email, gene_symbols, transcripts, options=[], transcript_set="refseq",
-                   validator=None):
-    logger.error("Running batch_validate task")
+@shared_task(bind=True)
+def batch_validate(
+    self,
+    variant,
+    genome,
+    email,
+    gene_symbols,
+    transcripts,
+    options=None,
+    transcript_set="refseq",
+    user_id=None,
+    validator=None,
+):
+    """Full batch validator (secure, synchronous inside worker)."""
 
-    # Wait for the validator object to become free
-    while validator is None:
+    _ensure_user(user_id)
+    _store_user_meta(self.request.id, user_id)
+
+    logger.info("batch_validate(): user_id=%s genome=%s" %
+                (user_id, genome))
+
+    if options is None:
+        options = []
+
+    # ------------------------------------------------------------------
+    # Acquire batch validator from pool
+    # ------------------------------------------------------------------
+    if validator is None:
         validator = batch_object_pool.get_object()
-        if validator is None:
-            logger.info("Validator not available, waiting for 1 minute...")
-            time.sleep(60)  # Wait for 1 minute before trying again
+        wait_cycles = 0
 
-    # The rest of your existing code follows...
-    # Convert inputs to JSON arrays
+        while validator is None:
+            wait_cycles += 1
+            logger.info("batch_validate(): pool empty, waiting...")
+            time.sleep(5)   # shorter wait, less worker blocking
+            validator = batch_object_pool.get_object()
+            if wait_cycles > 120:  # 10 minutes max
+                raise RuntimeError("No batch validator available after 10 minutes.")
+
+    # ------------------------------------------------------------------
+    # Input formatting
+    # ------------------------------------------------------------------
     variant = input_formatting.format_input(variant)
     transcripts = input_formatting.format_input(transcripts)
 
-    if "all" in transcripts:
+    # Normalise transcript selector
+    trans_raw = transcripts
+    if "all" in trans_raw:
         transcripts = "all"
-    if transcripts == '["raw"]':
-        transcripts = "raw"
-    if transcripts == '["mane"]':
-        transcripts = "mane"
-    if transcripts == '["mane_select"]' or "mane_select" in transcripts:
+    elif trans_raw in ('["raw"]', '["mane"]', '["select"]'):
+        transcripts = trans_raw.strip('["]')
+    elif "mane_select" in trans_raw:
         transcripts = "mane_select"
-    if transcripts == '["select"]':
-        transcripts = "select"
 
+    # ------------------------------------------------------------------
+    # Expand gene symbols → transcripts
+    # ------------------------------------------------------------------
     transcript_list = []
+
     for sym in gene_symbols.split('|'):
-        if sym:
-            returned_trans = gene2transcripts(sym, validator=validator, transcript_set=transcript_set)
-            logger.info(returned_trans)
-            try:
-                for trans in returned_trans['transcripts']:
-                    transcript_list.append(trans['reference'])
-            except KeyError:
-                continue
-
-    if len(transcript_list) >= 1:
-        transcripts = "|".join(transcript_list)
-        transcripts = input_formatting.format_input(transcripts)
-
-    try:
-        output = validator.validate(variant, genome, transcripts, transcript_set=transcript_set, lovd_syntax_check=True)
-    except Exception as e:
-        logger.error(f"{variant} {genome} {transcripts} failed with exception {e}")
-        trace = traceback.format_exc()
-        batch_object_pool.return_object(validator)
-        services.send_fail_email(email, batch_validate.request.id, variant, genome, transcripts, transcript_set, trace)
-        raise
-
-    # Return the object to the pool
-    batch_object_pool.return_object(validator)
-
-    # Convert to a table
-    res = output.format_as_table()
-    res[0] = res[0] + ", options: " + str(options)
-
-    logger.info("Now going to send email")
-    logger.info(batch_validate.request.id)
-    services.send_result_email(email, batch_validate.request.id)
-    return res
-
-
-@shared_task
-def vcf2hgvs(vcf_file, genome, gene_symbols, email, transcripts, options, validator=None):
-    logger.info("Running vcf2hgvs task")
-
-    # Wait for the validator object to become free
-    while validator is None:
-        validator = batch_object_pool.get_object()
-        if validator is None:
-            logger.info("Validator not available, waiting for 1 minute...")
-            time.sleep(60)  # Wait for 1 minute before trying again
-
-    qc = False
-    batch_list = []
-    unprocessed = []
-    error_log = []
-    total_vcf_calls = 0
-    vcf_validated = 0
-    batch_submit = True
-    jobid = vcf2hgvs.request.id
-
-    for var_call in vcf_file.split('\n'):
-        try:
-            # REMOVE METADATA
-            if var_call.startswith('#'):
-                continue
-            else:
-                # Stringify
-                # var_call = var_call.decode()
-                var_call = var_call.strip()
-                # Log var_call
-
-                # Split the VCF components into a list
-                variant_data = var_call.split()
-                logger.info(variant_data)
-
-                try:
-                    # Gather the call data
-                    chr = str(variant_data[0])
-                    pos = str(variant_data[1])
-                    ref = str(variant_data[3])
-                    alt = str(variant_data[4])
-                except:
-                    continue
-
-            # Create an unambiguous call for VCF 4.0
-            if ref == '.' or ref == '' or ref == '-':
-                ref = 'ins'
-            if alt == '.' or ref == '' or ref == '-':
-                alt = 'del'
-
-            # Create the pseudo VCF inclusive of reference check
-            pvd = services.vcf2psuedo(chr, pos, ref, alt, genome, validator)
-            logger.debug(pvd)
-
-            if pvd['valid'] == 'pass':
-                pseudo_vcf = '%s-%s-%s-%s' % (chr, pos, ref, alt)
-                unprocessed.append(pseudo_vcf)
-                error_log.append('Unsupported Variant ' + pseudo_vcf + ' ' + genome)
-                continue
-            else:
-                total_vcf_calls += 1
-                pseudo_vcf = pvd['pseudo_vcf']
-                batch_list.append(pseudo_vcf)
-                if pvd['valid'] == 'true' or pvd['valid'] == 'ambiguous':
-                    vcf_validated += 1
-
-            # Check Genome Build
-            if total_vcf_calls == 100:
-                qc = True
-                try:
-                    ratio_valid = (vcf_validated / total_vcf_calls)
-                except ZeroDivisionError:
-                    ratio_valid = 0.0
-
-                ratio_valid = ratio_valid * 100
-                if ratio_valid < 90:
-                    logger.info("Will email as not enough are valid!")
-                    error_log.append("Only %s percent valid after processing 100 VCFs" % ratio_valid)
-                    services.send_vcf_email(email=email, job_id=jobid, genome=genome, per=ratio_valid)
-                    batch_submit = False
-                    break
-
-            # Limit jobs in batch list
-            elif vcf_validated > settings.MAX_VCF:
-                logger.info("Will email as exceeded max")
-                error_log.append("Exceeded max %s validated VCFs" % settings.MAX_VCF)
-                services.send_vcf_email(email, jobid, cause='max_limit')
-                batch_submit = False
-                break
-
-        except BaseException as error:
-            warning = ("Processing failure in bug catcher 1 - job suspended: {}".format(error))
-            logger.warning(warning)
-            logger.error(error)
-
-            report_error_log = ['Processsing_error_1'] + [str(warning)]
-            error_log = error_log + report_error_log
+        sym = sym.strip()
+        if not sym:
             continue
 
-    if not qc:
         try:
-            ratio_valid = (vcf_validated / total_vcf_calls)
-        except ZeroDivisionError:
-            ratio_valid = 0.0
+            returned = validator.gene2transcripts(
+                sym,
+                select_transcripts="all",
+                transcript_set=transcript_set,
+                bypass_genomic_spans=True,
+            )
 
-        ratio_valid = ratio_valid * 100
-        if ratio_valid < 90:
-            error_log.append("Only %s percent valid after processing whole file" % ratio_valid)
-            logger.info("Will email as not enough valid")
-            services.send_vcf_email(email, jobid, genome=genome, per=ratio_valid)
-            batch_submit = False
+            for tr in returned.get('transcripts', []):
+                transcript_list.append(tr['reference'])
 
-    # Autosubmit to batch?
-    if batch_submit:
-        logger.info("All good - going to submit to batch validator")
-        variants = '|'.join(batch_list)
-        logger.debug(variants)
-        batch_validate.delay(variants, genome, email, gene_symbols, transcripts, options)
-        return 'Success - %s (of %s) variants submitted to BatchValidator' % (len(batch_list), total_vcf_calls)
+        except Exception as e:
+            logger.error("batch_validate(): failed gene lookup for %s (%s)" %
+                         (sym, e))
+            continue
 
-    logger.error(error_log)
-    return {'errors': error_log}
+    # If any transcript discovered → override transcripts
+    if transcript_list:
+        transcripts = input_formatting.format_input("|".join(transcript_list))
 
+    # ------------------------------------------------------------------
+    # Perform validation
+    # ------------------------------------------------------------------
+    try:
+        output = validator.validate(
+            variant,
+            genome,
+            transcripts,
+            transcript_set=transcript_set,
+            lovd_syntax_check=True,
+        )
 
-@shared_task()
+    except Exception as e:
+        trace = traceback.format_exc()
+
+        # Return validator before sending email
+        batch_object_pool.return_object(validator)
+
+        services.send_fail_email(
+            email,
+            self.request.id,
+            variant,
+            genome,
+            transcripts,
+            transcript_set,
+            trace
+        )
+
+        logger.error("batch_validate(): validation failure user_id=%s (%s)" %
+                     (user_id, e))
+
+        raise
+
+    # SAFE return to pool
+    batch_object_pool.return_object(validator)
+
+    # ------------------------------------------------------------------
+    # Format output into table
+    # ------------------------------------------------------------------
+    res = output.format_as_table()
+    res[0] += ", options: " + str(options)
+
+    services.send_result_email(email, self.request.id)
+
+    # ------------------------------------------------------------------
+    # Populate TaskResult metadata
+    # ------------------------------------------------------------------
+    try:
+        tr = TaskResult.objects.get(task_id=self.request.id)
+        tr.task_name = self.name
+        tr.task_args = "[]"
+        tr.task_kwargs = json.dumps({
+            "variant": variant,
+            "genome": genome,
+            "email": email,
+            "gene_symbols": gene_symbols,
+            "transcripts": transcripts,
+            "options": options,
+            "transcript_set": transcript_set,
+            "user_id": user_id,
+        })
+        tr.worker = self.request.hostname
+        tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
+
+    except Exception as e:
+        logger.error("batch_validate(): failed to update TaskResult (%s)" % e)
+
+    # ------------------------------------------------------------------
+    # Final return
+    # ------------------------------------------------------------------
+    return {
+        "result": res,
+        "user_id": user_id,
+        "variant": variant,
+        "genome": genome,
+        "email": email,
+        "gene_symbols": gene_symbols,
+        "transcripts": transcripts,
+        "options": options,
+        "transcript_set": transcript_set,
+        "task_id": self.request.id,
+        "task_name": self.name,
+    }
+
+# -------------------------------------------------------------------------
+# MAINTENANCE TASKS
+# -------------------------------------------------------------------------
+
+@shared_task(name="system.delete_old_jobs")
 def delete_old_jobs():
-    """
-    Task will check for any batch jobs that were completed over 7 days ago and remove them.
-    :return:
-    """
-    logger.info("Checking what job results can be deleted")
+    """Delete Celery task results older than 7 days."""
+    logger.info("delete_old_jobs(): checking for expired task results")
+
     timepoint = timezone.now() - timedelta(days=7)
     jobs = TaskResult.objects.filter(date_done__lte=timepoint)
+
     num, details = jobs.delete()
-    logger.info("Deleted %s task results" % num)
-    return {'deleted': num, 'detail': details}
+
+    logger.info("delete_old_jobs(): deleted %s old task results" % num)
+    return {"deleted": num, "detail": details}
 
 
-@shared_task()
+@shared_task(name="system.email_old_users")
 def email_old_users():
     """
-    Task will look for users that haven't logged in for 23 months. They will be emailed to inform them that their
-    account will be deleted unless they log back in within the next month.
-    :return:
+    Email users inactive for ~2 years minus 30 days, warning them their accounts
+    will be deleted unless they log in again.
     """
-    timepoint = timezone.now() - timedelta(days=(365*2 - 30))
-    users = User.objects.filter(last_login__lte=timepoint, profile__contacted_for_deletion=False)
-    if users:
-        logger.info("Sending deletion warning to %s" % users)
+    timepoint = timezone.now() - timedelta(days=(365 * 2 - 30))
+
+    users = User.objects.filter(
+        last_login__lte=timepoint,
+        profile__contacted_for_deletion=False
+    )
+
+    count = users.count()
+    if count:
+        logger.info("email_old_users(): sending deletion warnings to %s users" % count)
+
+    # Send warnings + mark as contacted
     for user in users:
         services.send_user_deletion_warning(user)
-        profile = user.profile
-        profile.contacted_for_deletion = True
-        profile.save()
+        user.profile.contacted_for_deletion = True
+        user.profile.save()
 
-    # Check for users that have logged in since the email
-    active_users = User.objects.filter(last_login__gt=timepoint, profile__contacted_for_deletion=True)
-    if active_users:
-        logger.info("These users have logged back in since email was sent: %s" % active_users)
-    for user in active_users:
-        profile = user.profile
-        profile.contacted_for_deletion = False
-        profile.save()
+    # Users who became active again after warnings
+    active = User.objects.filter(
+        last_login__gt=timepoint,
+        profile__contacted_for_deletion=True
+    )
 
-    return "Sent %s emails. %s users are now active" % (len(users), len(active_users))
+    for user in active:
+        user.profile.contacted_for_deletion = False
+        user.profile.save()
+
+    return {
+        "warned": count,
+        "reactivated": active.count()
+    }
 
 
-@shared_task()
+@shared_task(name="system.delete_old_users")
 def delete_old_users():
-    """
-    Task will look for users that haven't logged in for 24 months and have received the warning email, then delete their
-    accounts.
-    :return:
-    """
-    timepoint = timezone.now() - timedelta(days=(365*2))
-    users = User.objects.filter(last_login__lte=timepoint, profile__contacted_for_deletion=True)
+    """Delete users inactive for more than 2 years AND previously warned."""
+    logger.info("delete_old_users(): checking for inactive user accounts")
+
+    timepoint = timezone.now() - timedelta(days=(365 * 2))
+
+    users = User.objects.filter(
+        last_login__lte=timepoint,
+        profile__contacted_for_deletion=True
+    )
 
     num, details = users.delete()
-    logger.info("Deleted %s user accounts due to inactivity" % num)
-    return {'deleted': num, 'detail': details}
+
+    logger.info("delete_old_users(): deleted %s inactive user accounts" % num)
+    return {"deleted": num, "detail": details}
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

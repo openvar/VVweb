@@ -2,25 +2,48 @@ import threading
 from VariantValidator import Validator
 
 class ObjectPool:
-    def __init__(self, object_type, initial_pool_size=10, max_pool_size=10):
-        self.pool_size = initial_pool_size
-        self.max_pool_size = max_pool_size
+    def __init__(self, object_type, initial_pool_size=10, max_pool_size=None, wait_timeout=30):
+        self.object_type = object_type
+        self.initial_pool_size = initial_pool_size
+        self.wait_timeout = wait_timeout
+
+        # Pool is permanently fixed at initial size
         self.objects = [object_type() for _ in range(initial_pool_size)]
+
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
 
     def get_object(self):
         with self.condition:
-            while not self.objects:
-                # Wait until an object becomes available
-                self.condition.wait()
-            return self.objects.pop()
+            # Object immediately available
+            if self.objects:
+                return self.objects.pop()
+
+            # Wait for a return
+            waited = self.condition.wait(timeout=self.wait_timeout)
+
+            if waited and self.objects:
+                return self.objects.pop()
+
+            # No object available after timeout
+            return None
 
     def return_object(self, obj):
         with self.condition:
-            if len(self.objects) < self.max_pool_size:
-                self.objects.append(obj)
-                self.condition.notify()  # Notify waiting threads that an object is available
+            # If object died (validator crashed internally), replace it
+            if obj is None:
+                new_obj = self.object_type()
+                self.objects.append(new_obj)
+                self.condition.notify()
+                return
+
+            # If object is alive, simply return it
+            self.objects.append(obj)
+            self.condition.notify()
+
+            # If somehow pool exceeded expected size, trim it
+            if len(self.objects) > self.initial_pool_size:
+                self.objects = self.objects[-self.initial_pool_size:]
 
 
 # Create shared object pools

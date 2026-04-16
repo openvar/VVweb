@@ -1,25 +1,28 @@
 import json
 
-
 def format_input(data_string):
     """
     Takes an input string. Tries to convert from JSON to list, otherwise converts a string into a list.
-    Then goes on to check for pipe delimited data and splits if necessary
-    The output is a JSON array
+    Then goes on to check for pipe delimited data and splits if necessary.
+    The output is always a JSON array.
     """
+
+    # Optional safety: preserve real lists
+    if isinstance(data_string, list):
+        return json.dumps(data_string)
+
     data_string = str(data_string)
+
     try:
         data_list = json.loads(data_string)
     except json.decoder.JSONDecodeError:
-        data_intermediate = data_string.replace("|gom", "&gom")
-        data_intermediate = data_intermediate.replace("|lom", "&lom")
+        # Protect |gom and |lom tokens
+        data_intermediate = data_string.replace("|gom", "&amp;gom").replace("|lom", "&amp;lom")
         pre_data_list = data_intermediate.split("|")
-        if not isinstance(pre_data_list, list):
-            pre_data_list = [pre_data_list]
+
         data_list = []
         for entry in pre_data_list:
-            entry = entry.replace("&", "|")
-            data_list.append(entry)
+            data_list.append(entry.replace("&amp;", "|"))
 
     return json.dumps(data_list)
 

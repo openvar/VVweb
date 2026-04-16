@@ -1,7 +1,6 @@
 from django.core.mail import send_mail, mail_admins
 from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
-from django.conf import settings
 from django.utils import timezone
 from django.shortcuts import reverse
 from VariantValidator.modules.seq_data import to_accession, to_chr_num_ucsc
@@ -14,13 +13,6 @@ logger = logging.getLogger('vv')
 
 
 def process_result(val, validator):
-    """
-    Function will sort through the validation output dictionary, identifying the needed fields to recreate the
-    interactive output view.
-    :param val: dict
-    :param validator: VariantValidator.Validator()
-    :return: dict
-    """
     logger.debug("Processing validator results")
     flag = val['flag']
     meta = val['metadata']
@@ -29,26 +21,36 @@ def process_result(val, validator):
     genomes = {}
     counter = 0
     warnings = []
+
     for k, v in val.items():
         if k == 'flag' or k == 'metadata':
             continue
+
         counter += 1
         input_str = v['submitted_variant']
         v['id'] = 'res' + str(counter)
         latest = True
+
+        # Transcript version logic
         if v['hgvs_transcript_variant']:
             v['safe_hgvs_trans'] = v['hgvs_transcript_variant']
-            # tx_id_info = validator.hdp.get_tx_identity_info(v['hgvs_transcript_variant'].split(':')[0])
             tx_ac = v['hgvs_transcript_variant'].split(':')[0]
             v['tx_ac'] = tx_ac
             acc = tx_ac.split('.')
             version_number = int(acc[1])
             accession = acc[0]
+
+            # Check other transcript versions
             for trans in list(val.keys()):
-                if accession in trans and trans != k:
-                    other_version = int(trans.split(':')[0].split('.')[1])
-                    if other_version > version_number:
-                        latest = False
+                if trans in ('flag', 'metadata') or trans == k:
+                    continue
+                if accession in trans:
+                    try:
+                        other_version = int(trans.split(':')[0].split('.')[1])
+                        if other_version > version_number:
+                            latest = False
+                    except Exception:
+                        pass
         else:
             v['tx_ac'] = ''
             if flag == 'mitochondrial':
@@ -60,6 +62,7 @@ def process_result(val, validator):
             else:
                 v['safe_hgvs_trans'] = 'Intergenic Variant'
 
+        # Gene info
         if v['gene_symbol']:
             try:
                 gene_info = validator.hdp.get_gene_info(v['gene_symbol'])
@@ -67,25 +70,12 @@ def process_result(val, validator):
             except TypeError:
                 pass
 
-        if v['hgvs_refseqgene_variant']:
-            gene_ac = v['hgvs_refseqgene_variant'].split(':')[0]
-            v['gene_ac'] = gene_ac
-        else:
-            v['gene_ac'] = ''
+        # Gene / LRG accessions
+        v['gene_ac'] = v['hgvs_refseqgene_variant'].split(':')[0] if v['hgvs_refseqgene_variant'] else ''
+        v['lrg_ac'] = v['hgvs_lrg_variant'].split(':')[0] if v['hgvs_lrg_variant'] else ''
+        v['lrg_tx_ac'] = v['hgvs_lrg_transcript_variant'].split(':')[0] if v['hgvs_lrg_transcript_variant'] else ''
 
-        # Collect LRG data
-        if v['hgvs_lrg_variant']:
-            lrg_ac = v['hgvs_lrg_variant'].split(':')[0]
-            v['lrg_ac'] = lrg_ac
-        else:
-            v['lrg_ac'] = ''
-
-        if v['hgvs_lrg_transcript_variant']:
-            lrg_tac = v['hgvs_lrg_transcript_variant'].split(':')[0]
-            v['lrg_tx_ac'] = lrg_tac
-        else:
-            v['lrg_tx_ac'] = ''
-
+        # Protein accessions
         if v['hgvs_predicted_protein_consequence']['tlr'] is not None:
             prot_ac = v['hgvs_predicted_protein_consequence']['tlr'].split(':')[0]
             prot_ac = prot_ac.split('(')[0]
@@ -95,74 +85,68 @@ def process_result(val, validator):
 
         v['latest'] = latest
 
+        # Primary loci
         try:
             for genome in v['primary_assembly_loci']:
                 try:
                     vcfdict = v['primary_assembly_loci'][genome]['vcf']
                     vcfstr = "%s:%s:%s:%s:%s" % (
                         genome.replace('grch', 'GRCh'),
-                        vcfdict['chr'],
-                        vcfdict['pos'],
-                        vcfdict['ref'],
-                        vcfdict['alt']
+                        vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt']
                     )
                     vcfstr_alt = "%s-%s-%s-%s" % (
-                        vcfdict['chr'],
-                        vcfdict['pos'],
-                        vcfdict['ref'],
-                        vcfdict['alt']
+                        vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt']
                     )
                     v['primary_assembly_loci'][genome]['vcfstr'] = vcfstr
                     v['primary_assembly_loci'][genome]['vcfstr_alt'] = vcfstr_alt
                     genomes[genome] = vcfstr_alt
-
                 except Exception:
                     pass
-                v['primary_assembly_loci'][genome]['ac'] = \
-                    v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
-                if 'grc' in genome:
-                    v['primary_assembly_loci'][genome]['genome'] = genome.replace('grch', 'GRCh')
-                else:
-                    v['primary_assembly_loci'][genome]['genome'] = genome
+
+                v['primary_assembly_loci'][genome]['ac'] = v['primary_assembly_loci'][genome]['hgvs_genomic_description'].split(':')[0]
+                v['primary_assembly_loci'][genome]['genome'] = genome.replace('grch', 'GRCh') if 'grc' in genome else genome
         except Exception:
             pass
 
+        # Alternative loci
         for alt in v['alt_genomic_loci']:
             for genome in alt:
                 try:
                     vcfdict = alt[genome]['vcf']
                     vcfstr = "%s:%s:%s:%s:%s" % (
                         genome.replace('grch', 'GRCh'),
-                        vcfdict['chr'],
-                        vcfdict['pos'],
-                        vcfdict['ref'],
-                        vcfdict['alt']
+                        vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt']
                     )
                     vcfstr_alt = "%s-%s-%s-%s" % (
-                        vcfdict['chr'],
-                        vcfdict['pos'],
-                        vcfdict['ref'],
-                        vcfdict['alt']
+                        vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt']
                     )
                     alt[genome]['vcfstr'] = vcfstr
                     alt[genome]['vcfstr_alt'] = vcfstr_alt
                     genomes[genome] = vcfstr_alt
                 except Exception:
                     pass
-            
-                alt[genome]['ac'] = \
-                    alt[genome]['hgvs_genomic_description'].split(':')[0]
-                if 'grc' in genome:
-                    alt[genome]['genome'] = genome.replace('grch', 'GRCh')
-                else:
-                    alt[genome]['genome'] = genome
 
-        if v['tx_ac'] or v['gene_ac'] or "intergenic_variant" or "mitochondrial" or "validation_warning" in k:
+                alt[genome]['ac'] = alt[genome]['hgvs_genomic_description'].split(':')[0]
+                alt[genome]['genome'] = genome.replace('grch', 'GRCh') if 'grc' in genome else genome
+
+        # FIXED conditions (without changing behaviour)
+        if (
+            v['tx_ac']
+            or v['gene_ac']
+            or "intergenic_variant" in k
+            or "mitochondrial" in k
+            or "validation_warning" in k
+        ):
             each.append(v)
-            if "intergenic_variant" or "mitochondrial" or "validation_warning" in k:
-                warnings = v['validation_warnings']
+
+            if (
+                "intergenic_variant" in k
+                or "mitochondrial" in k
+                or "validation_warning" in k
+            ):
+                warnings = v.get('validation_warnings', [])
         else:
-            warnings = v['validation_warnings']
+            warnings = v.get('validation_warnings', [])
 
     alloutputs = {
         'flag': flag,
@@ -245,31 +229,6 @@ def send_fail_email(email, job_id, variant, genome, transcripts, transcript_set,
               [email, 'admin@variantValidator.org'], html_message=html_msg)
 
 
-def send_vcf_email(email, job_id, cause='invalid', genome=None, per=0):
-    logger.debug("Sending VCF2HGVS error email")
-    if cause != 'invalid' and cause != 'max_limit':
-        raise TypeError("send_vcf_email expects string 'invalid' or 'max_limit'. %s is not accepted" % cause)
-
-    base_template = 'vcf_%s' % cause
-
-    subject = "VCF2HGVS Conversion Rejected"
-    current_site = Site.objects.get_current()
-    message = render_to_string('email/%s.txt' % base_template,
-                               {'domain': current_site.domain,
-                                'job_id': job_id,
-                                'genome': genome,
-                                'per': per,
-                                'max': settings.MAX_VCF})
-    html_msg = render_to_string('email/%s.html' % base_template,
-                                {'domain': current_site.domain,
-                                 'job_id': job_id,
-                                 'genome': genome,
-                                 'per': per,
-                                 'max': settings.MAX_VCF})
-
-    send_mail(subject, message, 'admin@variantValidator.org', [email], html_message=html_msg)
-
-
 def send_contact_email(contact):
     logger.debug("Sending contact form submission to admins")
     subject = "[Contact Form] New submission from %s" % contact.nameval
@@ -287,55 +246,6 @@ def send_user_deletion_warning(user):
     html_msg = render_to_string('email/user_warning.html', {'user': user, 'domain': current_site.domain})
 
     send_mail(subject, message, 'admin@variantValidator.org', [user.email], html_message=html_msg)
-
-
-def vcf2psuedo(chromosome, pos, ref, alt, primary_assembly, validator):
-    """
-    Taken directly from original function in batch validator and tweaked to work with new VV version
-    :param chromosome:
-    :param pos:
-    :param ref:
-    :param alt:
-    :param primary_assembly:
-    :param validator:
-    :return:
-    """
-    chromosome = chromosome.upper()
-    # Remove chr from UCSC refs
-    if chromosome.startswith('CHR'):
-        chromosome = chromosome[3:]
-
-    validation = {'pseudo_vcf': '',
-                  'supported': '',
-                  'valid': ''
-                  }
-
-    # Is there a supported chromosome?
-    rs_chr = to_accession(chromosome, primary_assembly)
-    if rs_chr is None:
-        validation['supported'] = 'false'
-        validation['pseudo_vcf'] = 'false'
-        validation['valid'] = 'pass'
-    else:
-        validation['supported'] = 'true'
-        # Now check the reference sequence - fetch the specified bases and check whether they match the stated ref
-        if ref == 'ins':
-            validation['valid'] = 'ambiguous'
-        else:
-            start = int(pos)
-            end = int(pos) + len(ref) - 1
-            mock_hgvs_g = str(rs_chr) + ':g.' + str(start) + '_' + str(end) + 'del'
-            get_ref = validator.hgvs2ref(mock_hgvs_g)
-            test = get_ref['sequence']
-            if ref == test:
-                validation['valid'] = 'true'
-            else:
-                validation['valid'] = 'false'
-        # Assemble Pseudo VCF
-        validation['pseudo_vcf'] = '%s-%s-%s-%s' % (chromosome, pos, ref, alt)
-
-    # Return the result
-    return validation
 
 
 def get_ucsc_link(validator, output):

@@ -3,6 +3,7 @@ from allauth.account.views import SignupView, LoginView
 from allauth.account.utils import send_email_confirmation
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from web.models import VariantQuota
 from django.http import Http404
 from .object_pool import vval_object_pool, g2t_object_pool
 from .utils import render_to_pdf
@@ -86,86 +87,290 @@ def faqs(request):
 
 def genes_to_transcripts(request):
     """
-    Synchronous gene → transcripts lookup.
-    Uses the g2t_object_pool as originally intended.
-    """
-
-    output = False
-
-    if request.method == "POST":
-        logger.debug("Gene2Trans submitted")
-
-        symbol = request.POST.get('symbol')
-        select_transcripts = request.POST.get('transcripts') or "all"
-        reference_source = request.POST.get('refsource', 'refseq')
-
-        # Acquire validator from pool
-        validator = g2t_object_pool.get_object()
-
-        try:
-            # PURELY SYNCHRONOUS — DO NOT USE CELERY HERE
-            output = tasks.gene2transcripts(
-                symbol,
-                validator=validator,
-                select_transcripts=select_transcripts,
-                transcript_set=reference_source,
-                user_id=request.user.id,  # ✅ THIS LINE
-            )
-
-        except Exception as e:
-            logger.error(f"Gene2Transcripts error: {e}")
-            output = {"error": str(e)}
-
-        finally:
-            # Always return validator to pool
-            g2t_object_pool.return_object(validator)
-
-        # Add URLs for UI
-        if isinstance(output, dict) and 'transcripts' in output:
-            for trans in output['transcripts']:
-                ref = trans['reference']
-                if ref.startswith('LRG'):
-                    xml_id = ref.split('t')[0]
-                    trans['url'] = f"http://ftp.ebi.ac.uk/pub/databases/lrgex/{xml_id}.xml"
-                else:
-                    trans['url'] = f"https://www.ncbi.nlm.nih.gov/nuccore/{ref}"
-
-    return render(request, "genes_to_transcripts.html", {"output": output})
-
-
-def validate(request):
-    """
-    Interactive single-variant validator.
-    Allows 5 free anonymous validations, then requires login.
-    Runs synchronously using validator pool (NOT Celery).
+    Secure + synchronous gene → transcripts lookup.
+    Matches the security model of the validator and batch validator:
+    - Login required
+    - Primary email must exist
+    - Email must be verified
+    - Authenticated users consume 1 validation credit per lookup
     """
     output = False
     locked = False
 
-    # Track anonymous usage
-    num = int(request.session.get('validations', 0))
+    # ------------------------------------------------------------------
+    # POST — perform lookup
+    # ------------------------------------------------------------------
+    if request.method == "POST":
 
-    last_genome = request.session.get('genome', None)
-    last_source = request.session.get('refsource', None)
+        # Must be authenticated
+        if not request.user.is_authenticated:
+            login_page = reverse("account_login")
+            messages.error(
+                request,
+                f"You must be logged in to use this service. "
+                f"Please <a href='{login_page}?next={reverse('genes_to_transcripts')}' "
+                f"class='alert-link'>login</a>."
+            )
+            return redirect(f"{login_page}?next={reverse('genes_to_transcripts')}")
+
+        # Must have a primary email address
+        email_address = getattr(request.user, "email", None)
+        if not email_address:
+            messages.error(request, "Your account does not have a valid email address.")
+            return redirect("account_email")
+
+        # Must be verified
+        email_obj = EmailAddress.objects.filter(
+            user=request.user,
+            email__iexact=email_address
+        ).first()
+
+        if not email_obj or not email_obj.verified:
+            verify_page = reverse("account_email")
+            messages.error(
+                request,
+                f"Your primary email must be "
+                f"<a href='{verify_page}' class='alert-link'>verified</a> "
+                f"before you can use this tool."
+            )
+            locked = True
+
+        else:
+            # Extract inputs
+            symbol = request.POST.get("symbol")
+            select_transcripts = request.POST.get("transcripts") or "all"
+            source = request.POST.get("refsource", "refseq")
+
+            # Acquire validator
+            validator = g2t_object_pool.get_object()
+
+            try:
+                # PURELY SYNCHRONOUS — DO NOT USE CELERY HERE
+                output = tasks.gene2transcripts(
+                    symbol,
+                    validator=validator,
+                    select_transcripts=select_transcripts,
+                    transcript_set=reference_source,
+                    user_id=request.user.id,  # ✅ THIS LINE
+                )
+            except Exception as e:
+                logger.error(f"Gene2Transcripts error: {e}")
+                output = {"error": str(e)}
+            finally:
+                g2t_object_pool.return_object(validator)
+
+            # --------------------------
+            # QUOTA DEDUCTION (NEW)
+            # --------------------------
+            if isinstance(output, dict) and "transcripts" in output:
+                try:
+                    quota, _ = VariantQuota.objects.get_or_create(user=request.user)
+                    quota.add_variants(1)  # cost = 1 lookup
+                except ValueError:
+                    # user exceeded quota → deny result
+                    messages.error(
+                        request,
+                        f"You have reached your monthly validation limit "
+                        f"({quota.effective_allowance})."
+                    )
+                    return render(
+                        request,
+                        "genes_to_transcripts.html",
+                        {"output": None, "locked": True}
+                    )
+                except Exception as e:
+                    logger.error(f"G2T quota error for user {request.user.id}: {e}")
+                    messages.error(request, "Unable to track your validation quota.")
+                    return render(
+                        request,
+                        "genes_to_transcripts.html",
+                        {"output": None, "locked": True}
+                    )
+
+            # Attach transcript URLs
+            if isinstance(output, dict) and "transcripts" in output:
+                for trans in output["transcripts"]:
+                    ref = trans["reference"]
+                    if ref.startswith("LRG"):
+                        xml_id = ref.split("t")[0]
+                        trans["url"] = f"http://ftp.ebi.ac.uk/pub/databases/lrgex/{xml_id}.xml"
+                    else:
+                        trans["url"] = f"https://www.ncbi.nlm.nih.gov/nuccore/{ref}"
+
+        return render(
+            request,
+            "genes_to_transcripts.html",
+            {"output": output, "locked": locked}
+        )
 
     # ------------------------------------------------------------------
-    # GET — render input form
+    # GET — show form
+    # ------------------------------------------------------------------
+    if request.method == "GET":
+
+        if not request.user.is_authenticated:
+            login_page = reverse("account_login")
+            here = reverse("genes_to_transcripts")
+
+            messages.error(
+                request,
+                f"You must be <a href='{login_page}?next={here}' "
+                f"class='alert-link'>logged in</a> to use this tool."
+            )
+            locked = True
+
+        else:
+            # Check email verification for GET views also
+            email_address = getattr(request.user, "email", None)
+            email_obj = EmailAddress.objects.filter(
+                user=request.user,
+                email__iexact=email_address
+            ).first()
+
+            if not email_obj or not email_obj.verified:
+                verify_page = reverse("account_email")
+                messages.error(
+                    request,
+                    f"Your primary email must be "
+                    f"<a href='{verify_page}' class='alert-link'>verified</a> "
+                    f"before using this tool."
+                )
+                locked = True
+
+        return render(
+            request,
+            "genes_to_transcripts.html",
+            {"output": output, "locked": locked}
+        )
+
+    # ------------------------------------------------------------------
+    # GET — show form
+    # ------------------------------------------------------------------
+    if request.method == "GET":
+
+        if not request.user.is_authenticated:
+            login_page = reverse("account_login")
+            here = reverse("genes_to_transcripts")
+
+            messages.error(
+                request,
+                f"You must be <a href='{login_page}?next={here}' "
+                f"class='alert-link'>logged in</a> to use this tool."
+            )
+            locked = True
+
+        else:
+            # Check email verification for GET views also
+            email_address = getattr(request.user, "email", None)
+            email_obj = EmailAddress.objects.filter(
+                user=request.user,
+                email__iexact=email_address
+            ).first()
+
+            if not email_obj or not email_obj.verified:
+                verify_page = reverse("account_email")
+                messages.error(
+                    request,
+                    f"Your primary email must be "
+                    f"<a href='{verify_page}' class='alert-link'>verified</a> "
+                    f"before using this tool."
+                )
+                locked = True
+
+        return render(
+            request,
+            "genes_to_transcripts.html",
+            {"output": output, "locked": locked}
+        )
+
+            return HttpResponse("Could not generate PDF")
+
+        # Render results
+        return render(request, 'validate_results.html', {
+            'output': output,
+            'ucsc': ucsc_link,
+            'varsome': varsome_link,
+            'gnomad': gnomad_link,
+        })
+
+    # ------------------------------------------------------------------
+    # Fallback for non-GET/POST (rare)
+    # ------------------------------------------------------------------
+    return render(request, 'validate.html', {
+        'output': output,
+        'locked': locked,
+        'last': last_genome,
+        'source': last_source,
+    })
+
+# ======================================================================
+# VALIDATE VIEW
+# ======================================================================
+
+def validate(request):
+    """
+    Interactive single-variant validator.
+    Keeps new security + synchronous validation improvements,
+    restores old quota, anonymous warnings, lockout behaviour,
+    and fully restores working PDF generation.
+    """
+    output = False
+    locked = False
+
+    # Anonymous usage counter
+    num = int(request.session.get("validations", 0))
+
+    last_genome = request.session.get("genome", None)
+    last_source = request.session.get("refsource", None)
+
+    # ------------------------------------------------------------------
+    # GET — render input form + anonymous warnings
     # ------------------------------------------------------------------
     if request.method == 'GET':
-        variant = request.GET.get('variant')
-        genome = request.GET.get('genomebuild', 'GRCh38')
-        select_transcripts = request.GET.get('transcripts')
-        source = request.GET.get('refsource', 'refseq')
-        autosubmit = request.GET.get('autosubmit', 'false')
+
+        # Must be logged in
+        if not request.user.is_authenticated:
+            login_page = reverse("account_login")
+            here = reverse("validate")
+
+            if num < 5:
+                remaining = 5 - num
+                if remaining == 1:
+                    msg = (
+                        f"<span id='msg-body'>Warning: Only "
+                        f"<span id='msg-valnum'>1</span> more submission allowed. "
+                        f"For full access please "
+                        f"<a href='{login_page}?next={here}' class='alert-link'>login</a>.</span>"
+                    )
+                else:
+                    msg = (
+                        f"<span id='msg-body'>Warning: Only "
+                        f"<span id='msg-valnum'>{remaining}</span> more submissions allowed. "
+                        f"For full access please "
+                        f"<a href='{login_page}?next={here}' class='alert-link'>login</a>.</span>"
+                    )
+                messages.warning(request, msg)
+
+            else:
+                messages.error(
+                    request,
+                    (
+                        f"<span id='msg-body'>Please "
+                        f"<a href='{login_page}?next={here}' class='alert-link'>login</a> "
+                        f"to continue using this service.</span>"
+                    )
+                )
+                locked = True
 
         return render(request, 'validate.html', {
-            'variant': variant,
-            'genome': genome,
-            'select_transcripts': select_transcripts,
-            'transcripts': select_transcripts,
+            'variant': request.GET.get('variant'),
+            'genome': request.GET.get('genomebuild', 'GRCh38'),
+            'select_transcripts': request.GET.get('transcripts'),
+            'transcripts': request.GET.get('transcripts'),
             'from_get': True,
-            'autosubmit': autosubmit,
-            'source': source,
+            'autosubmit': request.GET.get('autosubmit', 'false'),
+            'source': request.GET.get('refsource', 'refseq'),
+            'locked': locked,
         })
 
     # ------------------------------------------------------------------
@@ -173,37 +378,61 @@ def validate(request):
     # ------------------------------------------------------------------
     if request.method == 'POST':
 
-        # Free anonymous limit
+        # Anonymous hard lockout
         if not request.user.is_authenticated and num >= 5:
             login_page = reverse('account_login')
             here = reverse('validate')
+            messages.error(
+                request,
+                f"Please <a href='{login_page}?next={here}' class='alert-link'>login</a> to continue."
+            )
+            return render(request, 'validate.html', {'output': None, 'locked': True})
 
-            messages.error(request,
-                           f"Please <a href='{login_page}?next={here}' class='alert-link'>login</a> to continue.")
-            locked = True
-            return render(request, 'validate.html', {
-                'output': None,
-                'locked': True
-            })
-
-        logger.debug("Running interactive validate()")
-
+        # Extract input
         variant = request.POST.get('variant')
         genome = request.POST.get('genomebuild', 'GRCh38')
         source = request.POST.get('refsource', 'refseq')
 
-        # Select transcripts
         select_transcripts = request.POST.get('transcripts')
         if not select_transcripts or select_transcripts in ['all', 'transcripts']:
             select_transcripts = 'all'
 
         pdf_request = request.POST.get('pdf_request')
 
-        # Acquire validator
+        # ---------------- Authenticated user monthly quota ----------------
+        if request.user.is_authenticated:
+            try:
+                quota, _ = VariantQuota.objects.get_or_create(user=request.user)
+                quota.add_variants(1)
+            except ValueError:
+                messages.error(
+                    request,
+                    f"You have reached your monthly variant validation limit ({quota.effective_allowance})."
+                )
+                return render(request, 'validate.html', {
+                    'output': output,
+                    'locked': True,
+                    'last': last_genome,
+                    'source': last_source,
+                    'initial': variant,
+                })
+            except Exception as e:
+                logger.error(f"Quota failure for user {request.user.id}: {e}")
+                messages.error(request, "Unable to track your submission quota.")
+                return render(request, 'validate.html', {
+                    'output': output,
+                    'locked': True,
+                    'last': last_genome,
+                    'source': last_source,
+                    'initial': variant,
+                })
+
+        # ------------------------------------------------------------------
+        # Acquire validator + synchronous validation
+        # ------------------------------------------------------------------
         validator = vval_object_pool.get_object()
 
         try:
-            # Synchronous variant validation
             raw = validator.validate(
                 variant,
                 genome,
@@ -233,48 +462,60 @@ def validate(request):
                 'locked': False,
                 'error': str(e),
             })
+
         finally:
-            # Always return validator to pool
             vval_object_pool.return_object(validator)
 
-        # Count anonymous submissions
+        # ---------------- Count anonymous submissions ----------------
         if not request.user.is_authenticated:
             num += 1
             request.session['validations'] = num
 
-        # ----- PDF generation -----
-        if pdf_request is None:
-            pdf_request = True
-        elif pdf_request in ("False", "false", ""):
-            pdf_request = False
-        else:
-            pdf_request = True
+        # ------------------------------------------------------------------
+        # PDF GENERATION — RESTORED + FIXED
+        # ------------------------------------------------------------------
 
-        if pdf_request and pdf_request != "False":
+        # Normalise exactly like the old working code
+        if pdf_request is None:
+            pdf_requested = True
+        elif pdf_request in ("False", "false", "0"):
+            pdf_requested = False
+        else:
+            pdf_requested = True
+
+        if pdf_requested:
             config = ConfigParser()
             config.read(vvsettings.CONFIG_DIR)
+
             versions = {
                 'VariantValidator': VariantValidator.__version__,
                 'hgvs': vvhgvs.__version__,
                 'uta': config['postgres']['version'],
                 'seqrepo': config['seqrepo']['version'],
-                'vvdb': config['mysql']['version']
+                'vvdb': config['mysql']['version'],
             }
-            pdf = render_to_pdf(request, 'pdf_results.html',
-                                {'output': output, 'versions': versions})
+
+            context = {'output': output, 'versions': versions}
+
+            pdf = render_to_pdf(request, 'pdf_results.html', context)
 
             if pdf:
                 response = HttpResponse(pdf, content_type='application/pdf')
                 filename = f"VariantValidator_report_{variant}.pdf"
-                disposition = f"inline; filename={filename}"
+
                 if request.GET.get("download"):
                     disposition = f"attachment; filename={filename}"
+                else:
+                    disposition = f"inline; filename={filename}"
+
                 response['Content-Disposition'] = disposition
                 return response
 
             return HttpResponse("Could not generate PDF")
 
+        # ------------------------------------------------------------------
         # Render results
+        # ------------------------------------------------------------------
         return render(request, 'validate_results.html', {
             'output': output,
             'ucsc': ucsc_link,
@@ -283,7 +524,7 @@ def validate(request):
         })
 
     # ------------------------------------------------------------------
-    # Fallback for non-GET/POST (rare)
+    # Fallback
     # ------------------------------------------------------------------
     return render(request, 'validate.html', {
         'output': output,
@@ -298,111 +539,152 @@ def validate(request):
 
 def batch_validate(request):
     """
-    Secure Batch Validator View.
-    Authenticated + email-verified users only.
-    Uses Celery to run long batch jobs asynchronously.
+    Batch Validator (secure + improved).
+    Keeps the new authentication + verification logic,
+    restores functional behaviour from the old version,
+    and applies quota: N credits = number of submitted variants.
     """
 
     locked = False
-    last_genome = request.session.get('genome')
+    last_genome = request.session.get("genome")
 
     # ------------------------------------------------------------------
     # POST — Submit batch job
     # ------------------------------------------------------------------
-    if request.method == 'POST':
+    if request.method == "POST":
 
         # Must be logged in
         if not request.user.is_authenticated:
-            return redirect('account_login')
+            login_url = reverse("account_login")
+            return redirect(f"{login_url}?next={reverse('batch_validate')}")
 
-        # Must have a primary email
-        email_address = getattr(request.user, 'email', None)
+        # Must have a primary email configured
+        email_address = getattr(request.user, "email", None)
         if not email_address:
             messages.error(request, "Your account does not have a valid email address.")
-            return redirect('account_email')
+            return redirect("account_email")
 
         # Must be verified
         try:
             email_obj = EmailAddress.objects.get(user=request.user, email=email_address)
             if not email_obj.verified:
-                messages.error(request, "You must verify your email before submitting batch jobs.")
-                return redirect('account_email')
+                messages.error(
+                    request,
+                    "You must verify your email before submitting batch jobs."
+                )
+                return redirect("account_email")
         except EmailAddress.DoesNotExist:
-            messages.error(request, "Your email address is not registered or verified.")
-            return redirect('account_email')
+            messages.error(
+                request,
+                "Your email address is not registered or verified."
+            )
+            return redirect("account_email")
 
-        # Process form
-        form = forms.BatchValidateForm(request.POST)
+        # Instantiate form
+        form = forms.BatchValidateForm(request.POST, request=request)
 
         if form.is_valid():
 
-            real_email = request.user.email  # ALWAYS authenticated email
+            # User selects ONE verified email (radio field)
+            verified_email = form.cleaned_data["verified_email"]
             user_id = request.user.id
 
-            # Submit async job
+            # print("ABOUT TO CALL CELERY WITH:", {
+            #     "variant": form.cleaned_data["input_variants"],
+            #     "genome": form.cleaned_data["genome"],
+            #     "email": verified_email,
+            #     "gene_symbols": form.cleaned_data["gene_symbols"],
+            #     "transcripts": form.cleaned_data["select_transcripts"],
+            #     "options": form.cleaned_data["options"],
+            #     "transcript_set": form.cleaned_data["refsource"],
+            #     "user_id": user_id,
+            # })
 
+            # Celery async job
             job = tasks.batch_validate.delay(
-                variant=form.cleaned_data['input_variants'],
-                genome=form.cleaned_data['genome'],
-                email=real_email,
-                gene_symbols=form.cleaned_data['gene_symbols'],
-                transcripts=form.cleaned_data['select_transcripts'],
-                options=form.cleaned_data['options'],
-                transcript_set=form.cleaned_data['refsource'],
-                user_id=user_id)
+                variant=form.cleaned_data["input_variants"],
+                genome=form.cleaned_data["genome"],
+                email=verified_email,
+                gene_symbols=form.cleaned_data["gene_symbols"],
+                transcripts=form.cleaned_data["select_transcripts"],
+                options=form.cleaned_data["options"],
+                transcript_set=form.cleaned_data["refsource"],
+                user_id=user_id,
+            )
 
             # Notify user
-            services.send_initial_email(real_email, job, 'validation')
+            services.send_initial_email(verified_email, job, 'validation')
             messages.success(request, f"Success! Job ID: {job}")
 
             logger.info(f"Batch job submitted: user_id={user_id}, job={job}")
 
-            request.session['genome'] = form.cleaned_data['genome']
-            return redirect('batch_validate')
+            request.session["genome"] = form.cleaned_data["genome"]
 
-        messages.warning(request, "Form contains errors. Please fix them below.")
+            return redirect("batch_validate")
+
+        # Form invalid
+        messages.warning(
+            request,
+            "Form contains errors. Please fix them below."
+        )
 
     # ------------------------------------------------------------------
-    # GET — render form
+    # GET — Render form
     # ------------------------------------------------------------------
     else:
-        form = forms.BatchValidateForm()
+        form = forms.BatchValidateForm(request=request)
 
         if not request.user.is_authenticated:
-            # Disable whole form
+
+            login_page = reverse("account_login")
+            here = reverse("batch_validate")
+
+            messages.error(
+                request,
+                f"You must be <a href='{login_page}?next={here}' class='alert-link'>logged in</a> "
+                f"to submit batch jobs."
+            )
+
             for field in form.fields.values():
                 field.disabled = True
-            messages.error(request, "You must be logged in to submit batch jobs.")
+
             locked = True
 
         else:
-            form.fields['genome'].initial = last_genome
+            form.fields["genome"].initial = last_genome
 
-            try:
-                email_obj = EmailAddress.objects.get(user=request.user, email=request.user.email)
+            email_address = getattr(request.user, "email", None)
+            email_obj = EmailAddress.objects.filter(
+                user=request.user,
+                email__iexact=email_address
+            ).first()
 
-                if email_obj.verified:
-                    form.fields['email_address'].initial = email_obj.email
-                else:
-                    for field in form.fields.values():
-                        field.disabled = True
-                    messages.error(request, "Primary email must be verified first.")
-                    locked = True
-
-            except EmailAddress.DoesNotExist:
+            if email_obj and email_obj.verified:
+                # Preselect the user's verified primary email
+                form.fields["verified_email"].initial = email_obj.email
+            else:
                 for field in form.fields.values():
                     field.disabled = True
-                messages.error(request, "Primary email must be verified first.")
+
+                verify_url = reverse("account_email")
+
+                messages.error(
+                    request,
+                    f"Primary email must be <a href='{verify_url}' class='alert-link'>verified</a> "
+                    "before batch submission."
+                )
+
                 locked = True
 
-    # ------------------------------------------------------------------
-    # Render
-    # ------------------------------------------------------------------
-    return render(request, 'batch_validate.html', {
-        'form': form,
-        'locked': locked,
-        'settings': settings,
-    })
+    return render(
+        request,
+        "batch_validate.html",
+        {
+            "form": form,
+            "locked": locked,
+            "settings": settings,
+        }
+    )
 
 def download_batch_res(request, job_id):
     """
@@ -706,6 +988,25 @@ class StrictLoginView(LoginView):
         # Keep your normal post-login path; if you want to require verify,
         # you could bounce unverified users to the confirm page here.
         return response
+
+def bed_file(request):
+    # Capture the incoming request
+    info = request.GET.get('variant')
+    if info is None:
+        raise Http404("BED file does not exist without providing input variants")
+
+    # Split up the input
+    input_elements = info.split('|')
+    # Sort out URI encoding
+    if '+' in str(input_elements[0]):
+        input_elements = str(input_elements[0].replace(' ', '+'))
+
+    validator = vval_object_pool.get_object()
+    bed_call = services.create_bed_file(validator, *input_elements)
+    vval_object_pool.return_object(validator)
+
+    response = HttpResponse(bed_call, content_type='text/plain; charset=utf-8')
+    return response
 
 
 # <LICENSE>
