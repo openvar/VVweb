@@ -145,12 +145,13 @@ def genes_to_transcripts(request):
             validator = g2t_object_pool.get_object()
 
             try:
-                # PURE synchronous lookup
+                # PURELY SYNCHRONOUS — DO NOT USE CELERY HERE
                 output = tasks.gene2transcripts(
                     symbol,
                     validator=validator,
                     select_transcripts=select_transcripts,
-                    transcript_set=source
+                    transcript_set=reference_source,
+                    user_id=request.user.id,  # ✅ THIS LINE
                 )
             except Exception as e:
                 logger.error(f"Gene2Transcripts error: {e}")
@@ -282,6 +283,25 @@ def genes_to_transcripts(request):
             {"output": output, "locked": locked}
         )
 
+            return HttpResponse("Could not generate PDF")
+
+        # Render results
+        return render(request, 'validate_results.html', {
+            'output': output,
+            'ucsc': ucsc_link,
+            'varsome': varsome_link,
+            'gnomad': gnomad_link,
+        })
+
+    # ------------------------------------------------------------------
+    # Fallback for non-GET/POST (rare)
+    # ------------------------------------------------------------------
+    return render(request, 'validate.html', {
+        'output': output,
+        'locked': locked,
+        'last': last_genome,
+        'source': last_source,
+    })
 
 # ======================================================================
 # VALIDATE VIEW
@@ -308,6 +328,7 @@ def validate(request):
     # ------------------------------------------------------------------
     if request.method == 'GET':
 
+        # Must be logged in
         if not request.user.is_authenticated:
             login_page = reverse("account_login")
             here = reverse("validate")

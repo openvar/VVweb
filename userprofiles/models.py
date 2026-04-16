@@ -14,11 +14,13 @@ User._meta.get_field('email')._unique = True
 # ------------------------------------------------------------
 ORG_TYPES = (
     ("university", "University"),
-    ("public_health", "Public Health"),
+    ("public_healthcare", "Public Healthcare"),
+    ("charity_healthcare", "Charity Healthcare"),
     ("government", "Government"),
     ("charity", "Charity / NGO"),
     ("research", "Research Institute"),
     ("commercial", "Commercial Organisation"),
+    ("commercial_healthcare", "Commercial Healthcare"),
 )
 
 
