@@ -25,6 +25,8 @@ from . import tasks
 from . import services
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
+from django_celery_results.models import TaskResult
+import json
 
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
@@ -689,7 +691,15 @@ def download_batch_res(request, job_id):
         # ------------------------------------------------------------------
         raw = job.result
 
-        # If Celery returns raw JSON string, decode it
+        # Eager mode / backend fallback: only if result is truly missing
+        if raw is None:
+            try:
+                tr = TaskResult.objects.get(task_id=job_id)
+                raw = tr.result
+            except TaskResult.DoesNotExist:
+                raw = {}
+
+        # Decode ONLY if backend returned JSON (not eager results)
         if isinstance(raw, str):
             try:
                 raw = json.loads(raw)
@@ -705,7 +715,9 @@ def download_batch_res(request, job_id):
         if not isinstance(table, list) or not table:
             buffer += "# ERROR: Batch results missing or malformed.\n"
             response = HttpResponse(buffer, content_type='text/plain')
-            response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
+            response['Content-Disposition'] = (
+                f'attachment; filename="VariantValidator_batch_job_{job_id}.txt"'
+            )
             return response
 
         # ------------------------------------------------------------------
@@ -807,7 +819,9 @@ def download_batch_res(request, job_id):
     # Return final response
     # ----------------------------------------------------------------------
     response = HttpResponse(buffer, content_type="text/plain")
-    response['Content-Disposition'] = 'attachment; filename=batch_job.txt'
+    response['Content-Disposition'] = (
+        f'attachment; filename="VariantValidator_batch_job_{job_id}.txt"'
+    )
     logger.debug("Job %s results downloaded by user %s" % (job_id, request.user))
     return response
 
