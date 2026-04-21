@@ -571,17 +571,6 @@ def batch_validate(request):
             verified_email = form.cleaned_data["verified_email"]
             user_id = request.user.id
 
-            # print("ABOUT TO CALL CELERY WITH:", {
-            #     "variant": form.cleaned_data["input_variants"],
-            #     "genome": form.cleaned_data["genome"],
-            #     "email": verified_email,
-            #     "gene_symbols": form.cleaned_data["gene_symbols"],
-            #     "transcripts": form.cleaned_data["select_transcripts"],
-            #     "options": form.cleaned_data["options"],
-            #     "transcript_set": form.cleaned_data["refsource"],
-            #     "user_id": user_id,
-            # })
-
             # Celery async job
             job = tasks.batch_validate.delay(
                 variant=form.cleaned_data["input_variants"],
