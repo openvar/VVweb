@@ -350,7 +350,7 @@ def validate(request):
     # ------------------------------------------------------------------
     if request.method == 'POST':
 
-        # Anonymous hard lockout
+        # ✅ Anonymous hard lockout — FIRST AND ONLY EARLY EXIT FOR ANON USERS
         if not request.user.is_authenticated and num >= 5:
             login_page = reverse('account_login')
             here = reverse('validate')
@@ -439,16 +439,14 @@ def validate(request):
         finally:
             vval_object_pool.return_object(validator)
 
-        # ---------------- Count anonymous submissions ----------------
+        # ✅ Increment anonymous counter ONLY after validation succeeds
         if not request.user.is_authenticated:
             num += 1
             request.session['validations'] = num
 
         # ------------------------------------------------------------------
-        # PDF GENERATION — RESTORED + FIXED
+        # PDF GENERATION — NORMALISE EXACTLY LIKE THE OLD WORKING CODE
         # ------------------------------------------------------------------
-
-        # Normalise exactly like the old working code
         if pdf_request is None:
             pdf_requested = True
         elif pdf_request in ("False", "false", ""):

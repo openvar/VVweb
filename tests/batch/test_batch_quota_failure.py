@@ -16,11 +16,14 @@ def test_batch_quota_rolled_back_on_task_failure(
     """
     If batch validation crashes in the worker,
     quota reservation must be rolled back.
+
+    This test intercepts exactly one pool checkout
+    without modifying pool contents or global state.
     """
 
-    # -----------------------------
-    # Setup verified user
-    # -----------------------------
+    # -------------------------------------------------
+    # Arrange — verified user
+    # -------------------------------------------------
     client.force_login(standard_user)
     verify_email(standard_user)
     submit_verification_form()
@@ -33,9 +36,9 @@ def test_batch_quota_rolled_back_on_task_failure(
     quota.reset_if_needed()
     start_count = quota.count
 
-    # -----------------------------
-    # Submit batch (RESERVATION happens here)
-    # -----------------------------
+    # -------------------------------------------------
+    # Submit batch (reservation happens here)
+    # -------------------------------------------------
     variants = "\n".join(["NM_000088.4:c.589G>T"] * 5)
 
     response = client.post(
@@ -55,41 +58,54 @@ def test_batch_quota_rolled_back_on_task_failure(
     assert response.status_code == 200
 
     quota.refresh_from_db()
-    assert quota.count == start_count + 5  # ✅ reservation applied
+    assert quota.count == start_count + 5
 
-    # -----------------------------
-    # Force worker crash INSIDE validate()
-    # -----------------------------
-    class ExplodingValidator:
-        def validate(self, *args, **kwargs):
-            raise RuntimeError("Simulated worker crash")
+    # -------------------------------------------------
+    # Intercept exactly ONE validator checkout
+    # -------------------------------------------------
+    pool = tasks.batch_object_pool
+    original_get_object = pool.get_object
 
-        def gene2transcripts(self, *args, **kwargs):
-            return {"transcripts": []}
+    exploding_validator = original_get_object()
+    assert exploding_validator is not None
 
-    monkeypatch.setattr(
-        tasks.batch_object_pool,
-        "get_object",
-        lambda: ExplodingValidator()
-    )
+    def exploding_validate(*args, **kwargs):
+        raise RuntimeError("Simulated worker crash")
 
-    # -----------------------------
-    # Run task synchronously (simulate worker)
-    # -----------------------------
-    with pytest.raises(RuntimeError):
-        tasks.batch_validate(
-            variant="V|V|V|V|V",
-            genome="GRCh38",
-            email=standard_user.email,
-            gene_symbols="",
-            transcripts="mane_select",
-            user_id=standard_user.id,
-            reserved_n=5,
-        )
+    monkeypatch.setattr(exploding_validator, "validate", exploding_validate)
 
-    # -----------------------------
+    used = False
+
+    def controlled_get_object():
+        nonlocal used
+        if not used:
+            used = True
+            return exploding_validator
+        return original_get_object()
+
+    monkeypatch.setattr(pool, "get_object", controlled_get_object)
+
+    try:
+        # -------------------------------------------------
+        # Execute task directly
+        # -------------------------------------------------
+        with pytest.raises(RuntimeError):
+            tasks.batch_validate(
+                variant="V|V|V|V|V",
+                genome="GRCh38",
+                email=standard_user.email,
+                gene_symbols="",
+                transcripts="mane_select",
+                user_id=standard_user.id,
+                reserved_n=5,
+            )
+    finally:
+        # Ensure the validator is returned to the pool
+        pool.return_object(exploding_validator)
+
+    # -------------------------------------------------
     # Assert quota rolled back
-    # -----------------------------
+    # -------------------------------------------------
     quota.refresh_from_db()
     assert quota.count == start_count
 

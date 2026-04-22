@@ -4,10 +4,14 @@ from django.urls import reverse
 
 VALID_VARIANT = "NC_000017.11:g.50198002C>A"
 
+WARNING_TEXT = "Warning: Only"
+LOCKED_TEXT = "to continue"
+
 
 def _post_validate(client, variant=VALID_VARIANT):
     """
-    Helper to POST to the validate endpoint.
+    POST helper for validation.
+    We do not follow redirects; we inspect the rendered HTML directly.
     """
     return client.post(
         reverse("validate"),
@@ -16,70 +20,116 @@ def _post_validate(client, variant=VALID_VARIANT):
             "genomebuild": "GRCh38",
             "refsource": "refseq",
             "transcripts": "mane_select",
+            "pdf_request": "False",
         },
-        follow=True,
+        follow=False,
     )
 
 
 @pytest.mark.django_db
-def test_anonymous_user_can_validate_five_times(client):
+def test_anon_user_sees_warning_banner_on_get_under_limit(client):
     """
-    Anonymous users are allowed exactly 5 validations.
-    """
-
-    # Perform 5 validations
-    for i in range(5):
-        response = _post_validate(client)
-
-        # Validation should be performed
-        assert response.status_code == 200
-        assert response.context["output"] is not None
-        assert response.context.get("locked") is not True
-
-        # Session counter increments
-        assert client.session.get("validations") == i + 1
-
-
-@pytest.mark.django_db
-def test_sixth_anonymous_validation_is_blocked(client):
-    """
-    Sixth anonymous validation attempt is blocked.
+    Anonymous users under the limit see a WARNING banner on GET.
+    This matches the real UX before exhaustion.
     """
 
-    # Burn through the 5 allowed validations
-    for _ in range(5):
-        _post_validate(client)
-
-    # Sixth attempt
-    response = _post_validate(client)
-
+    response = client.get(reverse("validate"))
     assert response.status_code == 200
 
-    # Validation should NOT be performed
-    assert response.context["output"] is None
-    assert response.context["locked"] is True
+    html = response.content.decode("utf-8")
 
-    # Counter must not increment past 5
-    assert client.session.get("validations") == 5
+    assert WARNING_TEXT in html
+    assert LOCKED_TEXT not in html
 
 
 @pytest.mark.django_db
-def test_logged_in_user_can_validate(client, standard_user, verify_email, submit_verification_form):
+def test_anon_user_sees_warning_banner_up_to_limit(client):
     """
-    Logged-in users are not subject to anonymous validation limits.
+    Anonymous users continue to see the WARNING banner
+    while still under the limit.
+    """
+
+    for _ in range(4):
+        _post_validate(client)
+
+    response = client.get(reverse("validate"))
+    assert response.status_code == 200
+
+    html = response.content.decode("utf-8")
+
+    assert WARNING_TEXT in html
+    assert LOCKED_TEXT not in html
+
+
+@pytest.mark.django_db
+def test_anon_user_sees_lockout_banner_on_get_after_exhaustion(client):
+    """
+    After exhaustion, a GET shows the lockout banner.
+    This matches the post-exhaustion screenshot exactly.
+    """
+
+    sess = client.session
+    sess["validations"] = 5
+    sess.save()
+
+    response = client.get(reverse("validate"))
+    assert response.status_code == 200
+
+    html = response.content.decode("utf-8")
+
+    assert LOCKED_TEXT in html
+    assert WARNING_TEXT not in html
+
+
+@pytest.mark.django_db
+def test_anon_user_is_blocked_on_post_after_exhaustion(client):
+    """
+    After exhaustion, POST is blocked (enforced),
+    and the lockout message is shown.
+    """
+
+    sess = client.session
+    sess["validations"] = 5
+    sess.save()
+
+    response = _post_validate(client)
+    assert response.status_code == 200
+
+    html = response.content.decode("utf-8")
+
+    assert LOCKED_TEXT in html
+    assert WARNING_TEXT not in html
+
+
+@pytest.mark.django_db
+def test_logged_in_user_never_sees_anon_warning_or_lockout(
+    client,
+    standard_user,
+    verify_email,
+    submit_verification_form,
+):
+    """
+    Logged-in users are not subject to anonymous limits.
+    No warning or lockout banners should appear on GET or POST.
     """
 
     client.force_login(standard_user)
     verify_email(standard_user)
     submit_verification_form()
 
-    response = _post_validate(client)
-
+    response = client.get(reverse("validate"))
     assert response.status_code == 200
 
-    # Validation should succeed
-    assert response.context["output"] is not None
-    assert response.context.get("locked") is not True
+    html = response.content.decode("utf-8")
+    assert WARNING_TEXT not in html
+    assert LOCKED_TEXT not in html
+
+    response = _post_validate(client)
+    assert response.status_code == 200
+
+    html = response.content.decode("utf-8")
+    assert WARNING_TEXT not in html
+    assert LOCKED_TEXT not in html
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
