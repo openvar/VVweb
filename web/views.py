@@ -26,7 +26,7 @@ from . import services
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django_celery_results.models import TaskResult
-# import json
+# import json - May kill download jobs
 from django.db import transaction
 
 
