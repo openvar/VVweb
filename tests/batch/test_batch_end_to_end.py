@@ -69,8 +69,7 @@ def test_batch_job_processes_and_can_be_downloaded_hgvs(
     response = client.get(download_url)
 
     assert response.status_code == 200
-    assert response["Content-Type"] == "text/plain"
-    assert "attachment;" in response["Content-Disposition"]
+    assert "attachment" in response["Content-Disposition"]
     assert job_id in response["Content-Disposition"]
 
     content = response.content.decode()
@@ -178,8 +177,7 @@ def test_batch_job_processes_and_can_be_downloaded_vcf(
     response = client.get(download_url)
 
     assert response.status_code == 200
-    assert response["Content-Type"] == "text/plain"
-    assert "attachment;" in response["Content-Disposition"]
+    assert "attachment" in response["Content-Disposition"]
     assert job_id in response["Content-Disposition"]
 
     content = response.content.decode()

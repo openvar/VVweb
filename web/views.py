@@ -769,9 +769,10 @@ def download_batch_res(request, job_id):
 
         if not has_results:
             buffer += "# ERROR: Batch results missing or malformed.\n"
-            buffer += "# DEBUG CONTEXT:\n"
-            buffer += f"# job.state = {job.state}\n"
-            buffer += f"# raw type = {type(raw).__name__}\n"
+            if settings.DEBUG:
+                buffer += "# DEBUG CONTEXT:\n"
+                buffer += f"# job.state = {job.state}\n"
+                buffer += f"# raw type = {type(raw).__name__}\n"
 
             if isinstance(raw, dict):
                 buffer += f"# raw keys = {list(raw.keys())}\n"
@@ -871,10 +872,10 @@ def download_batch_res(request, job_id):
         tb = traceback.format_exc()
         logger.error("Batch download failed for job %s", job_id)
         logger.error(tb)
-
-        buffer += "\n# ERROR: Failed to process results\n"
-        buffer += "# TRACEBACK:\n"
-        buffer += tb
+        if settings.DEBUG:
+            buffer += "\n# ERROR: Failed to process results\n"
+            buffer += "# TRACEBACK:\n"
+            buffer += tb
 
     # ----------------------------------------------------------------------
     # Return final response
