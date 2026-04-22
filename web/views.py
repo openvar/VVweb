@@ -859,10 +859,20 @@ def download_batch_res(request, job_id):
     # ----------------------------------------------------------------------
     # Return final response
     # ----------------------------------------------------------------------
-    response = HttpResponse(buffer, content_type="text/plain")
-    response['Content-Disposition'] = (
-        f'attachment; filename="VariantValidator_batch_job_{job_id}.txt"'
+
+    response = HttpResponse(
+        buffer,
+        content_type="application/octet-stream",
     )
+
+    filename = f"VariantValidator_batch_job_{job_id}.txt"
+
+    response["Content-Disposition"] = (
+        f"attachment; filename={filename}; "
+        f"filename*=UTF-8''{filename}"
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+
     logger.debug("Job %s results downloaded by user %s" % (job_id, request.user))
     return response
 
