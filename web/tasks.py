@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from . import input_formatting
 from . import services
 from .object_pool import vval_object_pool, g2t_object_pool, batch_object_pool
+from web.models import VariantQuota
 
 logger = logging.getLogger('vv')
 
@@ -172,6 +173,7 @@ def batch_validate(
     transcript_set="refseq",
     user_id=None,
     validator=None,
+    reserved_n=None,
 ):
     """Full batch validator (secure, synchronous inside worker)."""
 
@@ -274,6 +276,20 @@ def batch_validate(
 
         logger.error("batch_validate(): validation failure user_id=%s (%s)" %
                      (user_id, e))
+
+        # -------------------------------------------------
+        # QUOTA ROLLBACK (ONLY ON CRASH)
+        # -------------------------------------------------
+        if reserved_n and user_id:
+            try:
+                quota = VariantQuota.objects.get(user_id=user_id)
+                quota.count = max(quota.count - reserved_n, 0)
+                quota.save(update_fields=["count"])
+            except Exception as qe:
+                logger.critical(
+                    "FAILED quota rollback for user %s after batch crash (%s)" %
+                    (user_id, qe)
+                )
 
         raise
 

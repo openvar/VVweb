@@ -27,6 +27,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django_celery_results.models import TaskResult
 import json
+from django.db import transaction
 
 
 print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
@@ -110,10 +111,10 @@ def genes_to_transcripts(request):
             messages.error(
                 request,
                 f"You must be logged in to use this service. "
-                f"Please <a href='{login_page}?next={reverse('genes_to_transcripts')}' "
+                f"Please <a href='{login_page}?next={reverse('genes2trans')}' "
                 f"class='alert-link'>login</a>."
             )
-            return redirect(f"{login_page}?next={reverse('genes_to_transcripts')}")
+            return redirect(f"{login_page}?next={reverse('genes2trans')}")
 
         # Must have a primary email address
         email_address = getattr(request.user, "email", None)
@@ -138,6 +139,31 @@ def genes_to_transcripts(request):
             locked = True
 
         else:
+            # --------------------------
+            # QUOTA PRE-CHECK (CHEAP)
+            # --------------------------
+            try:
+                quota, _ = VariantQuota.objects.get_or_create(user=request.user)
+                if quota.remaining <= 0:
+                    messages.error(
+                        request,
+                        f"You have reached your monthly validation limit "
+                        f"({quota.effective_allowance})."
+                    )
+                    return render(
+                        request,
+                        "genes_to_transcripts.html",
+                        {"output": None, "locked": True}
+                    )
+            except Exception as e:
+                logger.error(f"G2T quota pre-check error for user {request.user.id}: {e}")
+                messages.error(request, "Unable to check your validation quota.")
+                return render(
+                    request,
+                    "genes_to_transcripts.html",
+                    {"output": None, "locked": True}
+                )
+
             # Extract inputs
             symbol = request.POST.get("symbol")
             select_transcripts = request.POST.get("transcripts") or "all"
@@ -155,21 +181,35 @@ def genes_to_transcripts(request):
                     transcript_set=source,
                     user_id=request.user.id,  # ✅ THIS LINE
                 )
+
             except Exception as e:
                 logger.error(f"Gene2Transcripts error: {e}")
                 output = {"error": str(e)}
+
             finally:
                 g2t_object_pool.return_object(validator)
 
+            # Attach transcript URLs
+            if isinstance(output, dict) and "transcripts" in output:
+                for trans in output["transcripts"]:
+                    ref = trans["reference"]
+                    if ref.startswith("LRG"):
+                        xml_id = ref.split("t")[0]
+                        trans["url"] = (
+                            f"http://ftp.ebi.ac.uk/pub/databases/lrgex/{xml_id}.xml"
+                        )
+                    else:
+                        trans["url"] = (
+                            f"https://www.ncbi.nlm.nih.gov/nuccore/{ref}"
+                        )
+
             # --------------------------
-            # QUOTA DEDUCTION (NEW)
+            # QUOTA DEDUCTION (FINAL STEP)
             # --------------------------
             if isinstance(output, dict) and "transcripts" in output:
                 try:
-                    quota, _ = VariantQuota.objects.get_or_create(user=request.user)
-                    quota.add_variants(1)  # cost = 1 lookup
+                    quota.add_variants(1)
                 except ValueError:
-                    # user exceeded quota → deny result
                     messages.error(
                         request,
                         f"You have reached your monthly validation limit "
@@ -181,7 +221,7 @@ def genes_to_transcripts(request):
                         {"output": None, "locked": True}
                     )
                 except Exception as e:
-                    logger.error(f"G2T quota error for user {request.user.id}: {e}")
+                    logger.error(f"G2T quota deduction error for user {request.user.id}: {e}")
                     messages.error(request, "Unable to track your validation quota.")
                     return render(
                         request,
@@ -189,16 +229,6 @@ def genes_to_transcripts(request):
                         {"output": None, "locked": True}
                     )
 
-            # Attach transcript URLs
-            if isinstance(output, dict) and "transcripts" in output:
-                for trans in output["transcripts"]:
-                    ref = trans["reference"]
-                    if ref.startswith("LRG"):
-                        xml_id = ref.split("t")[0]
-                        trans["url"] = f"http://ftp.ebi.ac.uk/pub/databases/lrgex/{xml_id}.xml"
-                    else:
-                        trans["url"] = f"https://www.ncbi.nlm.nih.gov/nuccore/{ref}"
-
         return render(
             request,
             "genes_to_transcripts.html",
@@ -212,47 +242,7 @@ def genes_to_transcripts(request):
 
         if not request.user.is_authenticated:
             login_page = reverse("account_login")
-            here = reverse("genes_to_transcripts")
-
-            messages.error(
-                request,
-                f"You must be <a href='{login_page}?next={here}' "
-                f"class='alert-link'>logged in</a> to use this tool."
-            )
-            locked = True
-
-        else:
-            # Check email verification for GET views also
-            email_address = getattr(request.user, "email", None)
-            email_obj = EmailAddress.objects.filter(
-                user=request.user,
-                email__iexact=email_address
-            ).first()
-
-            if not email_obj or not email_obj.verified:
-                verify_page = reverse("account_email")
-                messages.error(
-                    request,
-                    f"Your primary email must be "
-                    f"<a href='{verify_page}' class='alert-link'>verified</a> "
-                    f"before using this tool."
-                )
-                locked = True
-
-        return render(
-            request,
-            "genes_to_transcripts.html",
-            {"output": output, "locked": locked}
-        )
-
-    # ------------------------------------------------------------------
-    # GET — show form
-    # ------------------------------------------------------------------
-    if request.method == "GET":
-
-        if not request.user.is_authenticated:
-            login_page = reverse("account_login")
-            here = reverse("genes_to_transcripts")
+            here = reverse("genes2trans")
 
             messages.error(
                 request,
@@ -370,6 +360,35 @@ def validate(request):
             )
             return render(request, 'validate.html', {'output': None, 'locked': True})
 
+        # ---------------- Authenticated user monthly quota (PRE-CHECK) ----------------
+        quota = None
+        if request.user.is_authenticated:
+            try:
+                quota, _ = VariantQuota.objects.get_or_create(user=request.user)
+                if quota.remaining <= 0:
+                    messages.error(
+                        request,
+                        f"You have reached your monthly variant validation limit "
+                        f"({quota.effective_allowance})."
+                    )
+                    return render(request, 'validate.html', {
+                        'output': None,
+                        'locked': True,
+                        'last': last_genome,
+                        'source': last_source,
+                        'initial': request.POST.get('variant'),
+                    })
+            except Exception as e:
+                logger.error(f"Quota pre-check failure for user {request.user.id}: {e}")
+                messages.error(request, "Unable to check your submission quota.")
+                return render(request, 'validate.html', {
+                    'output': None,
+                    'locked': True,
+                    'last': last_genome,
+                    'source': last_source,
+                    'initial': request.POST.get('variant'),
+                })
+
         # Extract input
         variant = request.POST.get('variant')
         genome = request.POST.get('genomebuild', 'GRCh38')
@@ -380,34 +399,6 @@ def validate(request):
             select_transcripts = 'all'
 
         pdf_request = request.POST.get('pdf_request')
-
-        # ---------------- Authenticated user monthly quota ----------------
-        if request.user.is_authenticated:
-            try:
-                quota, _ = VariantQuota.objects.get_or_create(user=request.user)
-                quota.add_variants(1)
-            except ValueError:
-                messages.error(
-                    request,
-                    f"You have reached your monthly variant validation limit ({quota.effective_allowance})."
-                )
-                return render(request, 'validate.html', {
-                    'output': output,
-                    'locked': True,
-                    'last': last_genome,
-                    'source': last_source,
-                    'initial': variant,
-                })
-            except Exception as e:
-                logger.error(f"Quota failure for user {request.user.id}: {e}")
-                messages.error(request, "Unable to track your submission quota.")
-                return render(request, 'validate.html', {
-                    'output': output,
-                    'locked': True,
-                    'last': last_genome,
-                    'source': last_source,
-                    'initial': variant,
-                })
 
         # ------------------------------------------------------------------
         # Acquire validator + synchronous validation
@@ -491,19 +482,31 @@ def validate(request):
                     disposition = f"inline; filename={filename}"
 
                 response['Content-Disposition'] = disposition
-                return response
+            else:
+                return HttpResponse("Could not generate PDF")
 
-            return HttpResponse("Could not generate PDF")
+        else:
+            response = render(request, 'validate_results.html', {
+                'output': output,
+                'ucsc': ucsc_link,
+                'varsome': varsome_link,
+                'gnomad': gnomad_link,
+            })
+
+        # ---------------- Authenticated user monthly quota (FINAL DEDUCTION) ----------------
+        if quota:
+            try:
+                quota.add_variants(1)
+            except Exception as e:
+                logger.error(
+                    f"Quota deduction failed after successful validation "
+                    f"for user {request.user.id}: {e}"
+                )
 
         # ------------------------------------------------------------------
-        # Render results
+        # Return final response
         # ------------------------------------------------------------------
-        return render(request, 'validate_results.html', {
-            'output': output,
-            'ucsc': ucsc_link,
-            'varsome': varsome_link,
-            'gnomad': gnomad_link,
-        })
+        return response
 
     # ------------------------------------------------------------------
     # Fallback
@@ -566,6 +569,56 @@ def batch_validate(request):
         form = forms.BatchValidateForm(request.POST, request=request)
 
         if form.is_valid():
+            # Canonical, validated variants from the form
+            variants = form.cleaned_data["input_variants"].split("|")
+            n_variants = len(variants)
+
+            # ✅ ATOMIC QUOTA RESERVATION (CONCURRENCY SAFE)
+            try:
+                with transaction.atomic():
+                    quota = (
+                        VariantQuota.objects
+                        .select_for_update()
+                        .get(user=request.user)
+                    )
+
+                    quota.reset_if_needed()
+
+                    if quota.remaining < n_variants:
+                        messages.error(
+                            request,
+                            f"You have insufficient quota for this batch "
+                            f"({n_variants} requested, {quota.remaining} remaining)."
+                        )
+                        return render(
+                            request,
+                            "batch_validate.html",
+                            {
+                                "form": form,
+                                "locked": True,
+                                "settings": settings,
+                            }
+                        )
+
+                    quota.count += n_variants
+                    quota.save(update_fields=["count"])
+
+            except Exception as e:
+                logger.error(
+                    f"Batch quota reservation failed for user {request.user.id}: {e}"
+                )
+                messages.error(
+                    request, "Unable to reserve quota for batch submission."
+                )
+                return render(
+                    request,
+                    "batch_validate.html",
+                    {
+                        "form": form,
+                        "locked": True,
+                        "settings": settings,
+                    }
+                )
 
             # User selects ONE verified email (radio field)
             verified_email = form.cleaned_data["verified_email"]
@@ -581,6 +634,7 @@ def batch_validate(request):
                 options=form.cleaned_data["options"],
                 transcript_set=form.cleaned_data["refsource"],
                 user_id=user_id,
+                reserved_n=n_variants,
             )
 
             # Notify user
@@ -612,7 +666,7 @@ def batch_validate(request):
 
             messages.error(
                 request,
-                f"You must be <a href='{login_page}?next={here}' class='alert-link'>logged in</a> "
+                f"You must be &lt;a href='{login_page}?next={here}' class='alert-link'&gt;logged in&lt;/a&gt; "
                 f"to submit batch jobs."
             )
 
@@ -641,7 +695,7 @@ def batch_validate(request):
 
                 messages.error(
                     request,
-                    f"Primary email must be <a href='{verify_url}' class='alert-link'>verified</a> "
+                    f"Primary email must be &lt;a href='{verify_url}' class='alert-link'&gt;verified&lt;/a&gt; "
                     "before batch submission."
                 )
 

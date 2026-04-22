@@ -138,9 +138,6 @@ class BatchValidateForm(forms.Form):
                 code='quota_exceeded'
             )
 
-        # Deduct from quota
-        user_quota.add_variants(len(vars))
-
         return '|'.join(vars)
 
     def clean_gene_symbols(self):
