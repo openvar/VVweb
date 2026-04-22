@@ -753,92 +753,100 @@ def download_batch_res(request, job_id):
         # ------------------------------------------------------------------
         # Handle empty or malformed results
         # ------------------------------------------------------------------
-        if not isinstance(table, list) or not table:
+
+        has_results = isinstance(table, list) and bool(table)
+
+        my_results = []
+
+        if not has_results:
             buffer += "# ERROR: Batch results missing or malformed.\n"
-            response = HttpResponse(buffer, content_type='text/plain')
-            response['Content-Disposition'] = (
-                f'attachment; filename="VariantValidator_batch_job_{job_id}.txt"'
-            )
-            return response
+            buffer += "# DEBUG CONTEXT:\n"
+            buffer += f"# job.state = {job.state}\n"
+            buffer += f"# raw type = {type(raw).__name__}\n"
+
+            if isinstance(raw, dict):
+                buffer += f"# raw keys = {list(raw.keys())}\n"
+            else:
+                buffer += f"# raw value = {repr(raw)}\n"
 
         # ------------------------------------------------------------------
         # Find metadata line (first row containing "Metadata:")
         # ------------------------------------------------------------------
-        metaline = ""
-        for row in table:
-            if "Metadata:" in str(row):
-                metaline = str(row)
-                break
+        else:
+            metaline = ""
+            for row in table:
+                if "Metadata:" in str(row):
+                    metaline = str(row)
+                    break
 
-        # ------------------------------------------------------------------
-        # Parse metadata for option flags
-        # ------------------------------------------------------------------
-        transcript_d  = "transcript"  in metaline
-        genomic_d     = "genomic"     in metaline
-        protein_d     = "protein"     in metaline
-        refseqgene_d  = "refseqgene"  in metaline
-        lrg_d         = "lrg"         in metaline
-        vcf_d         = "vcf"         in metaline
-        gene_info_d   = "gene_info"   in metaline
-        tx_name_d     = "tx_name"     in metaline
-        alt_loci_d    = "alt_loci"    in metaline
+            # ------------------------------------------------------------------
+            # Parse metadata for option flags
+            # ------------------------------------------------------------------
+            transcript_d  = "transcript"  in metaline
+            genomic_d     = "genomic"     in metaline
+            protein_d     = "protein"     in metaline
+            refseqgene_d  = "refseqgene"  in metaline
+            lrg_d         = "lrg"         in metaline
+            vcf_d         = "vcf"         in metaline
+            gene_info_d   = "gene_info"   in metaline
+            tx_name_d     = "tx_name"     in metaline
+            alt_loci_d    = "alt_loci"    in metaline
 
-        # ------------------------------------------------------------------
-        # Build output rows based on selected options
-        # ------------------------------------------------------------------
-        my_results = []
+            # ------------------------------------------------------------------
+            # Build output rows based on selected options
+            # ------------------------------------------------------------------
 
-        for row in table:
+            for row in table:
 
-            # Metadata row?
-            if isinstance(row, str) or "# Metadata" in str(row):
-                my_results.append(row)
-                continue
+                # Metadata row?
+                if isinstance(row, str) or "# Metadata" in str(row):
+                    my_results.append(row)
+                    continue
 
-            # Convert non-list rows safely
-            if not isinstance(row, list):
-                row = [str(row)]
+                # Convert non-list rows safely
+                if not isinstance(row, list):
+                    row = [str(row)]
 
-            # Defensive: ensure row has enough elements for slicing
-            row = [str(x) if x is not None else "" for x in row]
-            while len(row) < 26:
-                row.append("")
+                # Defensive: ensure row has enough elements for slicing
+                row = [str(x) if x is not None else "" for x in row]
+                while len(row) < 26:
+                    row.append("")
 
-            output = []
+                output = []
 
-            # Always include: variant + warnings
-            output += row[0:2]
+                # Always include: variant + warnings
+                output += row[0:2]
 
-            if transcript_d:
-                output += row[2:5]
+                if transcript_d:
+                    output += row[2:5]
 
-            if refseqgene_d:
-                output += row[5:7]
+                if refseqgene_d:
+                    output += row[5:7]
 
-            if lrg_d:
-                output += row[7:9]
+                if lrg_d:
+                    output += row[7:9]
 
-            if protein_d:
-                output.append(row[9])
+                if protein_d:
+                    output.append(row[9])
 
-            if genomic_d:
-                output.append(row[10])
-                output.append(row[16])
+                if genomic_d:
+                    output.append(row[10])
+                    output.append(row[16])
 
-            if vcf_d:
-                output += row[11:16]
-                output += row[17:22]
+                if vcf_d:
+                    output += row[11:16]
+                    output += row[17:22]
 
-            if gene_info_d:
-                output += row[22:24]
+                if gene_info_d:
+                    output += row[22:24]
 
-            if tx_name_d:
-                output.append(row[24])
+                if tx_name_d:
+                    output.append(row[24])
 
-            if alt_loci_d:
-                output.append(row[25])
+                if alt_loci_d:
+                    output.append(row[25])
 
-            my_results.append(output)
+                my_results.append(output)
 
         # ------------------------------------------------------------------
         # Write output rows to response buffer
@@ -851,10 +859,13 @@ def download_batch_res(request, job_id):
             buffer += "\n"
 
     except Exception:
-        exc_type, exc_value, tb = sys.exc_info()
-        logger.error("%s %s" % (exc_type, exc_value))
-        traceback.print_tb(tb)
-        buffer += "\n# ERROR: Failed to process results.\n"
+        tb = traceback.format_exc()
+        logger.error("Batch download failed for job %s", job_id)
+        logger.error(tb)
+
+        buffer += "\n# ERROR: Failed to process results\n"
+        buffer += "# TRACEBACK:\n"
+        buffer += tb
 
     # ----------------------------------------------------------------------
     # Return final response
