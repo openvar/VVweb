@@ -1,8 +1,20 @@
+# web/apps.py
 from django.apps import AppConfig
+import logging
+
+logger = logging.getLogger("vv")
 
 
 class WebConfig(AppConfig):
-    name = 'web'
+    name = "web"
+
+    def ready(self):
+        # Ensure Celery tasks are registered
+        try:
+            from . import tasks  # noqa: F401
+            logger.info("web.tasks imported – Celery tasks registered")
+        except Exception as e:
+            logger.error("Failed to import web.tasks: %s", e)
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

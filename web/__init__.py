@@ -1,3 +1,4 @@
+default_app_config = "web.apps.WebConfig"
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
 #
