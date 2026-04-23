@@ -340,27 +340,38 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
     actions = [show_usernames, disable_users, delete_users]
 
     def safe_user_id(self, obj):
-        if obj is None:  # ✅ REQUIRED
+        if obj is None:
             return "-"
-        return (parse_result(obj) or {}).get("user_id", "-")
+        data = parse_result(obj)
+        if not isinstance(data, dict):
+            return "-"
+        return data.get("user_id", "-")
 
     safe_user_id.short_description = "User ID"
 
     def safe_email(self, obj):
         if obj is None:
             return "-"
-        return (parse_result(obj) or {}).get("email", "-")
+        data = parse_result(obj)
+        if not isinstance(data, dict):
+            return "-"
+        return data.get("email", "-")
 
     def safe_task_name(self, obj):
         if obj is None:
             return "-"
-        data = parse_result(obj) or {}
+        data = parse_result(obj)
+        if not isinstance(data, dict):
+            return obj.task_name or "-"
         return data.get("task_name") or obj.task_name or "-"
 
     def safe_username(self, obj):
         if obj is None:
             return "-"
-        uid = (parse_result(obj) or {}).get("user_id")
+        data = parse_result(obj)
+        if not isinstance(data, dict):
+            return "SYSTEM"
+        uid = data.get("user_id")
         if not uid:
             return "SYSTEM"
         try:
@@ -371,16 +382,16 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
     def user_link(self, obj):
         if obj is None:
             return "-"
-
-        uid = (parse_result(obj) or {}).get("user_id")
+        data = parse_result(obj)
+        if not isinstance(data, dict):
+            return "SYSTEM"
+        uid = data.get("user_id")
         if not uid:
             return "SYSTEM"
-
         try:
             User.objects.get(id=uid)
         except User.DoesNotExist:
             return f"(missing {uid})"
-
         url = reverse("admin:auth_user_change", args=[uid])
         return format_html("<a href='{}'>View User</a>", url)
 
