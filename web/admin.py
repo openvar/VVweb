@@ -1,17 +1,19 @@
-# web/admin.py# web/adminfrom django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 import json
 from dateutil.relativedelta import relativedelta
+
 from django.contrib import admin, messages
 from django.contrib.admin.sites import NotRegistered
 from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+
 from django_celery_results.models import TaskResult
 from django_celery_results.admin import TaskResultAdmin as DefaultTaskResultAdmin
 from allauth.account.models import EmailAddress
+
 from userprofiles.models import UserProfile
-from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from web.models import (
     Contact,
     VariantQuota,
@@ -20,20 +22,17 @@ from web.models import (
     InstitutionMembership,
 )
 
+User = get_user_model()
+
 # -------------------------------------------------------------------
 # USER ADMIN (ADD LINK TO USERPROFILE)
 # -------------------------------------------------------------------
-
-User = get_user_model()
-
 
 class CustomUserAdmin(DjangoUserAdmin):
     readonly_fields = DjangoUserAdmin.readonly_fields + ("user_profile_link",)
 
     fieldsets = DjangoUserAdmin.fieldsets + (
-        ("User Profile", {
-            "fields": ("user_profile_link",),
-        }),
+        ("User Profile", {"fields": ("user_profile_link",)}),
     )
 
     def user_profile_link(self, obj):
@@ -49,10 +48,7 @@ class CustomUserAdmin(DjangoUserAdmin):
             "admin:userprofiles_userprofile_change",
             args=(profile.id,),
         )
-        return format_html(
-            "<a href='{}'>View User Profile</a>",
-            url,
-        )
+        return format_html("<a href='{}'>View User Profile</a>", url)
 
     user_profile_link.short_description = "User Profile"
 
@@ -75,12 +71,9 @@ admin.site.register(Contact)
 # -------------------------------------------------------------------
 
 def get_primary_email(user):
-    try:
-        ea = EmailAddress.objects.filter(user=user, primary=True).first()
-        if ea:
-            return ea.email.lower().strip()
-    except Exception:
-        pass
+    ea = EmailAddress.objects.filter(user=user, primary=True).first()
+    if ea:
+        return ea.email.lower().strip()
     return None
 
 
@@ -89,7 +82,6 @@ def primary_email_domain(user):
     if email and "@" in email:
         return email.split("@", 1)[1].lower()
     return "-"
-
 
 # -------------------------------------------------------------------
 # QUOTA ACTIONS
@@ -118,7 +110,6 @@ def grant_1000_bonus(modeladmin, request, queryset):
 @admin.action(description="Clear custom limit")
 def clear_custom_limit(modeladmin, request, queryset):
     queryset.update(custom_limit=None)
-
 
 # -------------------------------------------------------------------
 # PLAN MANAGEMENT
@@ -178,35 +169,6 @@ def downgrade_to_standard(modeladmin, request, queryset):
         quota.last_reset = timezone.now()
         quota.save()
 
-
-# -------------------------------------------------------------------
-# SUBSCRIPTION CONTROL
-# -------------------------------------------------------------------
-
-@admin.action(description="Extend subscription by 1 calendar month")
-def extend_subscription_1_month(modeladmin, request, queryset):
-    if not request.user.is_superuser:
-        modeladmin.message_user(
-            request,
-            "Only superusers can extend subscriptions.",
-            level=messages.ERROR,
-        )
-        return
-
-    for quota in queryset:
-        quota.subscription_expires = (
-            quota.subscription_expires + relativedelta(months=1)
-            if quota.subscription_expires
-            else timezone.now() + relativedelta(months=1)
-        )
-        quota.save()
-
-
-@admin.action(description="Expire subscription immediately")
-def expire_subscription_now(modeladmin, request, queryset):
-    queryset.update(subscription_expires=timezone.now())
-
-
 # -------------------------------------------------------------------
 # VARIANTQUOTA ADMIN
 # -------------------------------------------------------------------
@@ -242,8 +204,6 @@ class VariantQuotaAdmin(admin.ModelAdmin):
         upgrade_to_pro,
         upgrade_to_enterprise,
         downgrade_to_standard,
-        extend_subscription_1_month,
-        expire_subscription_now,
     ]
 
     def primary_email_domain(self, obj):
@@ -258,57 +218,8 @@ class VariantQuotaAdmin(admin.ModelAdmin):
     def institution_status(self, obj):
         return "✔" if obj.institution and obj.institution.is_active else "✘"
 
-
 # -------------------------------------------------------------------
-# INSTITUTION ADMIN
-# -------------------------------------------------------------------
-
-class InstitutionActiveFilter(admin.SimpleListFilter):
-    title = "Institution Status"
-    parameter_name = "inst_status"
-
-    def lookups(self, request, model_admin):
-        return [("active", "Active"), ("expired", "Expired")]
-
-    def queryset(self, request, queryset):
-        now = timezone.now()
-        if self.value() == "active":
-            return queryset.filter(active=True, subscription_expires__gt=now)
-        if self.value() == "expired":
-            return queryset.filter(active=True, subscription_expires__lt=now)
-        return queryset
-
-
-class InstitutionDomainInline(admin.TabularInline):
-    model = InstitutionDomain
-    extra = 1
-
-
-class InstitutionMembershipInline(admin.TabularInline):
-    model = InstitutionMembership
-    extra = 0
-    readonly_fields = ("verified_at", "email_used", "source")
-
-
-@admin.register(Institution)
-class InstitutionAdmin(admin.ModelAdmin):
-
-    list_display = (
-        "name",
-        "subscription_expires",
-        "variant_limit",
-        "seats_allowed",
-        "seats_in_use",
-    )
-
-    list_filter = (InstitutionActiveFilter, "active")
-    search_fields = ("name",)
-    inlines = [InstitutionDomainInline, InstitutionMembershipInline]
-    readonly_fields = ("seats_in_use",)
-
-
-# -------------------------------------------------------------------
-# TASKRESULT ADMIN (UNCHANGED)
+# TASKRESULT ADMIN
 # -------------------------------------------------------------------
 
 try:
@@ -319,31 +230,90 @@ except NotRegistered:
 
 def parse_result(obj):
     """
-    Always return a dict.
-    Never raise.
-    Never return None.
+    Safely parse TaskResult.result.
+    ALWAYS returns a dict.
     """
-    result = getattr(obj, "result", None)
-
-    if not result:
+    if obj is None:
         return {}
 
-    if isinstance(result, dict):
-        return result
+    try:
+        data = obj.result
+    except Exception:
+        return {}
 
-    if isinstance(result, bytes):
-        try:
-            return json.loads(result.decode("utf-8", errors="ignore"))
-        except Exception:
-            return {}
+    if not data:
+        return {}
 
-    if isinstance(result, str):
+    if isinstance(data, dict):
+        return data
+
+    if isinstance(data, bytes):
+        data = data.decode("utf-8", errors="ignore")
+
+    if isinstance(data, str):
         try:
-            return json.loads(result)
+            return json.loads(data)
         except Exception:
             return {}
 
     return {}
+
+# -------------------------------------------------------------------
+# TASKRESULT ACTIONS (RESTORED)
+# -------------------------------------------------------------------
+
+@admin.action(description="Show username(s) for selected tasks")
+def show_usernames(modeladmin, request, queryset):
+    for tr in queryset:
+        data = parse_result(tr)
+        uid = data.get("user_id")
+
+        if not uid:
+            modeladmin.message_user(request, f"{tr.task_id}: SYSTEM TASK")
+            continue
+
+        try:
+            user = User.objects.get(id=uid)
+            modeladmin.message_user(
+                request,
+                f"{tr.task_id}: {user.username} ({user.email})"
+            )
+        except User.DoesNotExist:
+            modeladmin.message_user(
+                request, f"{tr.task_id}: user_id {uid} missing"
+            )
+
+
+@admin.action(description="Disable associated user accounts")
+def disable_users(modeladmin, request, queryset):
+    disabled = 0
+    for tr in queryset:
+        uid = parse_result(tr).get("user_id")
+        if not uid:
+            continue
+        try:
+            user = User.objects.get(id=uid)
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+            disabled += 1
+        except User.DoesNotExist:
+            pass
+    modeladmin.message_user(request, f"Disabled {disabled} user(s).")
+
+
+@admin.action(description="DELETE associated user accounts (dangerous!)")
+def delete_users(modeladmin, request, queryset):
+    deleted = 0
+    for tr in queryset:
+        uid = parse_result(tr).get("user_id")
+        if not uid:
+            continue
+        try:
+            User.objects.get(id=uid).delete()
+            deleted += 1
+        except User.DoesNotExist:
+            pass
+    modeladmin.message_user(request, f"Deleted {deleted} user(s).")
 
 
 @admin.register(TaskResult)
@@ -351,62 +321,67 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
 
     ordering = ("-date_done",)
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).defer("result")
+
     list_display = (
         "task_id",
+        "safe_task_name",
         "status",
         "date_done",
+        "safe_user_id",
+        "safe_email",
+        "safe_username",
         "user_link",
     )
 
-    def user_link(self, obj):
-        """
-        Safely render a link to the User associated with this task result.
+    list_filter = ("status", "date_done")
+    search_fields = ("task_id", "status", "result")
+    actions = [show_usernames, disable_users, delete_users]
 
-        TaskResult.result may be:
-        - None
-        - dict
-        - JSON string
-        - bytes
-        - malformed
+    def safe_user_id(self, obj):
+        if obj is None:  # ✅ REQUIRED
+            return "-"
+        return (parse_result(obj) or {}).get("user_id", "-")
 
-        This method must NEVER raise, or the admin changelist will crash.
-        """
-        data = parse_result(obj)
+    safe_user_id.short_description = "User ID"
 
-        if not isinstance(data, dict):
+    def safe_email(self, obj):
+        if obj is None:
+            return "-"
+        return (parse_result(obj) or {}).get("email", "-")
+
+    def safe_task_name(self, obj):
+        if obj is None:
+            return "-"
+        data = parse_result(obj) or {}
+        return data.get("task_name") or obj.task_name or "-"
+
+    def safe_username(self, obj):
+        if obj is None:
+            return "-"
+        uid = (parse_result(obj) or {}).get("user_id")
+        if not uid:
             return "SYSTEM"
+        try:
+            return User.objects.get(id=uid).username
+        except User.DoesNotExist:
+            return f"(missing {uid})"
 
-        uid = data.get("user_id")
+    def user_link(self, obj):
+        if obj is None:
+            return "-"
+
+        uid = (parse_result(obj) or {}).get("user_id")
         if not uid:
             return "SYSTEM"
 
         try:
-            url = reverse("admin:auth_user_change", args=[uid])
-        except Exception:
-            return "MISSING"
+            User.objects.get(id=uid)
+        except User.DoesNotExist:
+            return f"(missing {uid})"
 
-        return format_html(
-            "<a href='{}'>View User</a>",
-            url,
-        )
+        url = reverse("admin:auth_user_change", args=[uid])
+        return format_html("<a href='{}'>View User</a>", url)
 
-    user_link.short_description = "User"
-
-
-# <LICENSE>
-# Copyright (C) 2016-2026 VariantValidator Contributors
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-# </LICENSE>
-
+    user_link.short_description = "User Profile"
