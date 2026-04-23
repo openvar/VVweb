@@ -28,13 +28,12 @@ User = get_user_model()
 
 
 class CustomUserAdmin(DjangoUserAdmin):
-    """
-    Extend the default Django User admin to include
-    a direct link to the associated UserProfile.
-    """
+    readonly_fields = DjangoUserAdmin.readonly_fields + ("user_profile_link",)
 
-    readonly_fields = DjangoUserAdmin.readonly_fields + (
-        "user_profile_link",
+    fieldsets = DjangoUserAdmin.fieldsets + (
+        ("User Profile", {
+            "fields": ("user_profile_link",),
+        }),
     )
 
     def user_profile_link(self, obj):
