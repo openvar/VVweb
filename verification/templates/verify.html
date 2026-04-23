@@ -6,35 +6,46 @@
 {% block content %}
 <div class="container my-4">
 
-    <h2 class="mb-3">
-      {% if renewal_mode %}
-        Renew Your Verification
-      {% else %}
-        Verify Your Identity
-      {% endif %}
-    </h2>
-
+  <h2 class="mb-3">
     {% if renewal_mode %}
-    <div class="alert alert-info">
-      <strong>Verification renewal required</strong><br><br>
-      We’ve already identified your account and verified your email address, so
-      <strong>you will not be subject to additional verification</strong>.
-      <br><br>
-      This step is part of our annual policy to reconfirm acceptance of the
-      Terms of Use and to give you the opportunity to review and update your
-      information if anything has changed.
-      <br><br>
-      Please re-accept the terms below to continue.
-    </div>
+      Renew Your Verification
+    {% else %}
+      Verify Your Identity
     {% endif %}
+  </h2>
 
-    {% if not renewal_mode %}
-      <p class="text-muted">
-        To continue using VariantValidator, please confirm your organisation and provide evidence if needed.
-        Identification of users is now required to ensure we can prevent misuse and provide the correct level of
-        access for academic, healthcare, public health, charity, research and commercial users.
+  {% if renewal_mode %}
+    <div class="alert alert-info" role="alert">
+      <strong>Verification renewal required</strong><br><br>
+
+      {% if request.user.profile.verified_email and request.user.email != request.user.profile.verified_email %}
+        You recently changed your <strong>primary email address</strong>.
+        We need to re‑confirm your details before you continue.
+        <br><br>
+        This step is part of our policy to reconfirm acceptance of the
+        Terms of Use and to give you the opportunity to review and update your
+        information if anything has changed.
+        <br><br>
+        Your email address is already verified — no additional email confirmation
+        is required.
+      {% else %}
+        This step is part of our annual policy to reconfirm acceptance of the
+        Terms of Use and to give you the opportunity to review and update your
+        information if anything has changed.
+      {% endif %}
+
+      <br><br>
+      Please review the information below and re‑accept the terms to continue.
+    </div>
+  {% endif %}
+
+  {% if not renewal_mode %}
+    <p class="text-muted">
+      To continue using VariantValidator, please confirm your organisation and provide evidence if needed.
+      Identification of users is now required to ensure we can prevent misuse and provide the correct level of
+      access for academic, healthcare, public health, charity, research and commercial users.
     </p>
-    {% endif %}
+  {% endif %}
 
   <hr>
 
@@ -50,7 +61,7 @@
       {% endif %}
     </div>
 
-    <!-- COUNTRY (added) -->
+    <!-- Country -->
     <div class="form-group mb-4">
       {{ form.country.label_tag }}
       {{ form.country }}
@@ -76,18 +87,19 @@
       {{ form.evidence_url_1.label_tag }}
       {{ form.evidence_url_1 }}
       <small class="form-text text-muted">
-        Examples of alternate evidence formats: institutional page, NHS profile, Google Scholar profile,
-        LinkedIn, charity page, company “About Us”.
+        Examples of alternate evidence formats: institutional page, NHS profile,
+        Google Scholar profile, LinkedIn, charity page, company “About Us”.
       </small>
       {% if form.evidence_url_1.errors %}
         <div class="text-danger">{{ form.evidence_url_1.errors }}</div>
       {% endif %}
     </div>
-      {% if renewal_mode %}
-        <small class="form-text text-muted">
-          You do not need to provide new evidence unless something has changed.
-        </small>
-      {% endif %}
+
+    {% if renewal_mode %}
+      <small class="form-text text-muted mb-4">
+        You do not need to provide new evidence unless something has changed.
+      </small>
+    {% endif %}
 
     <!-- Evidence URL 2 -->
     <div class="form-group mb-4">
@@ -103,7 +115,8 @@
       {{ form.notes.label_tag }}<br>
       {{ form.notes }}
       <small class="form-text text-muted">
-        Optional explanation (e.g. student using personal email, honorary NHS contract, unusual situation).
+        Optional explanation (e.g. student using personal email, honorary NHS contract,
+        unusual situation).
       </small>
       {% if form.notes.errors %}
         <div class="text-danger">{{ form.notes.errors }}</div>
