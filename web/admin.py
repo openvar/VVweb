@@ -17,9 +17,6 @@ from userprofiles.models import UserProfile
 from web.models import (
     Contact,
     VariantQuota,
-    Institution,
-    InstitutionDomain,
-    InstitutionMembership,
 )
 
 User = get_user_model()

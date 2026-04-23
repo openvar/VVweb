@@ -20,15 +20,38 @@ class WebConfig(AppConfig):
 
         from web.models import (
             VariantQuota,
-            Institution,
             InstitutionDomain,
             InstitutionMembership,
         )
 
-        # Ensure django-allauth signals are loaded
-        from . import signals
-
         logger.info("Web app initialising VariantValidator quota + institution system...")
+
+        # -------------------------------------------------------
+        # Reconcile django-celery-beat task names (auto-heal)
+        # -------------------------------------------------------
+        try:
+            from django_celery_beat.models import PeriodicTask
+
+            TASK_RENAMES = {
+                old: new
+                for old, new in {
+                    "web.tasks.delete_old_users": "system.delete_old_users",
+                    "web.tasks.email_old_users": "system.email_old_users",
+                    "web.tasks.delete_old_jobs": "system.delete_old_jobs",
+                }.items()
+                if old != new
+            }
+
+            for old, new in TASK_RENAMES.items():
+                updated = PeriodicTask.objects.filter(task=old).update(task=new)
+                if updated:
+                    logger.info(
+                        f"Updated {updated} periodic task(s): {old} → {new}"
+                    )
+
+        # Beat tables may not exist during migrate
+        except (OperationalError, ProgrammingError) as e:
+            logger.debug("Celery beat tables not ready yet (%s)", e)
 
         # -------------------------------------------------------
         # Helper: Extract domain from an email
