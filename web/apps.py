@@ -14,6 +14,7 @@ class WebConfig(AppConfig):
         and auto-assign institutional membership + cached institution
         based on verified email domains.
         """
+        from . import signals #  Do not remove. Required import
         from django.contrib.auth.models import User
         from django.utils import timezone
         from django.db.utils import OperationalError, ProgrammingError
@@ -184,16 +185,6 @@ class WebConfig(AppConfig):
                 f"{membership_activated} memberships activated, "
                 f"{membership_deactivated} memberships deactivated."
             )
-
-        # -------------------------------------------------------
-        # Run sync safely (ignore missing tables during migration)
-        # -------------------------------------------------------
-        try:
-            if User.objects.exists():
-                sync_all_users()
-        except (OperationalError, ProgrammingError):
-            # Happens during migrate before tables exist
-            pass
 
         logger.info("Web initialisation complete.")
 

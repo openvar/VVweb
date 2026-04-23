@@ -1,46 +1,53 @@
 # web/signals.py
 
-from django.contrib.auth.models import User
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+import logging
 from django.utils import timezone
+from django.dispatch import receiver
+from django.db.models.signals import post_save, post_migrate
+from django.db.utils import OperationalError, ProgrammingError
+from django.contrib.auth import get_user_model
+
 from allauth.account.signals import user_signed_up
 from allauth.account.models import EmailAddress
 
 from web.models import VariantQuota, Contact
 from userprofiles.models import UserProfile
 
-import logging
-logger = logging.getLogger('vv')
+logger = logging.getLogger("vv")
+
+User = get_user_model()
 
 
 # ======================================================================
-# QUOTA CREATION ON NEW USER
+# PROFILE + QUOTA CREATION ON NEW USER
 # ======================================================================
 @receiver(post_save, sender=User)
-def create_variant_quota(sender, instance, created, **kwargs):
+def ensure_profile_and_quota_on_create(sender, instance, created, **kwargs):
     """
-    Automatically create VariantQuota for new users.
+    Ensure every newly-created user has:
+      - a UserProfile
+      - a VariantQuota
 
-    NOTE:
-        Plan ALWAYS begins as "standard".
-        Commercial logic is enforced *after* profile data is known
-        in userprofiles/signals.py → enforce_commercial_quota().
+    This is what tests and application logic rely on.
     """
     if not created:
         return
 
-    VariantQuota.objects.create(
+    UserProfile.objects.get_or_create(user=instance)
+
+    VariantQuota.objects.get_or_create(
         user=instance,
-        plan='standard',
-        count=0,
-        last_reset=timezone.now()
+        defaults={
+            "plan": "standard",
+            "count": 0,
+            "last_reset": timezone.now(),
+        },
     )
 
-    logger.info(f"[quota_created] Created VariantQuota for new user: {instance.username}")
-
-    # Safety: ensure UserProfile exists (rare race condition)
-    UserProfile.objects.get_or_create(user=instance)
+    logger.info(
+        "[user_init] Created profile + quota for new user: %s",
+        instance.username,
+    )
 
 
 # ======================================================================
@@ -50,8 +57,6 @@ def create_variant_quota(sender, instance, created, **kwargs):
 def create_contact_for_new_user(request, user, **kwargs):
     """
     Create a Contact object if the user's email is verified at signup.
-
-    This is not directly related to quota logic.
     """
     email_obj = EmailAddress.objects.filter(user=user, verified=True).first()
     if not email_obj:
@@ -60,13 +65,59 @@ def create_contact_for_new_user(request, user, **kwargs):
     Contact.objects.get_or_create(
         emailval=email_obj.email,
         defaults={
-            'name': user.get_full_name() or user.username,
-            'variant': '',
-            'question': '(auto-created on signup)',
-        }
+            "name": user.get_full_name() or user.username,
+            "variant": "",
+            "question": "(auto-created on signup)",
+        },
     )
 
-    logger.info(f"[contact_created] Created Contact for new user: {user.username}")
+    logger.info("[contact_created] Created Contact for new user: %s", user.username)
+
+
+# ======================================================================
+# BULK REPAIR FOR EXISTING USERS (AUTO, MIGRATION-SAFE)
+# ======================================================================
+@receiver(post_migrate)
+def sync_all_users_after_migrate(sender, **kwargs):
+    """
+    Ensure *existing* users (from before quota logic existed)
+    have a VariantQuota and sane defaults.
+
+    Runs automatically:
+      - after migrations
+      - after test DB creation
+      - after fresh deploys / restores
+
+    Never runs at import time.
+    """
+    # Only run once per app migrate, not for every app
+    if sender.name != "web":
+        return
+
+    try:
+        if not User.objects.exists():
+            return
+
+        for user in User.objects.all():
+            quota, _ = VariantQuota.objects.get_or_create(
+                user=user,
+                defaults={
+                    "plan": "standard",
+                    "count": 0,
+                    "last_reset": timezone.now(),
+                },
+            )
+
+            # Normalise legacy / bad data
+            if quota.plan in (None, ""):
+                quota.plan = "standard"
+                quota.save(update_fields=["plan"])
+
+        logger.info("[post_migrate] User quota sync complete.")
+
+    except (OperationalError, ProgrammingError):
+        # Tables not ready yet (e.g. during migrate)
+        pass
 
 
 # <LICENSE>
