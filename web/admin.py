@@ -318,16 +318,32 @@ except NotRegistered:
 
 
 def parse_result(obj):
-    try:
-        if not obj.result:
-            return {}
-        if isinstance(obj.result, dict):
-            return obj.result
-        if isinstance(obj.result, bytes):
-            return json.loads(obj.result.decode("utf-8", errors="ignore"))
-        return json.loads(obj.result)
-    except Exception:
+    """
+    Always return a dict.
+    Never raise.
+    Never return None.
+    """
+    result = getattr(obj, "result", None)
+
+    if not result:
         return {}
+
+    if isinstance(result, dict):
+        return result
+
+    if isinstance(result, bytes):
+        try:
+            return json.loads(result.decode("utf-8", errors="ignore"))
+        except Exception:
+            return {}
+
+    if isinstance(result, str):
+        try:
+            return json.loads(result)
+        except Exception:
+            return {}
+
+    return {}
 
 
 @admin.register(TaskResult)
@@ -343,17 +359,39 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
     )
 
     def user_link(self, obj):
-        uid = parse_result(obj).get("user_id")
+        """
+        Safely render a link to the User associated with this task result.
+
+        TaskResult.result may be:
+        - None
+        - dict
+        - JSON string
+        - bytes
+        - malformed
+
+        This method must NEVER raise, or the admin changelist will crash.
+        """
+        data = parse_result(obj)
+
+        if not isinstance(data, dict):
+            return "SYSTEM"
+
+        uid = data.get("user_id")
         if not uid:
             return "SYSTEM"
+
         try:
-            reverse("admin:auth_user_change", args=[uid])
+            url = reverse("admin:auth_user_change", args=[uid])
         except Exception:
             return "MISSING"
+
         return format_html(
             "<a href='{}'>View User</a>",
-            reverse("admin:auth_user_change", args=[uid]),
+            url,
         )
+
+    user_link.short_description = "User"
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
