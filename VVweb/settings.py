@@ -88,6 +88,7 @@ MIDDLEWARE = [
 
     # 3) Your enforcement middleware (runs while authenticated)
     'verification.middleware.TierEnforcementMiddleware',
+    "userprofiles.middleware.PrimaryEmailResetMiddleware",
 
     # 4) Django messages + clickjacking
     'django.contrib.messages.middleware.MessageMiddleware',

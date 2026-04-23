@@ -1,5 +1,3 @@
-# verification/middleware.py
-
 from datetime import timedelta
 
 from django.contrib.auth import logout
@@ -83,41 +81,35 @@ class TierEnforcementMiddleware:
         # Terms state
         now = timezone.now()
         terms = profile.terms_accepted_at
-        is_new = (terms is None)
+        # is_new = (terms is None)
         is_expired = (terms is not None) and (now >= terms + timedelta(days=365))
 
         # -------------------------------------------------
-        # AUTO-EXPIRED → one-time full reset, then behave as "new"
+        # AUTO-EXPIRED → compliance reset ONLY
         # -------------------------------------------------
-        if is_expired:
-            # FULL PROFILE reset (leave user object intact)
+        if is_expired and profile.reset_reason is None:
+            # ✅ CAPTURE PROVENANCE *FIRST*
+            profile.had_commercial_before_reset = (
+                    profile.verification_status == "commercial"
+            )
+
+            # ✅ COMPLIANCE RESET (NOT identity wipe)
             profile.email_is_verified = False
-            profile.verification_status = "not_started"
-            profile.org_type = None
-            profile.jobrole = ""
-            profile.personal_info_is_completed = False
-            profile.completion_level = 0
-            profile.verified_at = None
-            profile.verified_by = None
-            profile.rejection_reason = ""
-            # IMPORTANT: blank terms so subsequent requests are treated as "new"
             profile.terms_accepted_at = None
-            # NEW: mark why/when this reset happened
             profile.reset_reason = "auto"
             profile.reset_at = now
+
             profile.save(update_fields=[
-                "email_is_verified", "verification_status", "org_type", "jobrole",
-                "personal_info_is_completed", "completion_level",
-                "verified_at", "verified_by", "rejection_reason",
-                "terms_accepted_at", "reset_reason", "reset_at",
+                "had_commercial_before_reset",
+                "email_is_verified",
+                "terms_accepted_at",
+                "reset_reason",
+                "reset_at",
             ])
 
-            # Allauth: mark all addresses as unverified
+            # allauth invalidation
             EmailAddress.objects.filter(user=user).update(verified=False)
-            email_verified_now = False  # reflect immediately
-
-            # From next request onward, the branch below ("new") will apply.
-            # Fall through to the "new" logic without further redirects here.
+            email_verified_now = False
 
         # -------------------------------------------------
         # NEW (terms is None)  — includes auto-expired after reset
@@ -156,7 +148,6 @@ class TierEnforcementMiddleware:
                     return redirect("/commercial/")
                 return self.get_response(request)
 
-            # If your quota model exposes these, keep them; otherwise omit.
             try:
                 quota.check_subscription_status()
                 quota.reset_if_needed()

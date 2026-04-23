@@ -6,13 +6,35 @@
 {% block content %}
 <div class="container my-4">
 
-  <h2 class="mb-3">Verify Your Identity</h2>
+    <h2 class="mb-3">
+      {% if renewal_mode %}
+        Renew Your Verification
+      {% else %}
+        Verify Your Identity
+      {% endif %}
+    </h2>
 
-  <p class="text-muted">
-    To continue using VariantValidator, please confirm your organisation and provide evidence if needed.
-    Identification of users is now required to ensure we can prevent misuse and provide the correct level of
-    access for academic, healthcare, public health, charity, research and commercial users.
-  </p>
+    {% if renewal_mode %}
+    <div class="alert alert-info">
+      <strong>Verification renewal required</strong><br><br>
+      We’ve already identified your account and verified your email address, so
+      <strong>you will not be subject to additional verification</strong>.
+      <br><br>
+      This step is part of our annual policy to reconfirm acceptance of the
+      Terms of Use and to give you the opportunity to review and update your
+      information if anything has changed.
+      <br><br>
+      Please re-accept the terms below to continue.
+    </div>
+    {% endif %}
+
+    {% if not renewal_mode %}
+      <p class="text-muted">
+        To continue using VariantValidator, please confirm your organisation and provide evidence if needed.
+        Identification of users is now required to ensure we can prevent misuse and provide the correct level of
+        access for academic, healthcare, public health, charity, research and commercial users.
+    </p>
+    {% endif %}
 
   <hr>
 
@@ -61,6 +83,11 @@
         <div class="text-danger">{{ form.evidence_url_1.errors }}</div>
       {% endif %}
     </div>
+      {% if renewal_mode %}
+        <small class="form-text text-muted">
+          You do not need to provide new evidence unless something has changed.
+        </small>
+      {% endif %}
 
     <!-- Evidence URL 2 -->
     <div class="form-group mb-4">
@@ -98,9 +125,12 @@
       {% endif %}
     </div>
 
-    <!-- Submit -->
     <button type="submit" class="btn btn-primary mt-3">
-      Submit Verification
+      {% if renewal_mode %}
+        Renew Account
+      {% else %}
+        Submit Verification
+      {% endif %}
     </button>
 
   </form>

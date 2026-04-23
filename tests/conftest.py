@@ -64,11 +64,7 @@ def verify_email(db):
 
 @pytest.fixture
 def submit_verification_form(client, db):
-    """
-    Submit the verification form and ensure the user exits
-    the verification gate for test purposes.
-    """
-    def _submit(org_type=None):
+    def _submit(org_type=None, finalize=True):
         if org_type is None:
             org_type = next(
                 key for key, _ in ORG_TYPES
@@ -94,7 +90,8 @@ def submit_verification_form(client, db):
 
         assert profile.terms_accepted_at is not None
 
-        if profile.verification_status in ("not_started", "pending"):
+        # ✅ only auto-finalise when the test expects it
+        if finalize and profile.verification_status in ("not_started", "pending"):
             profile.verification_status = "verified"
             profile.verified_at = timezone.now()
             profile.save(update_fields=["verification_status", "verified_at"])

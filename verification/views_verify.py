@@ -79,18 +79,21 @@ def verify_identity(request):
       - All other users → pending admin review + evidence saved
     """
     profile: UserProfile = request.user.profile
+    renewal_mode = (profile.reset_reason == "auto")
 
-    # Already verified → go home
-    if profile.verification_status in ("verified", "auto_verified"):
-        return redirect("/")
+    # --------------------------------------------------
+    # GET-only shortcuts (never block POST)
+    # --------------------------------------------------
+    if request.method == "GET":
+        if profile.verification_status in ("verified", "auto_verified") and profile.reset_reason is None:
+            return redirect("/")
 
-    # Banned user shortcut
-    if profile.verification_status == "banned":
-        return redirect("/banned/")
+        if profile.verification_status == "banned":
+            return redirect("/banned/")
 
-    # Commercial user shortcut
-    if profile.verification_status == "commercial":
-        return redirect("/commercial/")
+        # Allow commercial users through IF they are revalidating
+        if profile.verification_status == "commercial" and profile.reset_reason is None:
+            return redirect("/commercial/")
 
     # -----------------------------------------------------------------
     # POST: handle form submission
@@ -99,42 +102,90 @@ def verify_identity(request):
         form = VerificationForm(request.POST)
 
         if form.is_valid():
+            # Snapshot current authoritative email used for this verification attempt
+            profile.verified_email = request.user.email
 
-            # Basic field population
+            # --------------------------------------------------
+            # Extract state and form data
+            # --------------------------------------------------
+            reset_reason = profile.reset_reason
+
             org_type = form.cleaned_data["org_type"]
             profile.org_type = org_type
 
-            # Save country (required field on the form)
-            profile.country = form.cleaned_data["country"]
+            was_commercial = (
+                    profile.verification_status == "commercial"
+                    or profile.had_commercial_before_reset
+            )
+            now_commercial = org_type in ("commercial", "commercial_healthcare")
 
+            # --------------------------------------------------
+            # RESOLVE VERIFICATION OUTCOME (SINGLE SOURCE OF TRUTH)
+            # --------------------------------------------------
+
+            if reset_reason == "auto":
+                if reset_reason == "auto" and was_commercial and not now_commercial:
+                    profile.verification_status = "pending"
+                    profile.terms_accepted_at = timezone.now()
+                    profile.save()
+
+                    # Stop processing here – this user MUST go to admin review
+                    return redirect("/verify/pending/")
+
+                elif was_commercial and now_commercial:
+                    profile.verification_status = "commercial"
+
+                elif not was_commercial and now_commercial:
+                    profile.verification_status = "commercial"
+                    profile.reset_reason = None
+                    profile.reset_at = None
+                    profile.had_commercial_before_reset = False
+
+                else:
+                    # ✅ SAFE auto‑renew (non‑commercial → non‑commercial)
+                    profile.verification_status = "verified"
+                    profile.verified_at = timezone.now()
+                    profile.verified_by = None
+                    profile.reset_reason = None
+                    profile.reset_at = None
+                    profile.had_commercial_before_reset = False
+
+            elif reset_reason == "admin":
+                # ----- Forced revalidation -----
+                profile.verification_status = "pending"
+                # reset_reason intentionally preserved
+
+            else:
+                # ----- First‑time verification -----
+                if now_commercial:
+                    profile.verification_status = "commercial"
+                else:
+                    domain = extract_domain(request.user.email)
+                    if is_trusted_domain(domain):
+                        profile.verification_status = "auto_verified"
+                        profile.verified_at = timezone.now()
+                        profile.verified_by = None
+                    else:
+                        profile.verification_status = "pending"
+
+            # --------------------------------------------------
+            # Common field updates (after outcome is resolved)
+            # --------------------------------------------------
+
+            profile.country = form.cleaned_data["country"]
             profile.orcid_id = form.cleaned_data.get("orcid_id", "")
             profile.verification_notes = form.cleaned_data.get("notes", "")
-
-            # User accepts terms here → start a new cycle
             profile.terms_accepted_at = timezone.now()
 
-            # 🔑 IMPORTANT: clear revalidation markers now that a new cycle starts
-            profile.reset_reason = None
-            profile.reset_at = None
-
-            # Trusted-domain auto verification
-            domain = extract_domain(request.user.email)
-            trusted = is_trusted_domain(domain)
-
-            if trusted:
-                profile.verification_status = "auto_verified"
-                profile.verified_at = timezone.now()
-                profile.verified_by = None
-                profile.save()  # includes cleared reset markers
-                messages.success(request, "Your account was automatically verified.")
-                return redirect("/")
+            # --------------------------------------------------
+            # PERSIST ALL CHANGES FROM THIS SUBMISSION
+            # --------------------------------------------------
+            profile.save()
 
             # -----------------------------------------------------------------
             # COMMERCIAL FLOW (FULL EMAIL + ADMIN ALERT)
             # -----------------------------------------------------------------
-            if org_type in ["commercial", "commercial_healthcare"]:
-                profile.verification_status = "commercial"
-                profile.save()  # includes cleared reset markers
+            if profile.verification_status == "commercial":
 
                 # Email user the commercial instructions
                 send_mail(
@@ -185,69 +236,84 @@ def verify_identity(request):
                 return redirect("/commercial/")
 
             # -----------------------------------------------------------------
-            # NON-COMMERCIAL UNTRUSTED USERS (PENDING → ADMIN REVIEW)
+            # NON-COMMERCIAL / ADMIN REVIEW (PENDING)
             # -----------------------------------------------------------------
-            profile.verification_status = "pending"
-            profile.save()  # includes cleared reset markers
+            if profile.verification_status == "pending":
+                # Only clear auto-reset if this was a SAFE auto-renew
+                if reset_reason == "auto" and not profile.had_commercial_before_reset:
+                    profile.reset_reason = None
+                    profile.reset_at = None
+                    profile.save()
 
-            # Save evidence URLs
-            url1 = form.cleaned_data.get("evidence_url_1")
-            url2 = form.cleaned_data.get("evidence_url_2")
+                # Save evidence URLs
+                url1 = form.cleaned_data.get("evidence_url_1")
+                url2 = form.cleaned_data.get("evidence_url_2")
 
-            if url1:
-                VerificationEvidence.objects.create(
-                    user=request.user,
-                    url=url1,
-                    kind=classify_url_kind(url1),
+                if url1:
+                    VerificationEvidence.objects.create(
+                        user=request.user,
+                        url=url1,
+                        kind=classify_url_kind(url1),
+                    )
+                if url2:
+                    VerificationEvidence.objects.create(
+                        user=request.user,
+                        url=url2,
+                        kind=classify_url_kind(url2),
+                    )
+
+                # Notify admins
+                admin_emails = list(
+                    User.objects.filter(is_superuser=True).values_list("email", flat=True)
                 )
-            if url2:
-                VerificationEvidence.objects.create(
-                    user=request.user,
-                    url=url2,
-                    kind=classify_url_kind(url2),
-                )
 
-            # Notify admins
-            admin_emails = list(
-                User.objects.filter(is_superuser=True).values_list("email", flat=True)
-            )
-            if admin_emails:
+                if admin_emails:
+                    send_mail(
+                        subject="VariantValidator: New verification request",
+                        message=(
+                            "A new verification request has been submitted.\n\n"
+                            f"User: {request.user.username}\n"
+                            f"Email: {request.user.email}\n"
+                            f"Organisation Type: {profile.org_type}\n\n"
+                            "You can review this user in the admin interface.\n"
+                            f"{request.build_absolute_uri('/admin/userprofiles/userprofile/')}"
+                        ),
+                        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@variantvalidator.org"),
+                        recipient_list=admin_emails,
+                        fail_silently=True,
+                    )
+
+                # Email user confirming receipt
                 send_mail(
-                    subject="VariantValidator: New verification request",
+                    subject="VariantValidator: Your verification request is pending",
                     message=(
-                        "A new verification request has been submitted.\n\n"
-                        f"User: {request.user.username}\n"
-                        f"Email: {request.user.email}\n"
-                        f"Organisation Type: {profile.org_type}\n\n"
-                        "You can review this user in the admin interface.\n"
-                        f"{request.build_absolute_uri('/admin/userprofiles/userprofile/')}"
+                        "Thank you for submitting your verification request.\n\n"
+                        "What happens next:\n"
+                        " • We confirm your organisation and intended use.\n"
+                        " • If more information is required, we will contact you.\n"
+                        " • Once approved, you will be able to use VariantValidator immediately.\n\n"
+                        "You can add more information to support your application anytime at:\n"
+                        f"{request.build_absolute_uri('/verify/')}\n\n"
+                        "Terms and Conditions of Use:\n"
+                        "https://github.com/openvar/variantValidator/blob/master/README.md#terms-and-conditions-of-use\n"
                     ),
                     from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@variantvalidator.org"),
-                    recipient_list=admin_emails,
+                    recipient_list=[request.user.email],
                     fail_silently=True,
                 )
 
-            # Email user confirming receipt
-            send_mail(
-                subject="VariantValidator: Your verification request is pending",
-                message=(
-                    "Thank you for submitting your verification request.\n\n"
-                    "What happens next:\n"
-                    " • We confirm your organisation and intended use.\n"
-                    " • If more information is required, we will contact you.\n"
-                    " • Once approved, you will be able to use VariantValidator immediately.\n\n"
-                    "You can add more information to support your application anytime at:\n"
-                    f"{request.build_absolute_uri('/verify/')}\n\n"
-                    "Terms and Conditions of Use:\n"
-                    "https://github.com/openvar/variantValidator/blob/master/README.md#terms-and-conditions-of-use\n"
-                ),
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@variantvalidator.org"),
-                recipient_list=[request.user.email],
-                fail_silently=True,
-            )
+                messages.info(request, "Your verification request has been submitted.")
 
-            messages.info(request, "Your verification request has been submitted.")
-            return redirect("/verify/pending/")
+            # Apply remaining redirects
+            if profile.verification_status == "pending":
+                return redirect("/verify/pending/")
+            elif profile.verification_status in ("verified", "auto_verified"):
+                messages.success(request, "Your account has been verified.")
+                return redirect("/")
+            # Fallback: should never be hit, but keeps control flow explicit
+            else:
+                return redirect("/")
+
 
     # ---------------------------------------------------------------------
     # GET: Show form (prefill from profile when possible)
@@ -260,7 +326,7 @@ def verify_identity(request):
             "notes": profile.verification_notes or "",
         })
 
-    return render(request, "verify.html", {"form": form})
+    return render(request,"verify.html",{"form": form, "renewal_mode": renewal_mode,})
 
 
 @login_required

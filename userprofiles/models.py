@@ -133,6 +133,17 @@ class UserProfile(models.Model):
     )
 
     # -------- Admin/audit-trail fields --------
+    verified_email = models.EmailField(
+        null=True,
+        blank=True,
+        verbose_name=_("Verified Email Address"),
+        help_text=_(
+            "The email address under which this profile was last verified. "
+            "Used to detect primary email changes that require re-validation."
+        ),
+        db_index=True,
+    )
+
     terms_accepted_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -158,6 +169,12 @@ class UserProfile(models.Model):
         blank=True,
         verbose_name=_("Rejection Reason")
     )
+
+    had_commercial_before_reset = models.BooleanField(
+        default=False,
+        verbose_name=_("Had commercial status before auto-reset"),
+        help_text=_("True if the user was commercial at the moment an auto-reset occurred. "        
+                    "Used to prevent auto-approval when downgrading from commercial."))
 
     # -------- NEW: reset markers to distinguish NEW vs RESET --------
     RESET_REASON_CHOICES = (

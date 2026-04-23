@@ -31,9 +31,12 @@ def test_auto_reset_after_one_year_forces_reverification(
 
     profile.refresh_from_db()
 
-    assert profile.verification_status == "not_started"
     assert profile.reset_reason == "auto"
     assert profile.terms_accepted_at is None
+    assert profile.email_is_verified is False
+
+    # Identity preserved
+    assert profile.verification_status == "verified"
 
     # Email reset is expected → confirm-email is REQUIRED first
     assert response.status_code == 302

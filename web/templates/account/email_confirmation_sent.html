@@ -26,27 +26,44 @@
 
         {# Choose copy: revalidation vs true new user #}
         {% if request.user.is_authenticated and request.user.profile and request.user.profile.reset_reason %}
+
           {% if request.user.profile.reset_reason == 'admin' %}
             <div class="alert alert-warning">
               <strong>Your account has been reset by an administrator.</strong><br>
               To continue using VariantValidator, please confirm your email address.
             </div>
+
           {% elif request.user.profile.reset_reason == 'auto' %}
             <div class="alert alert-warning">
               <strong>Your annual verification has expired.</strong><br>
               To continue using VariantValidator, please confirm your email address.
             </div>
+
           {% else %}
             <div class="alert alert-warning">
               <strong>Re‑validation required.</strong><br>
               Please confirm your email address to continue.
             </div>
           {% endif %}
+
           <p class="text-muted">
             Click the button below to send a verification link to
             <strong>{{ email_to_show }}</strong>. After confirming, you’ll review your
             organisation, job role, and accept the terms of use.
           </p>
+
+          {% if request.user.profile.reset_reason == 'auto' %}
+            <div class="alert alert-info">
+              <strong>No longer have access to this email address?</strong><br>
+              If you have left your organisation or no longer have access to
+              <strong>{{ email_to_show }}</strong>, please contact the VariantValidator
+              administrators at
+              <a href="mailto:admin@variantvalidator.org">
+                admin@variantvalidator.org
+              </a>
+              for assistance before continuing.
+            </div>
+          {% endif %}
 
         {% else %}
           <p class="text-muted">
@@ -56,9 +73,10 @@
         {% endif %}
 
         <hr>
+
         <div class="d-grid gap-2">
           <a
-            href="{% url 'resend_confirmation' %}?resent=1{% if email_to_show %}&email={{ email_to_show|urlencode }}{% endif %}"
+            href="{% url 'resend_confirmation' %}?resent=1{% if email_to_show %}&amp;email={{ email_to_show|urlencode }}{% endif %}"
             class="btn btn-primary btn-lg"
           >
             Send verification email

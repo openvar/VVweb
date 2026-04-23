@@ -12,44 +12,45 @@ from .models import UserProfile
 from .forms import IdentityForm
 
 
+# userprofiles/views.py
+
+from django.urls import reverse_lazy
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+
+from .models import UserProfile
+
+
 class ProfileHomeView(LoginRequiredMixin, TemplateView):
-    template_name = 'userprofiles/home.html'
+    """
+    User profile landing page.
+
+    IMPORTANT:
+    - This view MUST NOT perform any lifecycle mutations.
+    - Annual verification expiry and auto-reset are enforced globally
+      by UserProfileAutoResetMiddleware.
+    - This view only reflects current profile state to the UI.
+    """
+
+    template_name = "userprofiles/home.html"
     user_check_failure_path = reverse_lazy("account_signup")
 
     def check_user(self, user):
         return user.is_active
 
     def get_context_data(self, **kwargs):
-        context = super(ProfileHomeView, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
 
         profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
 
-        # ------------------------------
-        # ANNUAL RE-VERIFICATION CHECK
-        # ------------------------------
-        if profile.terms_accepted_at:
-            one_year_later = profile.terms_accepted_at + timedelta(days=365)
+        # -----------------------------------------
+        # UI FLAGS ONLY (NO STATE MUTATION HERE)
+        # -----------------------------------------
 
-            if timezone.now() >= one_year_later:
-                # Reset verification requirements
-                profile.email_is_verified = False
-                profile.terms_accepted_at = None
-                profile.org_type = None
-                profile.verification_status = "not_started"
-                profile.verified_at = None
-                profile.verified_by = None
-                profile.rejection_reason = ""
+        # User must reverify if middleware has cleared terms
+        context["reverify_required"] = profile.is_revalidation()
 
-                profile.save()
-
-                # Add a flag to template: "You must re-verify"
-                context["reverify_required"] = True
-
-        else:
-            # terms never accepted -> also require verification
-            context["reverify_required"] = True
-
-        context['profile'] = profile
+        context["profile"] = profile
         return context
 
 
