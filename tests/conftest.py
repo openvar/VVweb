@@ -9,9 +9,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 
 from allauth.account.models import EmailAddress
-
 from userprofiles.models import ORG_TYPES
-
 
 User = get_user_model()
 
@@ -44,16 +42,19 @@ def verify_email(db):
     Keeps allauth + UserProfile state in sync.
     """
     def _verify(user):
-        EmailAddress.objects.create(
+        EmailAddress.objects.get_or_create(
             user=user,
             email=user.email,
-            primary=True,
-            verified=True,
+            defaults={
+                "primary": True,
+                "verified": True,
+            },
         )
 
         profile = user.profile
         profile.email_is_verified = True
         profile.update_completion_level()
+        profile.save()
 
     return _verify
 
@@ -102,12 +103,62 @@ def submit_verification_form(client, db):
 
 
 # ==========================================================
+# USER CREATION HELPER (INTERNAL)
+# ==========================================================
+
+def _get_or_create_user(
+    django_user_model,
+    *,
+    username,
+    email,
+    password,
+):
+    """
+    Idempotent user factory for long-running / reused test databases.
+    """
+    user, _ = django_user_model.objects.get_or_create(
+        username=username,
+        defaults={"email": email},
+    )
+
+    # Always normalize password + activation
+    user.email = email
+    user.is_active = True
+    user.set_password(password)
+    user.save()
+
+    return user
+
+
+# ==========================================================
 # QUOTA FIXTURES — NON‑COMMERCIAL USERS
 # ==========================================================
 
 @pytest.fixture
+def standard_user(django_user_model):
+    """
+    Normal user with the default STANDARD plan.
+    """
+    user = _get_or_create_user(
+        django_user_model,
+        username="standard_user",
+        email="standard@example.com",
+        password="StrongPass123!",
+    )
+
+    quota = user.variant_quota
+    quota.plan = "standard"
+    quota.subscription_expires = None
+    quota.custom_limit = None
+    quota.save()
+
+    return user
+
+
+@pytest.fixture
 def user_with_pro_plan(django_user_model):
-    user = django_user_model.objects.create_user(
+    user = _get_or_create_user(
+        django_user_model,
         username="pro_user",
         email="pro@example.com",
         password="StrongPass123!",
@@ -123,7 +174,8 @@ def user_with_pro_plan(django_user_model):
 
 @pytest.fixture
 def user_with_enterprise_plan(django_user_model):
-    user = django_user_model.objects.create_user(
+    user = _get_or_create_user(
+        django_user_model,
         username="enterprise_user",
         email="enterprise@example.com",
         password="StrongPass123!",
@@ -142,69 +194,12 @@ def user_with_enterprise_plan(django_user_model):
 # ==========================================================
 
 @pytest.fixture
-def commercial_user_with_pro_plan(django_user_model):
-    user = django_user_model.objects.create_user(
-        username="commercial_pro_user",
-        email="commercial_pro@example.com",
-        password="StrongPass123!",
-    )
-
-    user.profile.verification_status = "commercial"
-    user.profile.save(update_fields=["verification_status"])
-
-    quota = user.variant_quota
-    quota.plan = "pro"
-    quota.subscription_expires = timezone.now() + timedelta(days=30)
-    quota.save()
-
-    return user
-
-
-@pytest.fixture
-def commercial_user_with_enterprise_plan(django_user_model):
-    user = django_user_model.objects.create_user(
-        username="commercial_enterprise_user",
-        email="commercial_enterprise@example.com",
-        password="StrongPass123!",
-    )
-
-    user.profile.verification_status = "commercial"
-    user.profile.save(update_fields=["verification_status"])
-
-    quota = user.variant_quota
-    quota.plan = "enterprise"
-    quota.subscription_expires = timezone.now() + timedelta(days=30)
-    quota.save()
-
-    return user
-
-
-@pytest.fixture
-def standard_user(django_user_model):
-    """
-    Normal user with the default STANDARD plan.
-    """
-    user = django_user_model.objects.create_user(
-        username="standard_user",
-        email="standard@example.com",
-        password="StrongPass123!",
-    )
-
-    quota = user.variant_quota
-    quota.plan = "standard"
-    quota.subscription_expires = None
-    quota.custom_limit = None
-    quota.save()
-
-    return user
-
-
-@pytest.fixture
 def commercial_user(django_user_model):
     """
     Commercial user with the default COMMERCIAL plan.
     """
-    user = django_user_model.objects.create_user(
+    user = _get_or_create_user(
+        django_user_model,
         username="commercial_user",
         email="commercial@example.com",
         password="StrongPass123!",
@@ -223,6 +218,48 @@ def commercial_user(django_user_model):
     return user
 
 
+@pytest.fixture
+def commercial_user_with_pro_plan(django_user_model):
+    user = _get_or_create_user(
+        django_user_model,
+        username="commercial_pro_user",
+        email="commercial_pro@example.com",
+        password="StrongPass123!",
+    )
+
+    profile = user.profile
+    profile.verification_status = "commercial"
+    profile.save(update_fields=["verification_status"])
+
+    quota = user.variant_quota
+    quota.plan = "pro"
+    quota.subscription_expires = timezone.now() + timedelta(days=30)
+    quota.save()
+
+    return user
+
+
+@pytest.fixture
+def commercial_user_with_enterprise_plan(django_user_model):
+    user = _get_or_create_user(
+        django_user_model,
+        username="commercial_enterprise_user",
+        email="commercial_enterprise@example.com",
+        password="StrongPass123!",
+    )
+
+    profile = user.profile
+    profile.verification_status = "commercial"
+    profile.save(update_fields=["verification_status"])
+
+    quota = user.variant_quota
+    quota.plan = "enterprise"
+    quota.subscription_expires = timezone.now() + timedelta(days=30)
+    quota.save()
+
+    return user
+
+
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
 #
@@ -233,8 +270,8 @@ def commercial_user(django_user_model):
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.

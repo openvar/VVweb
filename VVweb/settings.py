@@ -13,6 +13,43 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 import os
 from datetime import timedelta
 import sys
+import logging
+from logging import handlers
+from configparser import ConfigParser
+from VariantValidator import settings as vv_settings
+
+# Change settings based on config
+config = ConfigParser()
+config.read(vv_settings.CONFIG_DIR)
+
+# Setup logging logic
+if config['logging'].getboolean('log') is True:
+
+    # ---- console ----
+    vv_console_raw = config['logging'].get('console', fallback='INFO')
+
+    if vv_console_raw.lower() in ('false', '0', 'no', 'off'):
+        vv_logging_console_level = False
+    else:
+        vv_logging_console_level = vv_console_raw.upper()
+
+    # ---- file ----
+    vv_file_raw = config['logging'].get('file', fallback='ERROR')
+
+    if vv_file_raw.lower() in ('false', '0', 'no', 'off'):
+        vv_logging_file_level = False
+    else:
+        vv_logging_file_level = vv_file_raw.upper()
+
+    # ---- optional path ----
+    try:
+        vv_logging_file_path = config['logging']['file_path']
+    except KeyError:
+        vv_logging_file_path = os.getcwd()
+
+else:
+    vv_logging_console_level = False
+    vv_logging_file_level = False
 
 # Refuse connections in test mode
 if "pytest" in sys.argv:
@@ -269,57 +306,92 @@ MAX_VCF = 20000
 
 COUNTRIES_FIRST = ['GB', 'US']
 
+# settings.py (or settings_logging.py)
+
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '%(levelname)s %(asctime)s %(module)s %(lineno)d %(message)s'
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    # --------------------------------------------------
+    # Formatters
+    # --------------------------------------------------
+    "formatters": {
+        "verbose": {
+            "format": "%(asctime)s %(levelname)-8s %(name)s:%(lineno)d %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
         },
-        'simple': {
-            'format': '%(levelname)s %(message)s'
-        },
-    },
-    'filters': {
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse',
-        },
-        'require_debug_true': {
-            '()': 'django.utils.log.RequireDebugTrue',
+        "console": {
+            "format": "[%(asctime)s] %(levelname)-8s %(name)s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
         },
     },
-    'handlers': {
-        'file': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'info.log'),
-            'formatter': 'verbose'
+
+    # --------------------------------------------------
+    # Handlers
+    # --------------------------------------------------
+    "handlers": {
+        # Existing VV handlers (unchanged)
+        "vv_console": {
+            "class": "logging.StreamHandler",
+            "level": vv_logging_console_level,
+            "formatter": "console",
         },
-        'console': {
-            'level': 'ERROR',
-            'filters': ['require_debug_true'],
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple'
+        "vv_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": vv_logging_file_level,
+            "filename": os.path.join(BASE_DIR, "logs", "VariantValidator.log"),
+            "maxBytes": 5_000_000,
+            "backupCount": 5,
+            "formatter": "verbose",
         },
-        'mail_admins': {
-            'level': 'ERROR',
-            'class': 'django.utils.log.AdminEmailHandler'
-        }
+
+        # VVweb file handler
+        "vvweb_console": {
+            "class": "logging.StreamHandler",
+            "level": vv_logging_console_level,
+            "formatter": "console",
+        },
+
+        "vvweb_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": vv_logging_file_level,
+            "filename": os.path.join(BASE_DIR, "logs", "VVweb.log"),
+            "maxBytes": 5_000_000,
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
+
+        # Django default error handling (unchanged)
+        "django_console": {
+            "class": "logging.StreamHandler",
+            "level": "ERROR",
+            "formatter": "console",
+        },
     },
-    'loggers': {
-        'vv': {
-            'handlers': ['console', 'file'],
-            'level': 'ERROR',
+
+    # --------------------------------------------------
+    # Loggers
+    # --------------------------------------------------
+    "loggers": {
+        # VariantValidator stays owned by VV
+        "VariantValidator": {
+            "handlers": ["vv_console", "vv_file"],
+            "level": vv_logging_console_level,
+            "propagate": False,
         },
-        'django': {
-            'handlers': ['console'],
-            'propagate': True,
+
+        # VVweb application logger
+        "VVweb": {
+            "handlers": ["vvweb_console", "vvweb_file"],
+            "level": vv_logging_console_level,
+            "propagate": False,
         },
-        'django.request': {
-            'handlers': ['mail_admins'],
-            'level': 'ERROR',
-            'filters': ['require_debug_false'],
-            'propagate': False,
+
+        # Let Django do its normal thing
+        "django": {
+            "handlers": ["django_console"],
+            "level": "ERROR",
+            "propagate": True,
         },
     },
 }
