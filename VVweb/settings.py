@@ -116,6 +116,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     # 1) Security + required Django stack
     'django.middleware.security.SecurityMiddleware',
+    "web.middleware.SiteRedirectMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -390,7 +391,7 @@ LOGGING = {
         # Let Django do its normal thing
         "django": {
             "handlers": ["django_console"],
-            "level": "ERROR",
+            "level": "INFO",
             "propagate": True,
         },
     },
