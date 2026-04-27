@@ -193,8 +193,11 @@ def verify_identity(request):
                     message=(
                         f"Hello {request.user.username},\n\n"
                         "Your VariantValidator account is now set up — thank you for registering.\n\n"
-                        "We’ve recently updated our service model to ensure that we can maintain the infrastructure, "
-                        "support continued development, and keep VariantValidator running reliably into the future.\n\n"
+                        "We’ve recently updated our service model to help sustain VariantValidator as a widely used global genomics "
+                        "resource, ensuring we can continue to maintain the infrastructure, support ongoing development, and keep "
+                        "the service running reliably into the future.\n\n"
+                        "You can read more about this sustainability approach here:\n"
+                        "https://www.uominnovationfactory.com/projects/supporting-variantvalidator-sustaining-a-global-genomics-service/\n\n"
                         "Based on the information provided, your account has been classified as *commercial use*. "
                         "Commercial users require a paid licence to perform variant validations.\n\n"
                         "• If you would like to evaluate VariantValidator before committing, or wish to have your account reviewed, please email "
@@ -288,6 +291,10 @@ def verify_identity(request):
                     subject="VariantValidator: Your verification request is pending",
                     message=(
                         "Thank you for submitting your verification request.\n\n"
+                        "VariantValidator is a widely used global genomics service, and verification helps us ensure the resource is "
+                        "used appropriately while supporting its long‑term maintenance and sustainability.\n\n"
+                        "You can read more about this approach here:\n"
+                        "https://www.uominnovationfactory.com/projects/supporting-variantvalidator-sustaining-a-global-genomics-service/\n\n"
                         "What happens next:\n"
                         " • We confirm your organisation and intended use.\n"
                         " • If more information is required, we will contact you.\n"

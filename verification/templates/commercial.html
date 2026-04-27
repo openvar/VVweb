@@ -27,6 +27,13 @@
         running reliably for the global community.
       </p>
 
+      <p class="text-muted">
+        You can read more about this sustainability approach here:<br>
+        https://www.uominnovationfactory.com/projects/supporting-variantvalidator-sustaining-a-global-genomics-service/
+          Supporting VariantValidator: sustaining a global genomics service
+        </a>
+      </p>
+
       <hr class="my-4">
 
       <h4 class="mb-3">Why am I seeing this?</h4>
@@ -56,7 +63,7 @@
 
           <div class="my-3 p-3 bg-light border rounded">
 
-            <form method="POST" action="{% url 'redeem_trial' %}">
+            {% url 'redeem_trial' %}
               {% csrf_token %}
               <button type="submit" class="btn btn-primary btn-lg w-100">
                 Activate Free Trial Month
@@ -86,7 +93,7 @@
 
       <div class="bg-light p-3 rounded mb-4 mt-4">
         <strong>Email us:</strong><br>
-        <a href="mailto:admin@variantvalidator.org">
+        admin@variantvalidator.org
           admin@variantvalidator.org
         </a>
       </div>
@@ -100,7 +107,7 @@
 
       <p class="text-muted">
         <em>Placeholder subscription link:</em><br>
-        <a href="https://variantvalidator.org/paid-options/" class="text-muted">
+        https://variantvalidator.org/paid-options/
           https://variantvalidator.org/paid-options/
         </a>
       </p>
