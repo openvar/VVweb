@@ -46,7 +46,7 @@ def build_verified_welcome_email(user):
         "Your verified account allows you to access the full set of tools.\n\n"
 
         f"As a verified non‑commercial user, you now have access to the standard allocation supported by our\n"
-        f"academic and community-driven infrastructure, which is {allowance} validations per month.\n"
+        f"academic and community‑driven infrastructure, which is {allowance} validations per month.\n"
         "If your needs exceed this allowance you will need to purchase a monthly subscription (link to subscription page),\n"
         "or if you are part of a wider clinical or institutional project, please contact us — we are happy to\n"
         "discuss institutional subscriptions to support your work.\n\n"
@@ -55,6 +55,12 @@ def build_verified_welcome_email(user):
         "we do not receive external funding. Our global user community depends on us for accurate,\n"
         "standards‑compliant representation of variant data, and we strongly believe in providing equitable\n"
         "access as part of our social responsibility.\n\n"
+
+        "As VariantValidator has grown into a widely used global genomics service, we have introduced a\n"
+        "sustainability‑focused model to help ensure the infrastructure, maintenance, and development work\n"
+        "required to keep the service reliable and available long‑term.\n"
+        "You can read more about this approach here:\n"
+        "https://www.uominnovationfactory.com/projects/supporting-variantvalidator-sustaining-a-global-genomics-service/\n\n"
 
         "In 2025, more than 200,000 users relied on VariantValidator worldwide. To keep the service running\n"
         "and available to all — and to maintain or develop the tools you depend on — please consider\n"
@@ -171,18 +177,21 @@ def mark_commercial(modeladmin, request, queryset):
             f"Hello {user.username},\n\n"
             "Your VariantValidator account is set up — thank you for registering.\n\n"
 
-            "VariantValidator has introduced a sustainability‑focused service model to ensure we can continue\n"
-            "maintaining the infrastructure, supporting users, and keeping the platform running reliably for\n"
-            "the global community.\n\n"
+            "VariantValidator has introduced a sustainability‑focused service model to help sustain the platform as a widely used\n"
+            "global genomics resource, ensuring we can continue maintaining the infrastructure, supporting users, and keeping\n"
+            "the service running reliably for the community.\n\n"
+
+            "You can read more about this approach here:\n"
+            "https://www.uominnovationfactory.com/projects/supporting-variantvalidator-sustaining-a-global-genomics-service/\n\n"
 
             "Based on the information provided during registration, your account has been classified as\n"
             "commercial use. Commercial users require a valid licence to run variant validations.\n\n"
 
-            "If you have not yet done so, you may activate a one‑time free evaluation month by logging in and clicking the button provided. \n "
+            "If you have not yet done so, you may activate a one‑time free evaluation month by logging in and clicking the button provided.\n"
             "This provides the same validation allowance as our free‑tier monthly quota and is intended to help you assess\n"
             "whether VariantValidator meets your needs.\n\n"
 
-            "After your trial, or if you require additional capacity, please contact us for licensing/subscription options.\n"
+            "After your trial, or if you require additional capacity, please contact us for licensing or subscription options.\n"
             "These changes help ensure VariantValidator remains available, maintained, and reliable for all users.\n\n"
 
             "For assistance, subscription information, or trial enquiries, please contact:\n"
@@ -222,9 +231,16 @@ def ban_users(modeladmin, request, queryset):
             f"Hello {user.username},\n\n"
             "Your VariantValidator account has been deactivated.\n\n"
 
+            "VariantValidator is a widely used global genomics service, and we have a responsibility to ensure\n"
+            "that access is granted appropriately and in line with our terms of use. This is essential to\n"
+            "maintaining the integrity, sustainability, and reliability of the service for the wider community.\n\n"
+
             "This action was taken because we were unable to verify your identity or eligibility, or because\n"
             "activity was detected that does not comply with our terms of use. As a result, your access has been\n"
             "restricted and you will be unable to use VariantValidator until the issue is resolved.\n\n"
+
+            "You can read more about how we sustain and protect VariantValidator as a shared resource here:\n"
+            "https://www.uominnovationfactory.com/projects/supporting-variantvalidator-sustaining-a-global-genomics-service/\n\n"
 
             "If you believe this decision was made in error, or you can provide additional information to\n"
             "support your eligibility, please contact us. When getting in touch, you may include:\n"
@@ -246,7 +262,6 @@ def ban_users(modeladmin, request, queryset):
             quota.save()
         except Exception:
             pass
-
 
 
 # ======================================================================
