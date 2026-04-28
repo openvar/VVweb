@@ -319,22 +319,17 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
     ordering = ("-date_done",)
 
     def get_queryset(self, request):
-        return super().get_queryset(request).defer("result")
-
-    list_display = (
-        "task_id",
-        "safe_task_name",
-        "status",
-        "date_done",
-        "safe_user_id",
-        "safe_email",
-        "safe_username",
-        "user_link",
-    )
-
-    list_filter = ("status", "date_done")
-    search_fields = ("task_id", "status", "result")
-    actions = [show_usernames, disable_users, delete_users]
+        return (
+            super()
+            .get_queryset(request)
+            .only(
+                "task_id",
+                "task_name",
+                "status",
+                "date_done",
+                "result",
+            )
+        )
 
     def safe_user_id(self, obj):
         if obj is None:
@@ -355,12 +350,9 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
         return data.get("email", "-")
 
     def safe_task_name(self, obj):
-        if obj is None:
+        if not obj:
             return "-"
-        data = parse_result(obj)
-        if not isinstance(data, dict):
-            return obj.task_name or "-"
-        return data.get("task_name") or obj.task_name or "-"
+        return obj.task_name or "-"
 
     def safe_username(self, obj):
         if obj is None:

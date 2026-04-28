@@ -17,7 +17,7 @@ from web.models import (
 from allauth.account.models import EmailAddress
 
 import logging
-logger = logging.getLogger('vv')
+logger = logging.getLogger("VVweb")
 
 
 # ======================================================================

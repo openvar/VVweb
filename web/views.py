@@ -30,17 +30,18 @@ import json # May kill download jobs
 from django.db import transaction
 from VVweb import settings
 
+logger = logging.getLogger("VVweb")
 
-print("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
+logger.warning("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 
 try:
     from django.contrib.sites.models import Site
     site = Site.objects.get(id=settings.SITE_ID)
-    print(f"[settings] SITE_ID={settings.SITE_ID}, domain={site.domain}")
+    logger.warning(f"[settings] SITE_ID={settings.SITE_ID}, domain={site.domain}")
 except Exception as e:
-    print(f"[settings] SITE_ID={settings.SITE_ID}, domain lookup failed: {e}")
+    logger.warning(f"[settings] SITE_ID={settings.SITE_ID}, domain lookup failed: {e}")
 
-logger = logging.getLogger("vv")
+
 
 # ======================================================================
 # BASIC PAGES

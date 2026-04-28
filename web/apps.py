@@ -2,7 +2,7 @@
 from django.apps import AppConfig
 import logging
 
-logger = logging.getLogger("vv")
+logger = logging.getLogger("VVweb")
 
 
 class WebConfig(AppConfig):

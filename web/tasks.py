@@ -16,8 +16,14 @@ from . import input_formatting
 from . import services
 from .object_pool import vval_object_pool, g2t_object_pool, batch_object_pool
 from web.models import VariantQuota
+from django.db import connection
 
-logger = logging.getLogger('vv')
+try:
+    from allauth.socialaccount.models import SocialAccount
+except Exception:
+    SocialAccount = None
+
+logger = logging.getLogger("VVweb")
 
 # Load Django user model once (correct way)
 User = get_user_model()
@@ -407,17 +413,69 @@ def delete_old_users():
     """Delete users inactive for more than 2 years AND previously warned."""
     logger.info("delete_old_users(): checking for inactive user accounts")
 
-    timepoint = timezone.now() - timedelta(days=(365 * 2))
+    timepoint = timezone.now() - timedelta(days=365 * 2)
 
     users = User.objects.filter(
         last_login__lte=timepoint,
         profile__contacted_for_deletion=True
     )
 
+    user_ids = list(users.values_list("id", flat=True))
+    if not user_ids:
+        logger.info("delete_old_users(): no inactive users found")
+        return {"deleted": 0}
+
+    # --------------------------------------------------
+    # Social account cleanup (ALWAYS attempt)
+    # --------------------------------------------------
+    social_count = 0
+
+    if SocialAccount is not None:
+        # ✅ ORM path
+        social_qs = SocialAccount.objects.filter(user_id__in=user_ids)
+        social_count = social_qs.count()
+
+        if social_count:
+            logger.info(
+                "delete_old_users(): deleting %s associated social accounts (ORM)",
+                social_count
+            )
+            social_qs.delete()
+
+    else:
+        # Raw SQL fallback (legacy cleanup)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM socialaccount_socialaccount
+                WHERE user_id = ANY(%s)
+                """,
+                [user_ids],
+            )
+            social_count = cursor.rowcount
+
+        if social_count:
+            logger.info(
+                "delete_old_users(): deleted %s associated social accounts (SQL)",
+                social_count
+            )
+
+    # --------------------------------------------------
+    # Delete users
+    # --------------------------------------------------
     num, details = users.delete()
 
-    logger.info("delete_old_users(): deleted %s inactive user accounts" % num)
-    return {"deleted": num, "detail": details}
+    logger.info(
+        "delete_old_users(): deleted %s user records (social accounts removed: %s)",
+        num,
+        social_count
+    )
+
+    return {
+        "users_deleted": num,
+        "social_accounts_deleted": social_count,
+        "detail": details,
+    }
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors

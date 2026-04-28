@@ -48,8 +48,8 @@ if config['logging'].getboolean('log') is True:
         vv_logging_file_path = os.getcwd()
 
 else:
-    vv_logging_console_level = False
-    vv_logging_file_level = False
+    vv_logging_console_level = "CRITICAL"
+    vv_logging_file_level = "CRITICAL"
 
 # Refuse connections in test mode
 if "pytest" in sys.argv:
@@ -394,6 +394,12 @@ LOGGING = {
             "level": "INFO",
             "propagate": True,
         },
+
+        # Fall back logger - root
+        "root": {
+            "handlers": ["django_console"],
+            "level": "ERROR",
+        }
     },
 }
 
