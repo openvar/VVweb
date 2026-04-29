@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 
-from web.models import VariantQuota
+from VVweb.web.models import VariantQuota
 
 
 @pytest.mark.django_db
@@ -41,7 +41,7 @@ def test_batch_submission_rejected_when_quota_exhausted(
     # Prevent Celery routing (view-level test)
     # -----------------------------------
     monkeypatch.setattr(
-        "web.views.tasks.batch_validate.delay",
+        "VVweb.web.views.tasks.batch_validate.delay",
         lambda **kwargs: "FAKE-JOB-ID"
     )
 

@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 
-from web.models import VariantQuota
+from VVweb.web.models import VariantQuota
 
 
 @pytest.mark.django_db
@@ -43,7 +43,7 @@ def test_validator_does_not_consume_quota_on_validation_exception(
 
     # Patch the validator returned by the object pool
     monkeypatch.setattr(
-        "web.views.vval_object_pool.get_object",
+        "VVweb.web.views.vval_object_pool.get_object",
         lambda: type(
             "ExplodingValidator",
             (),

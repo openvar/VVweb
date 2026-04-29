@@ -3,7 +3,7 @@ from django.urls import reverse
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth import get_user_model
-from web.models import VariantQuota
+from VVweb.web.models import VariantQuota
 
 User = get_user_model()
 

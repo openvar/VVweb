@@ -4,9 +4,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from web import views, views_quota, views_resend
-from web.views import StyledEmailSentView, StyledSignupView, StrictLoginView
-# from verification.views_banned import banned_landing  # <-- remove this
+from .web import views, views_quota, views_resend
+from .web.views import StyledEmailSentView, StyledSignupView, StrictLoginView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,13 +26,13 @@ urlpatterns = [
     path("accounts/confirm-email/", StyledEmailSentView.as_view(), name="account_email_verification_sent"),
 
     # Verification routes (verify/, verify/pending/, commercial/, banned/)
-    path("", include("verification.urls")),
+    path("", include("VVweb.verification.urls")),
 
     # Allauth account routes (no social if social apps are removed)
     path('accounts/', include('allauth.urls')),
 
     path("quota/", views_quota.quota_status, name="quota_status"),
-    path('profile/', include('userprofiles.urls')),
+    path('profile/', include('VVweb.userprofiles.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # <LICENSE>

@@ -1,7 +1,7 @@
 import pytest
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from web.models import VariantQuota
+from VVweb.web.models import VariantQuota
 
 User = get_user_model()
 

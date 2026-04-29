@@ -2,7 +2,7 @@ import pytest
 from django.utils import timezone
 from datetime import timedelta
 
-from web.models import (
+from VVweb.web.models import (
     Institution,
     InstitutionMembership,
     VariantQuota,

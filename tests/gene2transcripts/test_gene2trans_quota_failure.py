@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 
-from web.models import VariantQuota
+from VVweb.web.models import VariantQuota
 
 
 @pytest.mark.django_db
@@ -38,7 +38,7 @@ def test_gene2transcripts_does_not_consume_quota_on_exception(
         raise RuntimeError("Simulated gene2transcripts crash")
 
     monkeypatch.setattr(
-        "web.views.tasks.gene2transcripts",
+        "VVweb.web.views.tasks.gene2transcripts",
         explode
     )
 

@@ -103,14 +103,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'django.contrib.humanize',
-    'web',
+    'VVweb.web',
     'widget_tweaks',
     'django_celery_results',
     'cookielaw',
     'allauth',
     'allauth.account',
-    'userprofiles.apps.UserprofilesConfig',
-    'verification',
+    'VVweb.userprofiles.apps.UserprofilesConfig',
+    'VVweb.verification',
     'django_recaptcha',
     'django_countries',
     'django_celery_beat',
@@ -120,7 +120,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     # 1) Security + required Django stack
     'django.middleware.security.SecurityMiddleware',
-    "web.middleware.SiteRedirectMiddleware",
+    "VVweb.web.middleware.SiteRedirectMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -129,8 +129,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 
     # 3) Your enforcement middleware (runs while authenticated)
-    'verification.middleware.TierEnforcementMiddleware',
-    "userprofiles.middleware.PrimaryEmailResetMiddleware",
+    'VVweb.verification.middleware.TierEnforcementMiddleware',
+    "VVweb.userprofiles.middleware.PrimaryEmailResetMiddleware",
 
     # 4) Django messages + clickjacking
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -140,7 +140,7 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
 
     # 6) Your post‑Allauth login bounce interceptor
-    'verification.middleware_postallauth.PostAllauthLoginRedirectFix',
+    'VVweb.verification.middleware_postallauth.PostAllauthLoginRedirectFix',
 ]
 
 
@@ -159,7 +159,7 @@ TEMPLATES = [
                 'django.template.context_processors.media',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'web.context_processors.account_status',
+                'VVweb.web.context_processors.account_status',
             ],
         },
     },
@@ -197,7 +197,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTHENTICATION_BACKENDS = (
 
-    "userprofiles.auth_backends.ProfileAwareModelBackend",
+    "VVweb.userprofiles.auth_backends.ProfileAwareModelBackend",
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
 )
@@ -231,11 +231,11 @@ ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
 
 # Custom signup form
 ACCOUNT_FORMS = {
-    'signup': 'web.forms.UpdatedSignUpForm',
+    'signup': 'VVweb.web.forms.UpdatedSignUpForm',
 }
 
 # Custom display name function
-ACCOUNT_USER_DISPLAY = 'userprofiles.utils.show_user'
+ACCOUNT_USER_DISPLAY = 'VVweb.userprofiles.utils.show_user'
 
 
 # -------------------------------------------------------------------
@@ -322,11 +322,17 @@ LOGGING = {
     # --------------------------------------------------
     "formatters": {
         "verbose": {
-            "format": "%(asctime)s %(levelname)-8s %(name)s:%(lineno)d %(message)s",
+            "format": (
+                "%(asctime)s | %(levelname)-8s | %(name)s | "
+                "%(filename)s:%(lineno)d | %(message)s"
+            ),
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
         "console": {
-            "format": "[%(asctime)s] %(levelname)-8s %(name)s %(message)s",
+            "format": (
+                "%(asctime)s | %(levelname)-8s | %(name)s | "
+                "%(filename)s:%(lineno)d | %(message)s"
+            ),
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
     },

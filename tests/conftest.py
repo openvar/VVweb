@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 
 from allauth.account.models import EmailAddress
-from userprofiles.models import ORG_TYPES
+from VVweb.userprofiles.models import ORG_TYPES
 
 User = get_user_model()
 

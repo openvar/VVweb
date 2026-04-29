@@ -1,8 +1,8 @@
 import pytest
 from django.urls import reverse
 
-from web.models import VariantQuota
-from web import tasks
+from VVweb.web.models import VariantQuota
+from VVweb.web import tasks
 
 
 @pytest.mark.django_db
