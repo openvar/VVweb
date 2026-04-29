@@ -15,6 +15,7 @@ from datetime import timedelta
 import sys
 import logging
 from logging import handlers
+from pathlib import Path
 from configparser import ConfigParser
 from VariantValidator import settings as vv_settings
 
@@ -59,6 +60,9 @@ if "pytest" in sys.argv:
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG_DIR = Path(BASE_DIR) / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
