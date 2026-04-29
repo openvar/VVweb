@@ -30,7 +30,7 @@ import json # May kill download jobs
 from django.db import transaction
 from VVweb import settings
 
-logger = logging.getLogger("VVweb")
+logger = logging.getLogger(__name__)
 
 logger.warning("Imported views and creating Validator Obj - SHOULD ONLY SEE ME ONCE")
 

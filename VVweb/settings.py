@@ -389,7 +389,7 @@ LOGGING = {
         "VVweb": {
             "handlers": ["vvweb_console", "vvweb_file"],
             "level": vv_logging_console_level,
-            "propagate": False,
+            "propagate": True,
         },
 
         # Let Django do its normal thing

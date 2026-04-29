@@ -20,7 +20,7 @@ from django.conf import settings
 from weasyprint import HTML, CSS, default_url_fetcher
 import logging
 
-logger = logging.getLogger("VVweb")
+logger = logging.getLogger(__name__)
 
 
 # -------------------------------------------------------------------

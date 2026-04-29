@@ -23,7 +23,7 @@ try:
 except Exception:
     SocialAccount = None
 
-logger = logging.getLogger("VVweb")
+logger = logging.getLogger(__name__)
 
 # Load Django user model once (correct way)
 User = get_user_model()

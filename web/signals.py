@@ -13,7 +13,7 @@ from allauth.account.models import EmailAddress
 from web.models import VariantQuota, Contact
 from userprofiles.models import UserProfile
 
-logger = logging.getLogger("VVweb")
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 

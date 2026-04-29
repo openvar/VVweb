@@ -9,7 +9,7 @@ from vvhgvs import normalizer
 import logging
 import json
 
-logger = logging.getLogger("VVweb")
+logger = logging.getLogger(__name__)
 
 
 def process_result(val, validator):
