@@ -363,7 +363,17 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
     def safe_task_name(self, obj):
         if not obj:
             return "-"
-        return obj.task_name or "-"
+        # ✅ Extract from result payload FIRST
+        data = parse_result(obj)
+        if isinstance(data, dict):
+            name = data.get("task_name")
+            if name:
+                return name
+        # ✅ Fallback to DB field (if ever populated)
+        if obj.task_name:
+            return obj.task_name
+        # ✅ Final fallback
+        return obj.task_id[:8]
 
     def safe_username(self, obj):
         if obj is None:
