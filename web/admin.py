@@ -130,89 +130,90 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
 
     ordering = ("-date_done",)
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.defer("result")  # speeds up admin massively
-
     list_display = (
         "task_id",
         "safe_task_name",
         "status",
         "date_done",
         "safe_user_id",
-        "safe_email",
         "safe_username",
+        "safe_email",
         "user_link",
     )
 
-    list_filter = ("status", "date_done")
-    search_fields = ("task_id", "status", "result")
-    actions = [show_usernames, disable_users, delete_users]
-
-    # ---- SAFE ACCESSORS ----
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .only(
+                "task_id",
+                "task_name",
+                "status",
+                "date_done",
+                "result",
+            )
+        )
 
     def safe_user_id(self, obj):
-        try:
-            if obj is None:
-                return "-"
-            data = parse_result(obj) or {}
-            return data.get("user_id", "-")
-        except Exception:
+        if obj is None:
             return "-"
+        data = parse_result(obj)
+        if not isinstance(data, dict):
+            return "-"
+        return data.get("user_id", "-")
 
     safe_user_id.short_description = "User ID"
 
     def safe_email(self, obj):
-        try:
-            if obj is None:
-                return "-"
-            data = parse_result(obj) or {}
-            return data.get("email", "-")
-        except Exception:
+        if obj is None:
             return "-"
-
-    safe_email.short_description = "Email"
+        data = parse_result(obj)
+        if not isinstance(data, dict):
+            return "-"
+        return data.get("email", "-")
 
     def safe_task_name(self, obj):
-        try:
-            if obj is None:
-                return "-"
-            data = parse_result(obj) or {}
-            if not isinstance(data, dict):
-                data = {}
-            return data.get("task_name") or obj.task_name or "-"
-        except Exception:
+        if not obj:
             return "-"
-
-    safe_task_name.short_description = "Task Name"
+        # ✅ Extract from result payload FIRST
+        data = parse_result(obj)
+        if isinstance(data, dict):
+            name = data.get("task_name")
+            if name:
+                return name
+        # ✅ Fallback to DB field (if ever populated)
+        if obj.task_name:
+            return obj.task_name
+        # ✅ Final fallback
+        return obj.task_id[:8]
 
     def safe_username(self, obj):
-        try:
-            if obj is None:
-                return "SYSTEM"
-            data = parse_result(obj) or {}
-            uid = data.get("user_id")
-            if not uid:
-                return "SYSTEM"
-            try:
-                return User.objects.get(id=uid).username
-            except User.DoesNotExist:
-                return f"(missing {uid})"
-        except Exception:
+        if obj is None:
+            return "-"
+        data = parse_result(obj)
+        if not isinstance(data, dict):
             return "SYSTEM"
-
-    # ---- CLICKABLE LINK TO USER ADMIN PAGE ----
+        uid = data.get("user_id")
+        if not uid:
+            return "SYSTEM"
+        try:
+            return User.objects.get(id=uid).username
+        except User.DoesNotExist:
+            return f"(missing {uid})"
 
     def user_link(self, obj):
-        try:
-            uid = parse_result(obj).get("user_id")
-        except AttributeError:
+        if obj is None:
+            return "-"
+        data = parse_result(obj)
+        if not isinstance(data, dict):
+            return "SYSTEM"
+        uid = data.get("user_id")
+        if not uid:
             return "SYSTEM"
         try:
             User.objects.get(id=uid)
         except User.DoesNotExist:
-            return f"(missing: {uid})"
-
+            return f"(missing {uid})"
         url = reverse("admin:auth_user_change", args=[uid])
         return format_html("<a href='{}'>View User</a>", url)
 
