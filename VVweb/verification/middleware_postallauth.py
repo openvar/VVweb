@@ -33,9 +33,6 @@ class PostAllauthLoginRedirectFix:
         if request.user.is_authenticated:
 
             # Allauth uses both absolute and relative login URLs:
-            #   /accounts/login/
-            #   /accounts/login/?next=...
-            #   https://www182.lamp.le.ac.uk/accounts/login/?...
             if "accounts/login" in url:
                 # Route user to your confirm-email landing instead of bouncing to login
                 return redirect(reverse("account_email_verification_sent"))

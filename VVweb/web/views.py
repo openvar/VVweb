@@ -28,6 +28,7 @@ from django_celery_results.models import TaskResult
 import json # May kill download jobs
 from django.db import transaction
 from VVweb import settings
+from django.contrib.auth.views import redirect_to_login
 
 logger = logging.getLogger(__name__)
 
@@ -120,10 +121,10 @@ def genes_to_transcripts(request):
             messages.error(
                 request,
                 f"You must be logged in to use this service. "
-                f"Please <a href='{login_page}?next={reverse('genes2trans')}' "
+                f"Please <a href='{login_page}?next={request.get_full_path()}' "
                 f"class='alert-link'>login</a>."
             )
-            return redirect(f"{login_page}?next={reverse('genes2trans')}")
+            return redirect_to_login(request.get_full_path())
 
         # Must have a primary email address
         email_address = getattr(request.user, "email", None)
@@ -251,11 +252,10 @@ def genes_to_transcripts(request):
 
         if not request.user.is_authenticated:
             login_page = reverse("account_login")
-            here = reverse("genes2trans")
 
             messages.error(
                 request,
-                f"You must be <a href='{login_page}?next={here}' "
+                f"You must be <a href='{login_page}?next={request.get_full_path()}' "
                 f"class='alert-link'>logged in</a> to use this tool."
             )
             locked = True
@@ -312,7 +312,6 @@ def validate(request):
 
         if not request.user.is_authenticated:
             login_page = reverse("account_login")
-            here = reverse("validate")
 
             if num < 5:
                 remaining = 5 - num
@@ -321,14 +320,14 @@ def validate(request):
                         f"<span id='msg-body'>Warning: Only "
                         f"<span id='msg-valnum'>1</span> more submission allowed. "
                         f"For full access please "
-                        f"<a href='{login_page}?next={here}' class='alert-link'>login</a>.</span>"
+                        f"<a href='{login_page}?next={request.get_full_path()}' class='alert-link'>login</a>.</span>"
                     )
                 else:
                     msg = (
                         f"<span id='msg-body'>Warning: Only "
                         f"<span id='msg-valnum'>{remaining}</span> more submissions allowed. "
                         f"For full access please "
-                        f"<a href='{login_page}?next={here}' class='alert-link'>login</a>.</span>"
+                        f"<a href='{login_page}?next={request.get_full_path()}' class='alert-link'>login</a>.</span>"
                     )
                 messages.warning(request, msg)
 
@@ -337,7 +336,7 @@ def validate(request):
                     request,
                     (
                         f"<span id='msg-body'>Please "
-                        f"<a href='{login_page}?next={here}' class='alert-link'>login</a> "
+                        f"<a href='{login_page}?next={request.get_full_path()}' class='alert-link'>login</a> "
                         f"to continue using this service.</span>"
                     )
                 )
@@ -362,10 +361,9 @@ def validate(request):
         # ✅ Anonymous hard lockout — FIRST AND ONLY EARLY EXIT FOR ANON USERS
         if not request.user.is_authenticated and num >= 5:
             login_page = reverse('account_login')
-            here = reverse('validate')
             messages.error(
                 request,
-                f"Please <a href='{login_page}?next={here}' class='alert-link'>login</a> to continue."
+                f"Please {login_page}?next={request.get_full_path()}alert-link'>login</a> to continue."
             )
             return render(request, 'validate.html', {'output': None, 'locked': True})
 
@@ -547,8 +545,7 @@ def batch_validate(request):
 
         # Must be logged in
         if not request.user.is_authenticated:
-            login_url = reverse("account_login")
-            return redirect(f"{login_url}?next={reverse('batch_validate')}")
+            return redirect_to_login(request.get_full_path())
 
         # Must have a primary email configured
         email_address = getattr(request.user, "email", None)
@@ -669,11 +666,10 @@ def batch_validate(request):
         if not request.user.is_authenticated:
 
             login_page = reverse("account_login")
-            here = reverse("batch_validate")
 
             messages.error(
                 request,
-                f"You must be &lt;a href='{login_page}?next={here}' class='alert-link'&gt;logged in&lt;/a&gt; "
+                f"You must be <a href='{login_page}?next={request.get_full_path()}' class='alert-link'>logged in</a> "
                 f"to submit batch jobs."
             )
 

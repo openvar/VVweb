@@ -1,7 +1,7 @@
-
 $(document).ready(function() {
 
     console.log("Hello");
+
     var variant_examples = function() {
         $('.variant-example').each(function (i, val) {
             $(this).on("click", function (evt) {
@@ -10,7 +10,6 @@ $(document).ready(function() {
                 $('#variant_id').val($(this).text());
                 $('input[name=genomebuild][value=' + genome + ']').prop('checked', true);
                 $('#validate-btn').focus();
-
             });
         });
     };
@@ -43,7 +42,7 @@ $(document).ready(function() {
             $(this).tab('show');
         });
 
-        $('#myTab li:first-child a').tab('show'); // Select first tab
+        $('#myTab li:first-child a').tab('show');
 
         var numberSelected = 0;
         if ($('.res-checkbox').length) {
@@ -54,7 +53,7 @@ $(document).ready(function() {
             var tabid = $(this).data()['tabid'] + '-tab';
             var tab = $('#' + tabid + '');
             tab.hide();
-            $(this).change(function (evt) {
+            $(this).change(function () {
                 if (this.checked) {
                     numberSelected += 1;
                     tab.show();
@@ -62,18 +61,16 @@ $(document).ready(function() {
                 } else {
                     numberSelected -= 1;
                     tab.hide();
-                    $('#myTab a:visible').eq(0).tab('show'); // Select first visible tab
+                    $('#myTab a:visible').eq(0).tab('show');
                 }
                 if (numberSelected > 0) {
                     $('#results').show();
                 } else {
                     $('#results').hide();
                 }
-            })
+            });
         });
     };
-
-    // Going to find and deal with select genome errors
 
     $('.errorlist').each(function(){
         var neices = $(this).parent().siblings().find('.form-check-input');
@@ -90,16 +87,29 @@ $(document).ready(function() {
 
     var ajax_messages = function() {
         console.log("Changing message text");
+
         let num = $('#msg-valnum').text();
         if (num) {
             num = parseInt(num);
             let newcounter = num - 1;
+
             if (newcounter > 0) {
                 $('#msg-valnum').text(newcounter);
             } else {
                 console.log('Num is 0');
+
                 $('.alert.alert-warning').addClass('alert-danger');
-                $('#msg-body').html("Please <a href='/accounts/login/?next=/service/validate/' class='alert-link'>login</a> to continue using this service");
+
+                // ✅ FIXED: encode next param correctly
+                const next = encodeURIComponent(
+                    window.location.pathname + window.location.search
+                );
+
+                $('#msg-body').html(
+                  "Please &lt;a href='/accounts/login/?next=" + next +
+                  "' class='alert-link'&gt;login&lt;/a&gt; to continue using this service"
+                );
+
                 $('#variant_id').val('').attr('disabled', 'disabled');
                 $('#select_transcripts').val('').attr('disabled', 'disabled');
                 $('#grch37').attr('disabled', 'disabled');
@@ -109,9 +119,8 @@ $(document).ready(function() {
         }
     };
 
-
     $('#validate-form').on('submit', function(evt) {
-        console.log("Form submitted B")
+        console.log("Form submitted A");
         evt.preventDefault();
 
         let html_caught = document.getElementById("validate-form");
@@ -121,56 +130,56 @@ $(document).ready(function() {
         let genome = $('#genomeselect input:checked').val();
         let transcripts = $('#transcripts').val() || $('#transcripts-select').val() || 'transcripts';
         let source = $('#refsource input:checked').val();
-        let pdf = null
+        let pdf = null;
 
-        if ( html_caught == null && pdf_caught != null) {
-                console.log("PDF response requested");
-                pdf = "True";
+        if (html_caught == null && pdf_caught != null) {
+            console.log("PDF response requested");
+            pdf = "True";
         }
-        if ( html_caught != null && pdf_caught == null) {
-                console.log("HTML response requested");
-                pdf = "False";
+        if (html_caught != null && pdf_caught == null) {
+            console.log("HTML response requested");
+            pdf = "False";
         }
-            $.ajax({
-                type: 'POST',
-                url: '',
-                data: {
-                    variant: variant,
-                    transcripts: transcripts,
-                    genomebuild: genome,
-                    pdf_request: pdf,
-                    refsource: source,
-                    csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
-                },
-                timeout: 120000,
+
+        $.ajax({
+            type: 'POST',
+            url: '',
+            data: {
+                variant: variant,
+                transcripts: transcripts,
+                genomebuild: genome,
+                pdf_request: pdf,
+                refsource: source,
+                csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
+            },
+            timeout: 120000,
             success: function(res) {
                 console.log('Success!');
                 $('.overlay').hide();
                 $('.loading').hide();
-                // $.getScript('https://assets.varsome.com/static/components/components-bundle.js', function() {
-                //     console.log('loaded!');
-                // });
+
                 $('#validate-results').html(res);
-                // $('#validate-results').html(res);
-                $('#myTab li:first-child a').tab('show'); // Select first tab
+
+                $('#myTab li:first-child a').tab('show');
                 window.scrollTo(0, 0);
-                // $('#varsome-script').html('<script src="https://assets.varsome.com/static/components/components-bundle.js"></script>');
-                // $('#validate-results script').each(function(i, element) {console.log(element.innerHTML); eval(element.innerHTML)});
+
                 ajax_messages();
                 variant_examples();
                 validate_tabs();
             },
-            error: function(xhr,errmsg,err) {
+            error: function(xhr, errmsg, err) {
                 console.log(errmsg);
                 $('.overlay').hide();
                 $('.loading').hide();
+
                 if (errmsg === 'timeout') {
-                    console.log("Need to show modal and suggest batch validation tool");
                     $('#timeoutModal').modal('show');
-                }else {
+                } else {
                     console.log(err);
                     console.log(xhr.status + ": " + xhr.responseText);
-                    let error_code = "<div class=\"row\">\n" +
+
+                    let error_code =
+                        "<div class=\"row\">\n" +
                         "<div class=\"col-md-12 mb-5\">\n" +
                         "<h1>Error</h1>\n" +
                         "<p>Unable to validate the submitted variant <code>" + variant + "</code> against the " + genome + " assembly.</p>\n" +
@@ -178,9 +187,10 @@ $(document).ready(function() {
                         "</div>\n" +
                         "</div>\n" +
                         "<hr>";
+
                     $('#validate-results').html(error_code);
                 }
             }
-        })
+        });
     });
 });
