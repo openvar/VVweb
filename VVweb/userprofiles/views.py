@@ -22,7 +22,7 @@ class ProfileHomeView(LoginRequiredMixin, TemplateView):
     - This view only reflects current profile state to the UI.
     """
 
-    template_name = "userprofiles/userprofiles/home.html"
+    template_name = "userprofiles/home.html"
     user_check_failure_path = reverse_lazy("account_signup")
 
     def check_user(self, user):
@@ -45,7 +45,7 @@ class ProfileHomeView(LoginRequiredMixin, TemplateView):
 
 
 class ProfileIdentity(LoginRequiredMixin, UpdateView):
-    template_name = "userprofiles/userprofiles/identity_form.html"
+    template_name = "userprofiles/identity_form.html"
     form_class = IdentityForm
     user_check_failure_path = reverse_lazy("account_signup")
     success_url = reverse_lazy("profile-home")

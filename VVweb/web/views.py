@@ -919,7 +919,7 @@ def bed_file(request):
 # ======================================================================
 
 class StyledEmailSentView(LoginRequiredMixin, TemplateView):
-    template_name = "account/account/email_confirmation_sent.html"
+    template_name = "account/email_confirmation_sent.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
