@@ -18,10 +18,13 @@ from .object_pool import vval_object_pool, g2t_object_pool, batch_object_pool
 from .models import VariantQuota
 from django.db import connection
 
+from django.core.exceptions import ImproperlyConfigured
+
 try:
-    from allauth.socialaccount.models import SocialAccount
-except Exception:
+    from allauth.socialaccount.models import SocialAccount, SocialToken
+except (ImportError, ImproperlyConfigured):
     SocialAccount = None
+    SocialToken = None
 
 logger = logging.getLogger(__name__)
 
@@ -408,9 +411,9 @@ def email_old_users():
     }
 
 
+
 @shared_task(name="system.delete_old_users")
 def delete_old_users():
-    """Delete users inactive for more than 2 years AND previously warned."""
     logger.info("delete_old_users(): checking for inactive user accounts")
 
     timepoint = timezone.now() - timedelta(days=365 * 2)
@@ -425,26 +428,49 @@ def delete_old_users():
         logger.info("delete_old_users(): no inactive users found")
         return {"deleted": 0}
 
-    # --------------------------------------------------
-    # Social account cleanup (ALWAYS attempt)
-    # --------------------------------------------------
     social_count = 0
+    token_count = 0
 
-    if SocialAccount is not None:
+    # --------------------------------------------------
+    # Social account cleanup
+    # --------------------------------------------------
+    if SocialAccount and SocialToken:
         # ✅ ORM path
         social_qs = SocialAccount.objects.filter(user_id__in=user_ids)
         social_count = social_qs.count()
 
         if social_count:
-            logger.info(
-                "delete_old_users(): deleting %s associated social accounts (ORM)",
-                social_count
-            )
+            logger.info("Deleting %s social accounts (ORM)", social_count)
+
+            token_qs = SocialToken.objects.filter(account__in=social_qs)
+            token_count = token_qs.count()
+
+            if token_count:
+                logger.info("Deleting %s social tokens (ORM)", token_count)
+                token_qs.delete()
+
             social_qs.delete()
 
     else:
-        # Raw SQL fallback (legacy cleanup)
+        # ✅ SQL fallback (FIXED ORDER)
         with connection.cursor() as cursor:
+            # ✅ DELETE TOKENS FIRST
+            cursor.execute(
+                """
+                DELETE FROM socialaccount_socialtoken
+                WHERE account_id IN (
+                    SELECT id FROM socialaccount_socialaccount
+                    WHERE user_id = ANY(%s)
+                )
+                """,
+                [user_ids],
+            )
+            token_count = cursor.rowcount
+
+            if token_count:
+                logger.info("Deleted %s social tokens (SQL)", token_count)
+
+            # ✅ THEN DELETE ACCOUNTS
             cursor.execute(
                 """
                 DELETE FROM socialaccount_socialaccount
@@ -454,11 +480,8 @@ def delete_old_users():
             )
             social_count = cursor.rowcount
 
-        if social_count:
-            logger.info(
-                "delete_old_users(): deleted %s associated social accounts (SQL)",
-                social_count
-            )
+            if social_count:
+                logger.info("Deleted %s social accounts (SQL)", social_count)
 
     # --------------------------------------------------
     # Delete users
@@ -466,16 +489,19 @@ def delete_old_users():
     num, details = users.delete()
 
     logger.info(
-        "delete_old_users(): deleted %s user records (social accounts removed: %s)",
+        "Deleted %s users (social accounts: %s, tokens: %s)",
         num,
-        social_count
+        social_count,
+        token_count
     )
 
     return {
         "users_deleted": num,
         "social_accounts_deleted": social_count,
+        "social_tokens_deleted": token_count,
         "detail": details,
     }
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
