@@ -318,6 +318,17 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
 
     ordering = ("-date_done",)
 
+    list_display = (
+        "task_id",
+        "safe_task_name",
+        "status",
+        "date_done",
+        "safe_user_id",
+        "safe_username",
+        "safe_email",
+        "user_link",
+    )
+
     def get_queryset(self, request):
         return (
             super()
@@ -385,3 +396,20 @@ class TaskResultAdmin(DefaultTaskResultAdmin):
         return format_html("<a href='{}'>View User</a>", url)
 
     user_link.short_description = "User Profile"
+
+# <LICENSE>
+# Copyright (C) 2016-2026 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>
