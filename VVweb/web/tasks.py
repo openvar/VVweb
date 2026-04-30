@@ -358,9 +358,10 @@ def batch_validate(
 # MAINTENANCE TASKS
 # -------------------------------------------------------------------------
 
-@shared_task(name="system.delete_old_jobs")
-def delete_old_jobs():
+@shared_task(bind=True, name="system.delete_old_jobs")
+def delete_old_jobs(self):
     """Delete Celery task results older than 7 days."""
+
     logger.info("delete_old_jobs(): checking for expired task results")
 
     timepoint = timezone.now() - timedelta(days=7)
@@ -368,16 +369,22 @@ def delete_old_jobs():
 
     num, details = jobs.delete()
 
-    logger.info("delete_old_jobs(): deleted %s old task results" % num)
-    return {"deleted": num, "detail": details}
+    logger.info("delete_old_jobs(): deleted %s old task results", num)
+
+    return {
+        "task_name": self.name,  # ✅ dynamic + consistent
+        "deleted": num,
+        "detail": details,
+    }
 
 
-@shared_task(name="system.email_old_users")
-def email_old_users():
+@shared_task(bind=True, name="system.email_old_users")
+def email_old_users(self):
     """
     Email users inactive for ~2 years minus 30 days, warning them their accounts
     will be deleted unless they log in again.
     """
+
     timepoint = timezone.now() - timedelta(days=(365 * 2 - 30))
 
     users = User.objects.filter(
@@ -387,33 +394,45 @@ def email_old_users():
 
     count = users.count()
     if count:
-        logger.info("email_old_users(): sending deletion warnings to %s users" % count)
+        logger.info(
+            "email_old_users(): sending deletion warnings to %s users",
+            count
+        )
 
+    # --------------------------------------------------
     # Send warnings + mark as contacted
+    # --------------------------------------------------
     for user in users:
         services.send_user_deletion_warning(user)
         user.profile.contacted_for_deletion = True
-        user.profile.save()
+        user.profile.save(update_fields=["contacted_for_deletion"])
 
-    # Users who became active again after warnings
+    # --------------------------------------------------
+    # Reactivate users who logged in again
+    # --------------------------------------------------
     active = User.objects.filter(
         last_login__gt=timepoint,
         profile__contacted_for_deletion=True
     )
 
+    reactivated_count = active.count()
+
     for user in active:
         user.profile.contacted_for_deletion = False
-        user.profile.save()
+        user.profile.save(update_fields=["contacted_for_deletion"])
 
+    # --------------------------------------------------
+    # Return structured result
+    # --------------------------------------------------
     return {
+        "task_name": self.name,  # ✅ dynamic, always correct
         "warned": count,
-        "reactivated": active.count()
+        "reactivated": reactivated_count,
     }
 
 
-
-@shared_task(name="system.delete_old_users")
-def delete_old_users():
+@shared_task(bind=True, name="system.delete_old_users")
+def delete_old_users(self):
     logger.info("delete_old_users(): checking for inactive user accounts")
 
     timepoint = timezone.now() - timedelta(days=365 * 2)
@@ -496,6 +515,7 @@ def delete_old_users():
     )
 
     return {
+        "task_name": self.name,
         "users_deleted": num,
         "social_accounts_deleted": social_count,
         "social_tokens_deleted": token_count,
