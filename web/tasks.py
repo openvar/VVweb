@@ -15,6 +15,12 @@ from . import input_formatting
 from . import services
 from .object_pool import vval_object_pool, g2t_object_pool, batch_object_pool
 
+try:
+    from allauth.socialaccount.models import SocialAccount, SocialToken
+except (ImportError, ImproperlyConfigured):
+    SocialAccount = None
+    SocialToken = None
+
 logger = logging.getLogger('vv')
 
 # Load Django user model once (correct way)
