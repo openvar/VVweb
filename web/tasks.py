@@ -14,6 +14,8 @@ from django.contrib.auth import get_user_model
 from . import input_formatting
 from . import services
 from .object_pool import vval_object_pool, g2t_object_pool, batch_object_pool
+from django.db import connection
+from django.core.exceptions import ImproperlyConfigured
 
 try:
     from allauth.socialaccount.models import SocialAccount, SocialToken
