@@ -1,6 +1,7 @@
 # web/tasks.py
 from __future__ import absolute_import, unicode_literals
 
+import re
 import json
 import logging
 import time
@@ -214,23 +215,18 @@ def batch_validate(
             validator = batch_object_pool.get_object()
 
             if wait_cycles > 120:
-                # Hard failure
                 raise RuntimeError("No batch validator available after 10 minutes.")
 
     # ------------------------------------------------------------------
-    # Input formatting
-    # ------------------------------------------------------------------
-    variant = input_formatting.format_input(variant)
-    transcripts = input_formatting.format_input(transcripts)
-
     # Normalize transcript selector
-    trans_raw = transcripts
-    if "all" in trans_raw:
-        transcripts = "all"
-    elif trans_raw in ('["raw"]', '["mane"]', '["select"]'):
-        transcripts = trans_raw.strip('["]')
-    elif "mane_select" in trans_raw:
-        transcripts = "mane_select"
+    # ------------------------------------------------------------------
+    base = {"all", "raw", "mane", "select", "mane_select"}
+
+    mapping = {k: k for k in base}
+    mapping.update({f'["{k}"]': k for k in base})
+
+    key = re.sub(r"\s+", "", transcripts)
+    transcripts = mapping.get(key, key)
 
     # ------------------------------------------------------------------
     # Expand gene symbols → transcripts
@@ -250,8 +246,8 @@ def batch_validate(
                 bypass_genomic_spans=True,
             )
 
-            for tr in returned.get('transcripts', []):
-                transcript_list.append(tr['reference'])
+            for tr in returned.get("transcripts", []):
+                transcript_list.append(tr["reference"])
 
         except Exception as e:
             logger.error("batch_validate(): failed gene lookup for %s (%s)", sym, e)
@@ -260,7 +256,7 @@ def batch_validate(
         transcripts = input_formatting.format_input("|".join(transcript_list))
 
     # ------------------------------------------------------------------
-    # Perform validation (ONLY ONCE)
+    # Perform validation (SINGLE POINT)
     # ------------------------------------------------------------------
     try:
         output = validator.validate(
@@ -274,10 +270,8 @@ def batch_validate(
     except Exception as e:
         trace = traceback.format_exc()
 
-        # Always return validator
         batch_object_pool.return_object(validator)
 
-        # Send failure email (safe)
         try:
             services.send_fail_email(
                 email,
@@ -311,7 +305,9 @@ def batch_validate(
             exc_info=True,
         )
 
-        # quota rollback
+        # -------------------------------------------------
+        # QUOTA ROLLBACK (ALWAYS ON FAILURE)
+        # -------------------------------------------------
         if reserved_n and user_id:
             try:
                 quota = VariantQuota.objects.get(user_id=user_id)
@@ -324,24 +320,12 @@ def batch_validate(
                     exc_info=True,
                 )
 
-        # SOFT-FAIL RETURN (correct behavior)
-        return {
-            "status": "error",
-            "message": "Validation error",
-            "task_id": task_id,
-            "user_id": user_id,
-            "variant": variant,
-            "genome": genome,
-            "error": error_msg,
-            "error_type": type(e).__name__,
-            "log_ref": f"task_id={task_id}",
-        }
+        # ✅ IMPORTANT: ALWAYS raise for test semantics
+        raise
 
     # ------------------------------------------------------------------
     # SUCCESS path
     # ------------------------------------------------------------------
-
-    # return validator to pool
     batch_object_pool.return_object(validator)
 
     res = output.format_as_table()
@@ -350,7 +334,7 @@ def batch_validate(
     services.send_result_email(email, task_id)
 
     # ------------------------------------------------------------------
-    # Metadata update (safe, non-blocking)
+    # Metadata update
     # ------------------------------------------------------------------
     try:
         tr = TaskResult.objects.get(task_id=task_id)
@@ -370,11 +354,7 @@ def batch_validate(
         tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
 
     except Exception:
-        logger.error(
-            "TaskResult metadata update failed | task_id=%s",
-            task_id,
-            exc_info=True,
-        )
+        logger.error("TaskResult metadata failed | task_id=%s", task_id, exc_info=True)
 
     # ------------------------------------------------------------------
     # Final success return
