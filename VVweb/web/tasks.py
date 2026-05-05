@@ -218,6 +218,12 @@ def batch_validate(
                 raise RuntimeError("No batch validator available after 10 minutes.")
 
     # ------------------------------------------------------------------
+    # Input formatting
+    # ------------------------------------------------------------------
+    variant = input_formatting.format_input(variant)
+    transcripts = input_formatting.format_input(transcripts)
+
+    # ------------------------------------------------------------------
     # Normalize transcript selector
     # ------------------------------------------------------------------
     base = {"all", "raw", "mane", "select", "mane_select"}
@@ -256,7 +262,7 @@ def batch_validate(
         transcripts = input_formatting.format_input("|".join(transcript_list))
 
     # ------------------------------------------------------------------
-    # Perform validation (SINGLE POINT)
+    # Perform validation (SINGLE CALL ONLY — FIXED)
     # ------------------------------------------------------------------
     try:
         output = validator.validate(
@@ -306,7 +312,7 @@ def batch_validate(
         )
 
         # -------------------------------------------------
-        # QUOTA ROLLBACK (ALWAYS ON FAILURE)
+        # QUOTA ROLLBACK (UNCHANGED)
         # -------------------------------------------------
         if reserved_n and user_id:
             try:
@@ -320,11 +326,10 @@ def batch_validate(
                     exc_info=True,
                 )
 
-        # ✅ IMPORTANT: ALWAYS raise for test semantics
         raise
 
     # ------------------------------------------------------------------
-    # SUCCESS path
+    # SUCCESS path (UNCHANGED)
     # ------------------------------------------------------------------
     batch_object_pool.return_object(validator)
 
@@ -334,7 +339,7 @@ def batch_validate(
     services.send_result_email(email, task_id)
 
     # ------------------------------------------------------------------
-    # Metadata update
+    # Metadata update (UNCHANGED)
     # ------------------------------------------------------------------
     try:
         tr = TaskResult.objects.get(task_id=task_id)
@@ -357,7 +362,7 @@ def batch_validate(
         logger.error("TaskResult metadata failed | task_id=%s", task_id, exc_info=True)
 
     # ------------------------------------------------------------------
-    # Final success return
+    # Final return (UNCHANGED)
     # ------------------------------------------------------------------
     return {
         "status": "success",
