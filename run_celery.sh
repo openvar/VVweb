@@ -4,72 +4,47 @@ set -e
 
 PROJECT_ROOT="/local/VVweb"
 SUPERVISORD_CONF="$PROJECT_ROOT/supervisord.conf"
-SUPERVISOR_PID="$PROJECT_ROOT/supervisord.pid"
 SUPERVISOR_SOCK="$PROJECT_ROOT/supervisord.sock"
 
 echo "Using supervisord config: $SUPERVISORD_CONF"
 
 ##############################################################################
-# 1. HARD STOP (DO NOT USE supervisorctl shutdown)
+# 1. Ensure supervisord is running
 ##############################################################################
 
-echo "Stopping all running services..."
+if [ ! -S "$SUPERVISOR_SOCK" ]; then
+    echo "Supervisord not running — starting fresh..."
 
-# Kill supervisord safely using PID file
-if [ -f "$SUPERVISOR_PID" ]; then
-    kill $(cat "$SUPERVISOR_PID") 2>/dev/null || true
-    echo "Supervisord stopped"
+    rm -f "$PROJECT_ROOT/supervisord.pid"
+    rm -f "$SUPERVISOR_SOCK"
+
+    supervisord -c "$SUPERVISORD_CONF"
+
+    sleep 2
 fi
 
-# Kill any leftover celery safely
-pkill -f celery || true
-
-sleep 2
-
 ##############################################################################
-# 2. CLEAN stale state
+# 2. Restart Celery processes ONLY (safe)
 ##############################################################################
 
-echo "Cleaning stale files..."
+echo "Restarting Celery services..."
 
-rm -f "$SUPERVISOR_PID"
-rm -f "$SUPERVISOR_SOCK"
-rm -f "$PROJECT_ROOT/celery_worker.pid"
-rm -f "$PROJECT_ROOT/celery_beat.pid"
+supervisorctl -c "$SUPERVISORD_CONF" stop celery_worker || true
+supervisorctl -c "$SUPERVISORD_CONF" stop celery_beat || true
 
-##############################################################################
-# 3. START fresh supervisor
-##############################################################################
+sleep 1
 
-echo "Starting supervisord..."
-supervisord -c "$SUPERVISORD_CONF"
-
-# Wait for supervisory socket
-for i in {1..10}; do
-    if [ -S "$SUPERVISOR_SOCK" ]; then
-        break
-    fi
-    sleep 1
-done
+supervisorctl -c "$SUPERVISORD_CONF" start celery_worker
+supervisorctl -c "$SUPERVISORD_CONF" start celery_beat
 
 ##############################################################################
-# 4. START celery processes
-##############################################################################
-
-echo "Starting Celery worker..."
-supervisorctl -c "$SUPERVISORD_CONF" start celery_worker || true
-
-echo "Starting Celery beat..."
-supervisorctl -c "$SUPERVISORD_CONF" start celery_beat || true
-
-##############################################################################
-# 5. VERIFY
+# 3. Verify
 ##############################################################################
 
 if pgrep -f "celery.*worker" > /dev/null; then
     echo "✅ Celery worker running"
 else
-    echo "❌ ERROR: Celery worker not running"
+    echo "❌ ERROR: Worker not running"
     exit 1
 fi
 
