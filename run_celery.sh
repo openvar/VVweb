@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 #
 # Start supervisord with the project supervisord.conf if not already running,

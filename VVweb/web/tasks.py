@@ -335,7 +335,36 @@ def batch_validate(
         tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
 
     except Exception as e:
-        logger.error("batch_validate(): failed to update TaskResult (%s)" % e)
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        task_id = self.request.id
+        now = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        logger.error(
+            "batch_validate failure | task_id=%s user_id=%s variant=%s genome=%s error=%s",
+            task_id,
+            user_id,
+            variant,
+            genome,
+            error_msg,
+        )
+
+        logger.critical(
+            "Unhandled validation failure | task_id=%s",
+            task_id,
+            exc_info=True,
+        )
+
+        return {
+            "status": "error",
+            "task_id": task_id,
+            "user_id": user_id,
+            "variant": variant,
+            "genome": genome,
+            "message": "Validation error",
+            "error": error_msg,
+            "log_ref": f"task_id={task_id}",
+            "timestamp": now,
+        }
 
     # ------------------------------------------------------------------
     # Final return

@@ -1,5 +1,6 @@
 import os
 from celery import Celery
+from celery.signals import setup_logging
 
 # Set the default Django settings module for Celery
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "VVweb.settings")
@@ -15,6 +16,15 @@ app.amqp.argsrepr_maxsize = 10485760
 
 # Discover tasks from all registered Django apps
 app.autodiscover_tasks()
+
+
+# -------------------------------------------------------------------
+# Logging fix: ensure Celery uses Django LOGGING config only
+# -------------------------------------------------------------------
+@setup_logging.connect
+def setup_celery_logging(*args, **kwargs):
+    # Do nothing — prevents Celery from overriding Django logging
+    pass
 
 
 @app.task(bind=True)

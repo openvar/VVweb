@@ -287,6 +287,11 @@ CELERY_RESULT_SERIALIZER = 'json'
 # Keep Celery task results for 30 days
 CELERY_RESULT_EXPIRES = timedelta(days=30)
 
+# Celery logging integration (use Django LOGGING instead of Celery defaul
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+CELERY_WORKER_REDIRECT_STDOUTS = False
+
+
 # Email settings
 DEFAULT_FROM_EMAIL = 'admin@variantValidator.org'
 EMAIL_SUBJECT_PREFIX = '[VVWeb] '
@@ -384,33 +389,30 @@ LOGGING = {
     # Loggers
     # --------------------------------------------------
     "loggers": {
-        # VariantValidator stays owned by VV
         "VariantValidator": {
             "handlers": ["vv_console", "vv_file"],
             "level": vv_logging_console_level,
             "propagate": False,
         },
 
-        # VVweb application logger
         "VVweb": {
             "handlers": ["vvweb_console", "vvweb_file"],
             "level": vv_logging_console_level,
             "propagate": True,
         },
 
-        # Let Django do its normal thing
         "django": {
             "handlers": ["django_console"],
             "level": "INFO",
             "propagate": True,
         },
-
-        # Fall back logger - root
-        "root": {
-            "handlers": ["django_console"],
-            "level": "ERROR",
-        }
     },
+
+    # OUTSIDE "loggers"
+    "root": {
+        "handlers": ["django_console"],
+        "level": "ERROR",
+    }
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
