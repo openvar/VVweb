@@ -1,18 +1,16 @@
-#!/usr/bin/env bash
-
-# Stop Celery worker and beat managed by supervisord gracefully
-
-SUPERVISOR_CONF="/local/VVweb/supervisord.conf"
-
 echo "Stopping Celery worker..."
 supervisorctl -c "$SUPERVISOR_CONF" stop celery_worker
 
 echo "Stopping Celery beat..."
 supervisorctl -c "$SUPERVISOR_CONF" stop celery_beat
 
+echo "Killing any remaining Celery processes..."
+pkill -f "celery worker" || true
+pkill -f "celery beat" || true
+pkill -f "celery" || true
+
 echo "All Celery processes stopped."
 
-# Optional: check status after stopping
 supervisorctl -c "$SUPERVISOR_CONF" status celery_worker celery_beat
 
 # <LICENSE>

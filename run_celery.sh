@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-#
-# Start supervisord with the project supervisord.conf if not already running,
-# otherwise restart celery worker and beat. Safe for HPC/managed systems.
 
 set -e
 
@@ -13,51 +10,45 @@ SUPERVISOR_SOCK="$PROJECT_ROOT/supervisord.sock"
 echo "Using supervisord config: $SUPERVISORD_CONF"
 
 ##############################################################################
-# 1. Check if supervisord is actually running with this config
+# 1. If supervisord is running → STOP EVERYTHING CLEANLY
 ##############################################################################
 
 if pgrep -f "supervisord.*$SUPERVISORD_CONF" > /dev/null 2>&1; then
-    echo "Supervisord is already running with this config."
-    echo "Restarting Celery services..."
-    supervisorctl -c "$SUPERVISORD_CONF" restart celery_worker celery_beat
-    exit 0
+    echo "Supervisord running — stopping Celery and supervisord..."
+
+    supervisorctl -c "$SUPERVISORD_CONF" stop celery_worker || true
+    supervisorctl -c "$SUPERVISORD_CONF" stop celery_beat || true
+
+    supervisorctl -c "$SUPERVISORD_CONF" shutdown || true
+
+    # Ensure no stray celery processes remain
+    pkill -f "celery" || true
+
+    sleep 2
 fi
 
 ##############################################################################
-# 2. Clean up stale PID and socket files
+# 2. Clean stale files
 ##############################################################################
 
-echo "Cleaning up stale supervisord files (if any)..."
+echo "Cleaning stale files..."
 
-# Remove stale pidfile if process is dead
-if [ -f "$SUPERVISOR_PID" ]; then
-    OLD_PID=$(cat "$SUPERVISOR_PID" 2>/dev/null || true)
-    if ! ps -p "$OLD_PID" > /dev/null 2>&1; then
-        rm -f "$SUPERVISOR_PID"
-        echo "Removed stale supervisord.pid"
-    fi
-fi
-
-# Remove stale socket
+rm -f "$SUPERVISOR_PID"
 rm -f "$SUPERVISOR_SOCK"
-
-# Remove stale Celery pidfiles
 rm -f "$PROJECT_ROOT/celery_worker.pid"
 rm -f "$PROJECT_ROOT/celery_beat.pid"
 
 ##############################################################################
-# 3. Start supervisord
+# 3. Start supervisord fresh
 ##############################################################################
 
 echo "Starting supervisord..."
 supervisord -c "$SUPERVISORD_CONF"
-echo "Supervisord started."
 
-# Give supervisord a moment to create its socket
 sleep 2
 
 ##############################################################################
-# 4. Start Celery worker and beat
+# 4. Start Celery services
 ##############################################################################
 
 echo "Starting Celery worker..."
@@ -67,4 +58,20 @@ echo "Starting Celery beat..."
 supervisorctl -c "$SUPERVISORD_CONF" start celery_beat
 
 echo "All services started successfully."
-echo "Use: supervisorctl -c $SUPERVISORD_CONF status"
+
+# <LICENSE>
+# Copyright (C) 2016-2026 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>
