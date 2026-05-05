@@ -348,8 +348,21 @@ def batch_validate(
             )
         except Exception:
             logger.error("TaskResult metadata failed | task_id=%s", task_id, exc_info=True)
+            raise RuntimeError("TaskResult metadata failed")
 
-        raise
+        return {
+            "status": "error",
+            "task_id": task_id,
+            "user_id": user_id,
+            "variant": variant,
+            "genome": genome,
+            "email": email,
+            "gene_symbols": gene_symbols,
+            "transcripts": transcripts,
+            "options": options,
+            "transcript_set": transcript_set,
+            "error": error_msg,
+        }
 
     # ------------------------------------------------------------------
     # SUCCESS path
