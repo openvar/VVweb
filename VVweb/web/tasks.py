@@ -223,6 +223,26 @@ def batch_validate(
     variant = input_formatting.format_input(variant)
     transcripts = input_formatting.format_input(transcripts)
 
+    # MOVED: Metadata update (unchanged content, just earlier)
+    try:
+        tr = TaskResult.objects.get(task_id=task_id)
+        tr.task_name = self.name
+        tr.task_args = "[]"
+        tr.task_kwargs = json.dumps({
+            "variant": variant,
+            "genome": genome,
+            "email": email,
+            "gene_symbols": gene_symbols,
+            "transcripts": transcripts,
+            "options": options,
+            "transcript_set": transcript_set,
+            "user_id": user_id,
+        })
+        tr.worker = self.request.hostname
+        tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
+    except Exception:
+        logger.error("TaskResult metadata failed | task_id=%s", task_id, exc_info=True)
+
     # ------------------------------------------------------------------
     # Normalize transcript selector
     # ------------------------------------------------------------------
@@ -262,7 +282,7 @@ def batch_validate(
         transcripts = input_formatting.format_input("|".join(transcript_list))
 
     # ------------------------------------------------------------------
-    # Perform validation (SINGLE CALL ONLY — FIXED)
+    # Perform validation (UNCHANGED)
     # ------------------------------------------------------------------
     try:
         output = validator.validate(
@@ -311,9 +331,6 @@ def batch_validate(
             exc_info=True,
         )
 
-        # -------------------------------------------------
-        # QUOTA ROLLBACK (UNCHANGED)
-        # -------------------------------------------------
         if reserved_n and user_id:
             try:
                 quota = VariantQuota.objects.get(user_id=user_id)
@@ -337,29 +354,6 @@ def batch_validate(
     res[0] += ", options: " + str(options)
 
     services.send_result_email(email, task_id)
-
-    # ------------------------------------------------------------------
-    # Metadata update (UNCHANGED)
-    # ------------------------------------------------------------------
-    try:
-        tr = TaskResult.objects.get(task_id=task_id)
-        tr.task_name = self.name
-        tr.task_args = "[]"
-        tr.task_kwargs = json.dumps({
-            "variant": variant,
-            "genome": genome,
-            "email": email,
-            "gene_symbols": gene_symbols,
-            "transcripts": transcripts,
-            "options": options,
-            "transcript_set": transcript_set,
-            "user_id": user_id,
-        })
-        tr.worker = self.request.hostname
-        tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
-
-    except Exception:
-        logger.error("TaskResult metadata failed | task_id=%s", task_id, exc_info=True)
 
     # ------------------------------------------------------------------
     # Final return (UNCHANGED)
