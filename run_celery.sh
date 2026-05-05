@@ -10,27 +10,24 @@ SUPERVISOR_SOCK="$PROJECT_ROOT/supervisord.sock"
 echo "Using supervisord config: $SUPERVISORD_CONF"
 
 ##############################################################################
-# 1. Stop existing services (if running)
+# 1. HARD STOP (DO NOT USE supervisorctl shutdown)
 ##############################################################################
 
-if pgrep -f "supervisord.*$SUPERVISORD_CONF" > /dev/null 2>&1; then
-    echo "Supervisord running — stopping Celery and supervisord..."
+echo "Stopping all running services..."
 
-    # Stop managed programs cleanly
-    supervisorctl -c "$SUPERVISORD_CONF" stop celery_worker || true
-    supervisorctl -c "$SUPERVISORD_CONF" stop celery_beat || true
-
-    # Shutdown supervisord cleanly
-    supervisorctl -c "$SUPERVISORD_CONF" shutdown || true
-
-    # Kill any stray celery workers (safe)
-    pkill -f celery || true
-
-    sleep 2
+# Kill supervisord safely using PID file
+if [ -f "$SUPERVISOR_PID" ]; then
+    kill $(cat "$SUPERVISOR_PID") 2>/dev/null || true
+    echo "Supervisord stopped"
 fi
 
+# Kill any leftover celery safely
+pkill -f celery || true
+
+sleep 2
+
 ##############################################################################
-# 2. Clean stale files
+# 2. CLEAN stale state
 ##############################################################################
 
 echo "Cleaning stale files..."
@@ -41,37 +38,42 @@ rm -f "$PROJECT_ROOT/celery_worker.pid"
 rm -f "$PROJECT_ROOT/celery_beat.pid"
 
 ##############################################################################
-# 3. Start supervisord fresh
+# 3. START fresh supervisor
 ##############################################################################
 
 echo "Starting supervisord..."
 supervisord -c "$SUPERVISORD_CONF"
 
-# Wait briefly for socket to be ready
-sleep 2
+# Wait for supervisory socket
+for i in {1..10}; do
+    if [ -S "$SUPERVISOR_SOCK" ]; then
+        break
+    fi
+    sleep 1
+done
 
 ##############################################################################
-# 4. Start Celery services
+# 4. START celery processes
 ##############################################################################
 
 echo "Starting Celery worker..."
-supervisorctl -c "$SUPERVISORD_CONF" start celery_worker
+supervisorctl -c "$SUPERVISORD_CONF" start celery_worker || true
 
 echo "Starting Celery beat..."
-supervisorctl -c "$SUPERVISORD_CONF" start celery_beat
+supervisorctl -c "$SUPERVISORD_CONF" start celery_beat || true
 
 ##############################################################################
-# 5. Verify startup (light check)
+# 5. VERIFY
 ##############################################################################
 
-if pgrep -f "celery.*worker" > /dev/null 2>&1; then
-    echo "✅ Celery worker is running"
+if pgrep -f "celery.*worker" > /dev/null; then
+    echo "✅ Celery worker running"
 else
-    echo "❌ ERROR: Celery worker failed to start"
+    echo "❌ ERROR: Celery worker not running"
     exit 1
 fi
 
-echo "✅ All services started successfully."
+echo "✅ Restart complete"
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
