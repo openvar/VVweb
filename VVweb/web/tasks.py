@@ -21,7 +21,12 @@ from django.db import connection
 
 from django.core.exceptions import ImproperlyConfigured
 
-from VariantValidator.modules import utils as fn
+
+class TaskFailure(Exception):
+    def __init__(self, payload):
+        self.payload = payload
+        super().__init__(json.dumps(payload))
+
 
 try:
     from allauth.socialaccount.models import SocialAccount, SocialToken
@@ -350,7 +355,7 @@ def batch_validate(
             logger.error("TaskResult metadata failed | task_id=%s", task_id, exc_info=True)
             raise RuntimeError("TaskResult metadata failed")
 
-        return {
+        raise TaskFailure({
             "status": "error",
             "task_id": task_id,
             "user_id": user_id,
@@ -361,8 +366,9 @@ def batch_validate(
             "transcripts": transcripts,
             "options": options,
             "transcript_set": transcript_set,
+            "task_name": self.name,
             "error": error_msg,
-        }
+        })
 
     # ------------------------------------------------------------------
     # SUCCESS path
