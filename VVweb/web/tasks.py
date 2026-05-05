@@ -335,16 +335,26 @@ def batch_validate(
         tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
 
     except Exception as e:
+
         error_msg = f"{type(e).__name__}: {str(e)}"
         task_id = self.request.id
         now = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
 
         logger.error(
-            "batch_validate failure | task_id=%s user_id=%s variant=%s genome=%s error=%s",
+            (
+                "batch_validate failure | task_id=%s user_id=%s "
+                "variant=%s genome=%s email=%s "
+                "gene_symbols=%s transcripts=%s options=%s "
+                "error=%s"
+            ),
             task_id,
             user_id,
             variant,
             genome,
+            email,
+            gene_symbols,
+            transcripts,
+            options,
             error_msg,
         )
 
