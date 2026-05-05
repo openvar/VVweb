@@ -4,61 +4,69 @@ set -e
 
 PROJECT_ROOT="/local/VVweb"
 SUPERVISORD_CONF="$PROJECT_ROOT/supervisord.conf"
-SUPERVISOR_PID="$PROJECT_ROOT/supervisord.pid"
 SUPERVISOR_SOCK="$PROJECT_ROOT/supervisord.sock"
 
 echo "Using supervisord config: $SUPERVISORD_CONF"
 
 ##############################################################################
-# 1. If supervisord is running → STOP EVERYTHING CLEANLY
+# 1. Ensure supervisord is running
 ##############################################################################
 
-if pgrep -f "supervisord.*$SUPERVISORD_CONF" > /dev/null 2>&1; then
-    echo "Supervisord running — stopping Celery and supervisord..."
+if [ ! -S "$SUPERVISOR_SOCK" ]; then
+    echo "Supervisord not running — starting fresh..."
 
-    supervisorctl -c "$SUPERVISORD_CONF" stop celery_worker || true
-    supervisorctl -c "$SUPERVISORD_CONF" stop celery_beat || true
+    rm -f "$PROJECT_ROOT/supervisord.pid"
+    rm -f "$SUPERVISOR_SOCK"
 
-    supervisorctl -c "$SUPERVISORD_CONF" shutdown || true
-
-    # 🔴 Added: ensure NO stale processes remain
-    pkill -f celery || true
-    pkill -f supervisord || true
+    supervisord -c "$SUPERVISORD_CONF"
 
     sleep 2
 fi
 
 ##############################################################################
-# 2. Clean stale files
+# 2. Restart Celery processes ONLY (safe)
 ##############################################################################
 
-echo "Cleaning stale files..."
+echo "Restarting Celery services..."
 
-rm -f "$SUPERVISOR_PID"
-rm -f "$SUPERVISOR_SOCK"
-rm -f "$PROJECT_ROOT/celery_worker.pid"
-rm -f "$PROJECT_ROOT/celery_beat.pid"
+supervisorctl -c "$SUPERVISORD_CONF" stop celery_worker || true
+supervisorctl -c "$SUPERVISORD_CONF" stop celery_beat || true
 
-##############################################################################
-# 3. Start supervisord fresh
-##############################################################################
+sleep 1
 
-echo "Starting supervisord..."
-supervisord -c "$SUPERVISORD_CONF"
-
-sleep 2
-
-##############################################################################
-# 4. Start Celery services
-##############################################################################
-
-echo "Starting Celery worker..."
 supervisorctl -c "$SUPERVISORD_CONF" start celery_worker
-
-echo "Starting Celery beat..."
 supervisorctl -c "$SUPERVISORD_CONF" start celery_beat
 
-echo "All services started successfully."
+##############################################################################
+# 3. Verify
+##############################################################################
+
+if pgrep -f "celery.*worker" > /dev/null; then
+    echo "✅ Celery worker running"
+else
+    echo "❌ ERROR: Worker not running"
+    exit 1
+fi
+
+echo "✅ Restart complete"
+
+# <LICENSE>
+# Copyright (C) 2016-2026 VariantValidator Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# </LICENSE>
+
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
