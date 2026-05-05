@@ -21,8 +21,9 @@ if pgrep -f "supervisord.*$SUPERVISORD_CONF" > /dev/null 2>&1; then
 
     supervisorctl -c "$SUPERVISORD_CONF" shutdown || true
 
-    # Ensure no stray celery processes remain
-    pkill -f "celery" || true
+    # 🔴 Added: ensure NO stale processes remain
+    pkill -f celery || true
+    pkill -f supervisord || true
 
     sleep 2
 fi
