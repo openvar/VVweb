@@ -189,11 +189,12 @@ def batch_validate(
 ):
     """Full batch validator (secure, synchronous inside worker)."""
 
-    _ensure_user(user_id)
-    _store_user_meta(self.request.id, user_id)
+    task_id = self.request.id
 
-    logger.info("batch_validate(): user_id=%s genome=%s" %
-                (user_id, genome))
+    _ensure_user(user_id)
+    _store_user_meta(task_id, user_id)
+
+    logger.info("batch_validate(): user_id=%s genome=%s", user_id, genome)
 
     if options is None:
         options = []
@@ -208,9 +209,12 @@ def batch_validate(
         while validator is None:
             wait_cycles += 1
             logger.info("batch_validate(): pool empty, waiting...")
-            time.sleep(5)   # shorter wait, less worker blocking
+            time.sleep(5)
+
             validator = batch_object_pool.get_object()
-            if wait_cycles > 120:  # 10 minutes max
+
+            if wait_cycles > 120:
+                # Hard failure
                 raise RuntimeError("No batch validator available after 10 minutes.")
 
     # ------------------------------------------------------------------
@@ -219,7 +223,7 @@ def batch_validate(
     variant = input_formatting.format_input(variant)
     transcripts = input_formatting.format_input(transcripts)
 
-    # Normalise transcript selector
+    # Normalize transcript selector
     trans_raw = transcripts
     if "all" in trans_raw:
         transcripts = "all"
@@ -250,16 +254,13 @@ def batch_validate(
                 transcript_list.append(tr['reference'])
 
         except Exception as e:
-            logger.error("batch_validate(): failed gene lookup for %s (%s)" %
-                         (sym, e))
-            continue
+            logger.error("batch_validate(): failed gene lookup for %s (%s)", sym, e)
 
-    # If any transcript discovered → override transcripts
     if transcript_list:
         transcripts = input_formatting.format_input("|".join(transcript_list))
 
     # ------------------------------------------------------------------
-    # Perform validation
+    # Perform validation (ONLY ONCE)
     # ------------------------------------------------------------------
     try:
         output = validator.validate(
@@ -273,73 +274,22 @@ def batch_validate(
     except Exception as e:
         trace = traceback.format_exc()
 
-        # Return validator before sending email
+        # Always return validator
         batch_object_pool.return_object(validator)
 
-        services.send_fail_email(
-            email,
-            self.request.id,
-            variant,
-            genome,
-            transcripts,
-            transcript_set,
-            trace
-        )
-
-        logger.error("batch_validate(): validation failure user_id=%s (%s)" %
-                     (user_id, e))
-
-        # -------------------------------------------------
-        # QUOTA ROLLBACK (ONLY ON CRASH)
-        # -------------------------------------------------
-        if reserved_n and user_id:
-            try:
-                quota = VariantQuota.objects.get(user_id=user_id)
-                quota.count = max(quota.count - reserved_n, 0)
-                quota.save(update_fields=["count"])
-            except Exception as qe:
-                logger.critical(
-                    "FAILED quota rollback for user %s after batch crash (%s)" %
-                    (user_id, qe)
-                )
-
-        raise
-
-    # SAFE return to pool
-    batch_object_pool.return_object(validator)
-
-    # ------------------------------------------------------------------
-    # Format output into table
-    # ------------------------------------------------------------------
-    res = output.format_as_table()
-    res[0] += ", options: " + str(options)
-
-    services.send_result_email(email, self.request.id)
-
-    # ------------------------------------------------------------------
-    # Populate TaskResult metadata
-    # ------------------------------------------------------------------
-    try:
-        tr = TaskResult.objects.get(task_id=self.request.id)
-        tr.task_name = self.name
-        tr.task_args = "[]"
-        tr.task_kwargs = json.dumps({
-            "variant": variant,
-            "genome": genome,
-            "email": email,
-            "gene_symbols": gene_symbols,
-            "transcripts": transcripts,
-            "options": options,
-            "transcript_set": transcript_set,
-            "user_id": user_id,
-        })
-        tr.worker = self.request.hostname
-        tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
-
-    except Exception as e:
-
-        task_id = self.request.id
-        now = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Send failure email (safe)
+        try:
+            services.send_fail_email(
+                email,
+                task_id,
+                variant,
+                genome,
+                transcripts,
+                transcript_set,
+                trace,
+            )
+        except Exception:
+            logger.error("Failed to send failure email | task_id=%s", task_id, exc_info=True)
 
         error_msg = f"{type(e).__name__}: {str(e)}"
 
@@ -356,12 +306,25 @@ def batch_validate(
         )
 
         logger.critical(
-            "Unhandled validation failure | task_id=%s",
+            "Validation failure | task_id=%s",
             task_id,
             exc_info=True,
         )
 
-        # THIS is the critical addition (soft-fail return)
+        # quota rollback
+        if reserved_n and user_id:
+            try:
+                quota = VariantQuota.objects.get(user_id=user_id)
+                quota.count = max(quota.count - reserved_n, 0)
+                quota.save(update_fields=["count"])
+            except Exception:
+                logger.critical(
+                    "FAILED quota rollback | user_id=%s",
+                    user_id,
+                    exc_info=True,
+                )
+
+        # SOFT-FAIL RETURN (correct behavior)
         return {
             "status": "error",
             "message": "Validation error",
@@ -372,14 +335,54 @@ def batch_validate(
             "error": error_msg,
             "error_type": type(e).__name__,
             "log_ref": f"task_id={task_id}",
-            "timestamp": now,
         }
 
     # ------------------------------------------------------------------
-    # Final return
+    # SUCCESS path
+    # ------------------------------------------------------------------
+
+    # return validator to pool
+    batch_object_pool.return_object(validator)
+
+    res = output.format_as_table()
+    res[0] += ", options: " + str(options)
+
+    services.send_result_email(email, task_id)
+
+    # ------------------------------------------------------------------
+    # Metadata update (safe, non-blocking)
+    # ------------------------------------------------------------------
+    try:
+        tr = TaskResult.objects.get(task_id=task_id)
+        tr.task_name = self.name
+        tr.task_args = "[]"
+        tr.task_kwargs = json.dumps({
+            "variant": variant,
+            "genome": genome,
+            "email": email,
+            "gene_symbols": gene_symbols,
+            "transcripts": transcripts,
+            "options": options,
+            "transcript_set": transcript_set,
+            "user_id": user_id,
+        })
+        tr.worker = self.request.hostname
+        tr.save(update_fields=["task_name", "task_args", "task_kwargs", "worker"])
+
+    except Exception:
+        logger.error(
+            "TaskResult metadata update failed | task_id=%s",
+            task_id,
+            exc_info=True,
+        )
+
+    # ------------------------------------------------------------------
+    # Final success return
     # ------------------------------------------------------------------
     return {
+        "status": "success",
         "result": res,
+        "task_id": task_id,
         "user_id": user_id,
         "variant": variant,
         "genome": genome,
@@ -388,7 +391,6 @@ def batch_validate(
         "transcripts": transcripts,
         "options": options,
         "transcript_set": transcript_set,
-        "task_id": self.request.id,
         "task_name": self.name,
     }
 
