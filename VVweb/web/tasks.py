@@ -20,6 +20,8 @@ from django.db import connection
 
 from django.core.exceptions import ImproperlyConfigured
 
+from VariantValidator.modules import utils as fn
+
 try:
     from allauth.socialaccount.models import SocialAccount, SocialToken
 except (ImportError, ImproperlyConfigured):
@@ -336,25 +338,20 @@ def batch_validate(
 
     except Exception as e:
 
-        error_msg = f"{type(e).__name__}: {str(e)}"
         task_id = self.request.id
         now = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        error_msg = f"{type(e).__name__}: {str(e)}"
 
         logger.error(
             (
                 "batch_validate failure | task_id=%s user_id=%s "
-                "variant=%s genome=%s email=%s "
-                "gene_symbols=%s transcripts=%s options=%s "
-                "error=%s"
+                "variant=%s genome=%s error=%s"
             ),
             task_id,
             user_id,
             variant,
             genome,
-            email,
-            gene_symbols,
-            transcripts,
-            options,
             error_msg,
         )
 
@@ -364,14 +361,16 @@ def batch_validate(
             exc_info=True,
         )
 
+        # THIS is the critical addition (soft-fail return)
         return {
             "status": "error",
+            "message": "Validation error",
             "task_id": task_id,
             "user_id": user_id,
             "variant": variant,
             "genome": genome,
-            "message": "Validation error",
             "error": error_msg,
+            "error_type": type(e).__name__,
             "log_ref": f"task_id={task_id}",
             "timestamp": now,
         }
