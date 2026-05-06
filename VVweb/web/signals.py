@@ -137,53 +137,37 @@ def update_taskresult_on_failure(
     **kw
 ):
     try:
-        # ------------------------------------------------------------------
-        # Extract payload from exception
-        # ------------------------------------------------------------------
+        # -------------------------------------------------
+        # Extract payload
+        # -------------------------------------------------
         if hasattr(exception, "payload"):
             payload = exception.payload
         else:
             payload = {"error": str(exception)}
 
-        # ------------------------------------------------------------------
-        # Restore user metadata (CRITICAL FIX)
-        # ------------------------------------------------------------------
+        # -------------------------------------------------
+        # Update TaskResult first
+        # -------------------------------------------------
+        TaskResult.objects.update_or_create(
+            task_id=task_id,
+            defaults={
+                "task_name": sender.name if sender else None,
+                "task_kwargs": json.dumps(payload),
+            },
+        )
+
+        # -------------------------------------------------
+        # NOW restore user metadata (AFTER update)
+        # -------------------------------------------------
         user_id = payload.get("user_id")
         if user_id:
             try:
                 _store_user_meta(task_id, user_id)
             except Exception:
                 logger.error(
-                    "[task_failure] Failed to restore user metadata",
+                    "[task_failure] Failed to store user metadata",
                     exc_info=True
                 )
-
-        # ------------------------------------------------------------------
-        # Preserve existing task_kwargs (if any)
-        # ------------------------------------------------------------------
-        existing_kwargs = {}
-        try:
-            tr = TaskResult.objects.get(task_id=task_id)
-            if tr.task_kwargs:
-                existing_kwargs = json.loads(tr.task_kwargs)
-        except Exception:
-            pass
-
-        # ------------------------------------------------------------------
-        # Merge existing kwargs with failure payload
-        # ------------------------------------------------------------------
-        merged = {**existing_kwargs, **payload}
-
-        # ------------------------------------------------------------------
-        # Update TaskResult AFTER Celery writes it
-        # ------------------------------------------------------------------
-        TaskResult.objects.update_or_create(
-            task_id=task_id,
-            defaults={
-                "task_name": sender.name if sender else None,
-                "task_kwargs": json.dumps(merged),
-            },
-        )
 
         logger.info("[task_failure] Updated TaskResult for %s", task_id)
 
