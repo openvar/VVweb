@@ -229,7 +229,9 @@ def parse_result(obj):
     """
     Safely parse TaskResult.result.
     ALWAYS returns a dict.
+    Handles both normal results and TaskFailure payloads.
     """
+
     if obj is None:
         return {}
 
@@ -241,19 +243,48 @@ def parse_result(obj):
     if not data:
         return {}
 
+    # -------------------------------------------------
+    # Step 1: normalise to dict
+    # -------------------------------------------------
     if isinstance(data, dict):
-        return data
+        result = data
 
-    if isinstance(data, bytes):
-        data = data.decode("utf-8", errors="ignore")
-
-    if isinstance(data, str):
+    elif isinstance(data, bytes):
         try:
-            return json.loads(data)
+            result = json.loads(data.decode("utf-8", errors="ignore"))
         except Exception:
             return {}
 
-    return {}
+    elif isinstance(data, str):
+        try:
+            result = json.loads(data)
+        except Exception:
+            return {}
+
+    else:
+        return {}
+
+    # -------------------------------------------------
+    # Step 2: unwrap TaskFailure payload (CRITICAL FIX)
+    # -------------------------------------------------
+    if isinstance(result, dict) and "exc_message" in result:
+        exc_msg = result.get("exc_message")
+
+        if isinstance(exc_msg, list) and len(exc_msg) > 0:
+            first = exc_msg[0]
+
+            if isinstance(first, str):
+                try:
+                    parsed = json.loads(first)
+
+                    # ✅ Only return if it's clearly your structured payload
+                    if isinstance(parsed, dict) and "user_id" in parsed:
+                        return parsed
+
+                except Exception:
+                    pass
+
+    return result
 
 # -------------------------------------------------------------------
 # TASKRESULT ACTIONS (RESTORED)
