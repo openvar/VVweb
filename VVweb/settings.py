@@ -103,7 +103,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'django.contrib.humanize',
-    'VVweb.web',
+    'VVweb.web.apps.WebConfig',
     'widget_tweaks',
     'django_celery_results',
     'cookielaw',

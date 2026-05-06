@@ -331,30 +331,6 @@ def batch_validate(
                     exc_info=True,
                 )
 
-        # ✅ CRITICAL FIX: ensure metadata exists BEFORE raise
-        try:
-            TaskResult.objects.update_or_create(
-                task_id=task_id,
-                defaults={
-                    "task_name": self.name,
-                    "task_args": "[]",
-                    "task_kwargs": json.dumps({
-                        "variant": variant,
-                        "genome": genome,
-                        "email": email,
-                        "gene_symbols": gene_symbols,
-                        "transcripts": transcripts,
-                        "options": options,
-                        "transcript_set": transcript_set,
-                        "user_id": user_id,
-                    }),
-                    "worker": self.request.hostname,
-                }
-            )
-        except Exception:
-            logger.error("TaskResult metadata failed | task_id=%s", task_id, exc_info=True)
-            raise RuntimeError("TaskResult metadata failed")
-
         raise TaskFailure({
             "status": "error",
             "task_id": task_id,
@@ -368,7 +344,7 @@ def batch_validate(
             "transcript_set": transcript_set,
             "task_name": self.name,
             "error": error_msg,
-        })
+        }) from e
 
     # ------------------------------------------------------------------
     # SUCCESS path

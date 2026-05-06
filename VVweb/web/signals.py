@@ -13,6 +13,10 @@ from allauth.account.models import EmailAddress
 from .models import VariantQuota, Contact
 from VVweb.userprofiles.models import UserProfile
 
+from celery.signals import task_failure
+from django_celery_results.models import TaskResult
+import json
+
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
@@ -118,6 +122,45 @@ def sync_all_users_after_migrate(sender, **kwargs):
     except (OperationalError, ProgrammingError):
         # Tables not ready yet (e.g. during migrate)
         pass
+
+
+@task_failure.connect
+def update_taskresult_on_failure(
+    sender=None,
+    task_id=None,
+    exception=None,
+    args=None,
+    kwargs=None,
+    traceback=None,
+    einfo=None,
+    **kw
+):
+    """
+    Ensure TaskResult metadata is populated after FAILURE.
+    Runs AFTER Celery writes the row.
+    """
+
+    try:
+        if hasattr(exception, "payload"):
+            payload = exception.payload
+        else:
+            payload = {"error": str(exception)}
+
+        TaskResult.objects.update_or_create(
+            task_id=task_id,
+            defaults={
+                "task_name": sender.name if sender else None,
+                "task_kwargs": json.dumps(payload),
+            },
+        )
+
+        logger.info("[task_failure] Updated TaskResult for %s", task_id)
+
+    except Exception:
+        logger.error(
+            "[task_failure] Failed to update TaskResult",
+            exc_info=True
+        )
 
 
 # <LICENSE>
