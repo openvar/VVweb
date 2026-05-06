@@ -135,22 +135,29 @@ def update_taskresult_on_failure(
     einfo=None,
     **kw
 ):
-    """
-    Ensure TaskResult metadata is populated after FAILURE.
-    Runs AFTER Celery writes the row.
-    """
-
     try:
         if hasattr(exception, "payload"):
             payload = exception.payload
         else:
             payload = {"error": str(exception)}
 
+        # ✅ GET existing task_kwargs first
+        existing_kwargs = {}
+        try:
+            tr = TaskResult.objects.get(task_id=task_id)
+            if tr.task_kwargs:
+                existing_kwargs = json.loads(tr.task_kwargs)
+        except Exception:
+            pass
+
+        # ✅ MERGE existing + payload
+        merged = {**existing_kwargs, **payload}
+
         TaskResult.objects.update_or_create(
             task_id=task_id,
             defaults={
                 "task_name": sender.name if sender else None,
-                "task_kwargs": json.dumps(payload),
+                "task_kwargs": json.dumps(merged),
             },
         )
 
@@ -161,7 +168,6 @@ def update_taskresult_on_failure(
             "[task_failure] Failed to update TaskResult",
             exc_info=True
         )
-
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
