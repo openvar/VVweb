@@ -16,6 +16,7 @@ from VVweb.userprofiles.models import UserProfile
 from celery.signals import task_failure
 from django_celery_results.models import TaskResult
 import json
+from VVweb.web.tasks import _store_user_meta
 
 logger = logging.getLogger(__name__)
 
@@ -136,12 +137,30 @@ def update_taskresult_on_failure(
     **kw
 ):
     try:
+        # ------------------------------------------------------------------
+        # Extract payload from exception
+        # ------------------------------------------------------------------
         if hasattr(exception, "payload"):
             payload = exception.payload
         else:
             payload = {"error": str(exception)}
 
-        # ✅ GET existing task_kwargs first
+        # ------------------------------------------------------------------
+        # Restore user metadata (CRITICAL FIX)
+        # ------------------------------------------------------------------
+        user_id = payload.get("user_id")
+        if user_id:
+            try:
+                _store_user_meta(task_id, user_id)
+            except Exception:
+                logger.error(
+                    "[task_failure] Failed to restore user metadata",
+                    exc_info=True
+                )
+
+        # ------------------------------------------------------------------
+        # Preserve existing task_kwargs (if any)
+        # ------------------------------------------------------------------
         existing_kwargs = {}
         try:
             tr = TaskResult.objects.get(task_id=task_id)
@@ -150,9 +169,14 @@ def update_taskresult_on_failure(
         except Exception:
             pass
 
-        # ✅ MERGE existing + payload
+        # ------------------------------------------------------------------
+        # Merge existing kwargs with failure payload
+        # ------------------------------------------------------------------
         merged = {**existing_kwargs, **payload}
 
+        # ------------------------------------------------------------------
+        # Update TaskResult AFTER Celery writes it
+        # ------------------------------------------------------------------
         TaskResult.objects.update_or_create(
             task_id=task_id,
             defaults={
