@@ -14,7 +14,11 @@ class WebConfig(AppConfig):
         and auto-assign institutional membership + cached institution
         based on verified email domains.
         """
-        from . import signals #  Do not remove. Required import
+        from VVweb.web import signals #  Do not remove. Required import
+        if signals:
+            logger.info(f"Loaded signals in {__name__}")
+        else:
+            logger.info(f"Loaded signals failed in {__name__}")
         from django.contrib.auth.models import User
         from django.utils import timezone
         from django.db.utils import OperationalError, ProgrammingError
