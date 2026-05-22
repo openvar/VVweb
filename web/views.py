@@ -47,6 +47,7 @@ def about(request):
     return redirect('https://github.com/openvar/variantValidator/blob/master/README.md')
 
 
+@login_required
 def contact(request):
     logger.debug("Loading Contact page")
     form = forms.ContactForm()
