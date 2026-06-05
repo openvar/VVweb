@@ -91,13 +91,23 @@ def process_result(val, validator):
             for genome in v['primary_assembly_loci']:
                 try:
                     vcfdict = v['primary_assembly_loci'][genome]['vcf']
-                    vcfstr = "%s:%s:%s:%s:%s" % (
-                        genome.replace('grch', 'GRCh'),
-                        vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt']
-                    )
-                    vcfstr_alt = "%s-%s-%s-%s" % (
-                        vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt']
-                    )
+
+                    if "-" not in vcfdict["pos"]:
+                        vcfstr = "%s:%s:%s:%s:%s" % (
+                            genome.replace('grch', 'GRCh'),
+                            vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt']
+                        )
+                        vcfstr_alt = "%s-%s-%s-%s" % (
+                            vcfdict['chr'], vcfdict['pos'], vcfdict['ref'], vcfdict['alt']
+                        )
+                    else:
+                        vcfstr = "%s:%s:%s:%s" % (
+                            genome.replace('grch', 'GRCh'),
+                            vcfdict['chr'], vcfdict['pos'], vcfdict['alt']
+                        )
+                        vcfstr_alt = "%s-%s-%s" % (
+                            vcfdict['chr'], vcfdict['pos'], vcfdict['alt']
+                        )
                     v['primary_assembly_loci'][genome]['vcfstr'] = vcfstr
                     v['primary_assembly_loci'][genome]['vcfstr_alt'] = vcfstr_alt
                     genomes[genome] = vcfstr_alt
