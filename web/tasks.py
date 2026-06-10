@@ -110,7 +110,7 @@ def validate(
             transcripts,
             transcript_set=transcript_set,
             lovd_syntax_check=True,
-            shorthand_vcf=True
+            shorthand_vcf=True #  shortens VCF response
         )
         return output.format_as_dict()
 
@@ -263,7 +263,7 @@ def batch_validate(
             transcripts,
             transcript_set=transcript_set,
             lovd_syntax_check=True,
-            shorthand_vcf=True
+            shorthand_vcf=True  # shortens VCF response
         )
 
     except Exception as e:
