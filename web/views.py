@@ -235,6 +235,7 @@ def validate(request):
                 select_transcripts,
                 transcript_set=source,
                 lovd_syntax_check=True,
+                shorthand_vcf=True
             )
 
             raw_dict = raw.format_as_dict()
