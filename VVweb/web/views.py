@@ -66,6 +66,7 @@ def about(request):
     return redirect("https://github.com/openvar/variantValidator/blob/master/README.md")
 
 
+@login_required
 def contact(request):
     form = forms.ContactForm()
 
@@ -208,6 +209,8 @@ def genes_to_transcripts(request):
                         trans["url"] = (
                             f"http://ftp.ebi.ac.uk/pub/databases/lrgex/{xml_id}.xml"
                         )
+                    elif ref.startswith('ENST'):
+                        trans['url'] = f"https://www.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t={ref}"
                     else:
                         trans["url"] = (
                             f"https://www.ncbi.nlm.nih.gov/nuccore/{ref}"
@@ -419,6 +422,7 @@ def validate(request):
                 select_transcripts,
                 transcript_set=source,
                 lovd_syntax_check=True,
+                shorthand_vcf=True
             )
 
             raw_dict = raw.format_as_dict()
