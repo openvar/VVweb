@@ -123,7 +123,7 @@ def genes_to_transcripts(request):
                 ref = trans['reference']
                 if ref.startswith('LRG'):
                     xml_id = ref.split('t')[0]
-                    trans['url'] = f"http://ftp.ebi.ac.uk/pub/databases/lrgex/{xml_id}.xml"
+                    trans['url'] = f"https://ftp.ebi.ac.uk/pub/databases/lrgex/{xml_id}.xml"
                 elif ref.startswith('ENST'):
                     trans['url'] = f"https://www.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t={ref}"
                 else:
