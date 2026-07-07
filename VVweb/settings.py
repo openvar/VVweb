@@ -21,7 +21,7 @@ from VariantValidator import settings as vv_settings
 
 # Change settings based on config
 config = ConfigParser()
-config.read(vv_settings.CONFIG_DIR)
+config.read(vv_settings.get_config_dir())
 
 # Setup logging logic
 if config['logging'].getboolean('log') is True:

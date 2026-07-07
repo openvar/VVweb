@@ -49,7 +49,7 @@ except Exception as e:
 
 def home(request):
     config = ConfigParser()
-    config.read(vvsettings.CONFIG_DIR)
+    config.read(vvsettings.get_config_dir())
 
     versions = {
         "VariantValidator": VariantValidator.__version__,
@@ -467,7 +467,7 @@ def validate(request):
 
         if pdf_requested:
             config = ConfigParser()
-            config.read(vvsettings.CONFIG_DIR)
+            config.read(vvsettings.get_config_dir())
 
             versions = {
                 'VariantValidator': VariantValidator.__version__,
