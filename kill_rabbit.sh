@@ -1,14 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Stop RabbitMQ if it’s running
-if rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
-    echo "Stopping RabbitMQ..."
-    rabbitmqctl stop
-    echo "RabbitMQ stopped."
-else
-    echo "RabbitMQ is not running."
+PORT=25672
+
+echo "Stopping RabbitMQ..."
+
+# Attempt graceful shutdown (ignore failure if node is unreachable)
+rabbitmqctl stop >/dev/null 2>&1 || true
+
+# Give it a moment to exit cleanly
+sleep 3
+
+# Check if anything is still listening on the RabbitMQ distribution port
+pids=$(lsof -ti tcp:${PORT} 2>/dev/null || true)
+
+if [[ -n "${pids}" ]]; then
+    echo "RabbitMQ still appears to be running (port ${PORT})."
+    echo "Sending SIGTERM to PID(s): ${pids}"
+    kill ${pids}
+
+    sleep 5
+
+    # Anything still alive?
+    pids=$(lsof -ti tcp:${PORT} 2>/dev/null || true)
+
+    if [[ -n "${pids}" ]]; then
+        echo "Processes did not terminate. Sending SIGKILL..."
+        kill -9 ${pids}
+        sleep 1
+    fi
 fi
+
+# Final verification
+if lsof -ti tcp:${PORT} >/dev/null 2>&1; then
+    echo "ERROR: Port ${PORT} is still in use."
+    lsof -i tcp:${PORT}
+    exit 1
+fi
+
+echo "RabbitMQ has been stopped."
 
 # <LICENSE>
 # Copyright (C) 2016-2026 VariantValidator Contributors
